@@ -45,7 +45,9 @@ ATachyonCharacter::ATachyonCharacter()
 	GetCharacterMovement()->SetPlaneConstraintNormal(FVector(0.0f, -1.0f, 0.0f));
 }
 
-// Called when the game starts or when spawned
+
+////////////////////////////////////////////////////////////////////////
+// BEGIN PLAY
 void ATachyonCharacter::BeginPlay()
 {
 	Super::BeginPlay();
@@ -53,10 +55,14 @@ void ATachyonCharacter::BeginPlay()
 	Health = MaxHealth;
 }
 
-// Called every frame
+
+////////////////////////////////////////////////////////////////////////
+// TICK
 void ATachyonCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	UpdateHealth();
 
 	if ((Controller != nullptr) && Controller->IsLocalController())
 	{
@@ -150,14 +156,29 @@ void ATachyonCharacter::FireAttack()
 	}
 	else
 	{
-		// Spawning
 		if (HasAuthority() && (ActiveAttack == nullptr))
 		{
 			if ((AttackClass != nullptr))/// || bMultipleAttacks)
 			{
+				// Aim by InputY
+				float AimClampedInputZ = FMath::Clamp((InputZ * 10.0f), -1.0f, 1.0f);
+				FVector FirePosition = GetActorLocation(); ///AttackScene->GetComponentLocation();
+				FVector LocalForward = GetActorForwardVector(); /// AttackScene->GetForwardVector();
+				LocalForward.Y = 0.0f;
+				FRotator FireRotation = LocalForward.Rotation() + FRotator(InputZ * 21.0f, 0.0f, 0.0f); /// AimClampedInputZ
+				FireRotation.Yaw = GetActorRotation().Yaw;
+				if (FMath::Abs(FireRotation.Yaw) >= 90.0f)
+				{
+					FireRotation.Yaw = 180.0f;
+				}
+				else
+				{
+					FireRotation.Yaw = 0.0f;
+				}
+				FireRotation.Pitch = FMath::Clamp(FireRotation.Pitch, -21.0f, 21.0f);
+
+				// Spawning
 				FActorSpawnParameters SpawnParams;
-				FVector FirePosition = GetActorLocation();
-				FRotator FireRotation = GetActorForwardVector().Rotation();
 				ActiveAttack = Cast<ATachyonAttack>(GetWorld()->SpawnActor<ATachyonAttack>(AttackClass, FirePosition, FireRotation, SpawnParams));
 				if (ActiveAttack != nullptr)
 				{
@@ -226,7 +247,88 @@ bool ATachyonCharacter::ServerFireAttack_Validate()
 
 
 ////////////////////////////////////////////////////////////////////////
-// NETWORKED PROPERTY REPLICATION
+// MODIFY HEALTH
+void ATachyonCharacter::ModifyHealth(float Value)
+{
+	if (Value >= 100.0f)
+	{
+		Health = 100.0f;
+		MaxHealth = 100.0f;
+	}
+	else
+	{
+		MaxHealth = FMath::Clamp(Health + Value, -1.0f, 100.0f);
+	}
+
+	if (Role < ROLE_Authority)
+	{
+		ServerModifyHealth(Value);
+	}
+}
+void ATachyonCharacter::ServerModifyHealth_Implementation(float Value)
+{
+	ModifyHealth(Value);
+}
+bool ATachyonCharacter::ServerModifyHealth_Validate(float Value)
+{
+	return true;
+}
+
+void ATachyonCharacter::UpdateHealth()
+{
+	// Update smooth health value
+	if (MaxHealth < Health)
+	{
+		float InterpSpeed = FMath::Abs(Health - MaxHealth) * 5.1f;
+		Health = FMath::FInterpConstantTo(Health, MaxHealth, UGameplayStatics::GetWorldDeltaSeconds(GetWorld()), InterpSpeed);
+		///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("InterpSpeed: %f"), InterpSpeed));
+
+		//// Player killed fx
+		//if ((KilledFX != nullptr)
+		//	&& (ActiveKilledFX == nullptr)
+		//	&& (Health <= 5.0f))
+		//{
+		//	FActorSpawnParameters SpawnParams;
+		//	ActiveKilledFX = GetWorld()->SpawnActor<AActor>(KilledFX, GetActorLocation(), GetActorRotation(), SpawnParams);
+		//	if (ActiveKilledFX != nullptr)
+		//	{
+		//		ActiveKilledFX->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+		//	}
+
+		//	// Particle coloring (for later)
+		//	/*if (ActiveKilledFX != nullptr)
+		//	{
+		//	TArray<UParticleSystemComponent*> ParticleComps;
+		//	ActiveKilledFX->GetComponents<UParticleSystemComponent>(ParticleComps);
+		//	float NumParticles = ParticleComps.Num();
+		//	if (NumParticles > 0)
+		//	{
+		//	UParticleSystemComponent* Parti = ParticleComps[0];
+		//	if (Parti != nullptr)
+		//	{
+		//	FLinearColor PlayerColor = GetCharacterColor().ReinterpretAsLinear();
+		//	Parti->SetColorParameter(FName("InitialColor"), PlayerColor);
+		//	}
+		//	}
+		//	}*/
+		//}
+	}
+}
+
+void ATachyonCharacter::UpdateAttack()
+{
+	if (ActiveAttack != nullptr)
+	{
+		if (ActiveAttack->IsPendingKillOrUnreachable())
+		{
+			ActiveAttack = nullptr;
+		}
+	}
+}
+
+
+////////////////////////////////////////////////////////////////////////
+// NETWORK REPLICATION
 void ATachyonCharacter::GetLifetimeReplicatedProps(TArray <FLifetimeProperty> & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);

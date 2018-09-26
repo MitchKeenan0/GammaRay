@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "TachyonAttack.h"
+#include "PaperSpriteComponent.h"
 
 
 // Sets default values
@@ -19,6 +20,9 @@ ATachyonAttack::ATachyonAttack()
 	AttackParticles = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("AttackParticles"));
 	AttackParticles->SetupAttachment(RootComponent);
 
+	AttackSprite = CreateDefaultSubobject<UPaperSpriteComponent>(TEXT("AttackSprite"));
+	AttackSprite->SetupAttachment(RootComponent);
+
 	bReplicates = true;
 	bReplicateMovement = true;
 }
@@ -32,15 +36,29 @@ void ATachyonAttack::BeginPlay()
 
 void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 {
-	if (Shooter != nullptr)
+	OwningShooter = Shooter;
+	if (OwningShooter != nullptr)
 	{
-		OwningShooter = Shooter;
+		AttackMagnitude = Magnitude;
+		AttackDirection = YScale;
+
+		// Last-second redirection
+		float ShooterYaw = FMath::Abs(OwningShooter->GetActorRotation().Yaw);
+		float TargetYaw = 0.0f;
+		if ((ShooterYaw > 50.0f))
+		{
+			TargetYaw = 180.0f;
+		}
+		float Pitch = FMath::Clamp(GetActorRotation().Pitch, -ShootingAngle, ShootingAngle);
+		float Roll = GetActorRotation().Roll;
+		FRotator NewRotation = FRotator(Pitch, TargetYaw, Roll);
+		SetActorRotation(NewRotation);
+
+		// Lifetime
+		DynamicLifetime = DurationTime;
+
+		bInitialized = true;
 	}
-
-	AttackMagnitude = Magnitude;
-	AttackDirection = YScale;
-
-	bInitialized = true;
 }
 
 // Called every frame
@@ -48,6 +66,108 @@ void ATachyonAttack::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (bInitialized)
+	{
+		RaycastForHit(GetActorForwardVector());
+		UpdateLifeTime(DeltaTime);
+	}
+}
+
+
+// Update life-cycle
+void ATachyonAttack::UpdateLifeTime(float DeltaT)
+{
+	LifeTimer += DeltaT;
+	if (LifeTimer >= DynamicLifetime)
+	{
+		if (OwningShooter != nullptr)
+		{
+			/*ATachyonCharacter* ShooterCharacter = Cast<ATachyonCharacter>(OwningShooter);
+			if (ShooterCharacter != nullptr)
+			{
+				ShooterCharacter->NullifyAttack(); broken why?
+			}*/
+		}
+	}
+}
+
+
+// Raycast firing solution
+void ATachyonAttack::RaycastForHit(FVector RaycastVector)
+{
+	if (HasAuthority())
+	{
+		// Linecast ingredients
+		TArray<TEnumAsByte<EObjectTypeQuery>> TraceObjects;
+		TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_Pawn));
+		TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_WorldStatic));
+		TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_WorldDynamic));
+		TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_PhysicsBody));
+		TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_Destructible));
+
+		TArray<AActor*> IgnoredActors;
+		IgnoredActors.Add(OwningShooter);
+
+		FVector Start = GetActorLocation() + (GetActorForwardVector() * -100.0f);
+		Start.Y = 0.0f;
+		FVector End = Start + (RaycastVector * RaycastHitRange);
+		End.Y = 0.0f; /// strange y-axis drift
+
+
+
+					  // Swords, etc, get tangible ray space
+		if (bRaycastOnMesh)
+		{
+			if (AttackSprite->GetSprite() != nullptr)
+			{
+				float SpriteLength = (AttackSprite->Bounds.BoxExtent.X) * (1.0f + AttackMagnitude);
+				float AttackBodyLength = SpriteLength * RaycastHitRange;
+				Start = AttackSprite->GetComponentLocation() + (GetActorForwardVector() * (-SpriteLength / 2.1f));
+				Start.Y = 0.0f;
+				End = Start + (RaycastVector * AttackBodyLength);
+				End.Y = 0.0f;
+			}
+			else if (AttackParticles != nullptr)
+			{
+				float AttackBodyLength = RaycastHitRange;
+				Start = AttackParticles->GetComponentLocation() + (GetActorForwardVector() * (-AttackBodyLength / 2.1f));
+				Start.Y = 0.0f;
+				End = Start + (RaycastVector * AttackBodyLength);
+				End.Y = 0.0f;
+			}
+		}
+
+		TArray<FHitResult> Hits;
+
+		// Pew pew
+		bool HitResult = UKismetSystemLibrary::LineTraceMultiForObjects(
+			this,
+			Start,
+			End,
+			TraceObjects,
+			false,
+			IgnoredActors,
+			EDrawDebugTrace::ForDuration,
+			Hits,
+			true,
+			FLinearColor::Gray, FLinearColor::Red, 5.0f);
+
+		if (HitResult)
+		{
+			int NumHits = Hits.Num();
+			for (int i = 0; i < NumHits; ++i)
+			{
+				HitActor = Hits[i].Actor.Get();
+				if ((HitActor != nullptr)
+					&& (HitActor != OwningShooter)
+					&& (HitActor->WasRecentlyRendered(0.2f)))
+				{
+					GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::Green, TEXT("B A N G    G O T T E M"));
+					//HitEffects(HitActor, Hits[i].ImpactPoint);
+				}
+			}
+		}
+	}
 }
 
 

@@ -6,10 +6,14 @@
 #include "GameFramework/Actor.h"
 #include "TachyonAttack.generated.h"
 
+//class ATachyonCharacter;
+
 UCLASS()
 class TACHYON_API ATachyonAttack : public AActor
 {
 	GENERATED_BODY()
+
+	void UpdateLifeTime(float DeltaT);
 	
 public:	
 	// Sets default values for this actor's properties
@@ -64,6 +68,9 @@ protected:
 		const FHitResult& SweepResult
 	);
 
+	UFUNCTION()
+	void RaycastForHit(FVector RaycastVector);
+
 
 	/////////////////////////////////////////////////////////////////////////
 	// Attributes
@@ -115,14 +122,14 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	class UParticleSystemComponent* AttackParticles = nullptr;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	class UPaperSpriteComponent* AttackSprite = nullptr;
+
 	/*UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	class UAudioComponent* AttackSound = nullptr;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	class UProjectileMovementComponent* ProjectileComponent = nullptr;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	class UPaperSpriteComponent* AttackSprite = nullptr;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<AActor> BurstClass = nullptr;

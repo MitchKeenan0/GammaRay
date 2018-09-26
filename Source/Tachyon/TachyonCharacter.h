@@ -34,6 +34,13 @@ public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+	void UpdateHealth();
+	void UpdateAttack();
+
+	UFUNCTION(BlueprintCallable)
+	void NullifyAttack() { ActiveAttack = nullptr; }
+
+
 	// ATTRIBUTES ///////////////////////////////////////////////////////////////
 	UPROPERTY(EditDefaultsOnly)
 	float MoveSpeed = 100.0f;
@@ -47,9 +54,17 @@ public:
 	UFUNCTION(BlueprintCallable)
 	float GetAPM() { return APM; }
 
+
+	// NETWORK FUNCTIONS ////////////////////////////////////////////////////////
+	UFUNCTION()
 	void FireAttack();
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
 	void ServerFireAttack();
+
+	UFUNCTION(BlueprintCallable)
+	void ModifyHealth(float Value);
+	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
+	void ServerModifyHealth(float Value);
 	
 
 protected:

@@ -13,6 +13,7 @@ public class Tachyon : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"InputCore",
+			"Paper2D",
 			"OnlineSubsystem",
 			"OnlineSubsystemUtils"
 		});
