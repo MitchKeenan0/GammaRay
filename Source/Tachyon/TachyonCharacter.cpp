@@ -50,6 +50,7 @@ void ATachyonCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	Health = MaxHealth;
 }
 
 // Called every frame
@@ -57,6 +58,10 @@ void ATachyonCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if ((Controller != nullptr) && Controller->IsLocalController())
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Blue, FString::Printf(TEXT("Health: %f"), Health));
+	}
 }
 
 
@@ -228,6 +233,8 @@ void ATachyonCharacter::GetLifetimeReplicatedProps(TArray <FLifetimeProperty> & 
 
 	DOREPLIFETIME(ATachyonCharacter, InputX);
 	DOREPLIFETIME(ATachyonCharacter, InputZ);
+	DOREPLIFETIME(ATachyonCharacter, Charge);
+	DOREPLIFETIME(ATachyonCharacter, Health);
 }
 
 

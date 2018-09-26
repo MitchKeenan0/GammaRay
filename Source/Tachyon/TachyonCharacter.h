@@ -34,12 +34,15 @@ public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	// ATTRIBUTES
+	// ATTRIBUTES ///////////////////////////////////////////////////////////////
 	UPROPERTY(EditDefaultsOnly)
 	float MoveSpeed = 100.0f;
 
 	UPROPERTY(EditDefaultsOnly)
 	float TurnSpeed = 1.0f;
+
+	UPROPERTY(EditDefaultsOnly)
+	float MaxHealth = 100.0f;
 
 	UFUNCTION(BlueprintCallable)
 	float GetAPM() { return APM; }
@@ -53,17 +56,24 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-	// MOVEMENT
+	// MOVEMENT ///////////////////////////////////////////////////////////////
 	void MoveRight(float Value);
 	void MoveUp(float Value);
 
+
+
+	// REPLICATED VARIABLES ///////////////////////////////////////////////////////////////
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
 	float InputX = 0.0f;
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
 	float InputZ = 0.0f;
+	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
+	float Charge = 0.0f;
+	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
+	float Health = 0.0f;
 
 
-	// ARMAMENT
+	// ARMAMENT ///////////////////////////////////////////////////////////////
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<ATachyonAttack> AttackClass;
 
