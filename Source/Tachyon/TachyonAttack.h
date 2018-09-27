@@ -14,6 +14,7 @@ class TACHYON_API ATachyonAttack : public AActor
 	GENERATED_BODY()
 
 	void UpdateLifeTime(float DeltaT);
+	void SpawnBurst();
 	
 public:	
 	// Sets default values for this actor's properties
@@ -24,32 +25,20 @@ public:
 
 	UFUNCTION()
 	bool IsInitialized() { return bInitialized; }
-
-	/////////////////////////////////////////////////////////////////////////
-	// Public Variables
-	UPROPERTY(EditDefaultsOnly)
-	bool bSecondary = false;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	bool LockedEmitPoint = true;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	float DurationTime = 0.3f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	float MagnitudeTimeScalar = 1.0f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	float HitsPerSecond = 100.0f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	bool bLethal = false;
+	UFUNCTION()
+	bool IsLockedEmitPoint() { return LockedEmitPoint; }
 
 
 	/////////////////////////////////////////////////////////////////////////
 	// Attack functions
 	UFUNCTION()
 	void InitAttack(AActor* Shooter, float Magnitude, float YScale);
+
+	UFUNCTION()
+	void RedirectAttack();
+
+	UFUNCTION()
+	void Lethalize();
 
 
 
@@ -74,6 +63,27 @@ protected:
 
 	/////////////////////////////////////////////////////////////////////////
 	// Attributes
+	UPROPERTY(EditDefaultsOnly)
+	bool bSecondary = false;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	bool LockedEmitPoint = true;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	float DeliveryTime = 0.1f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	float DurationTime = 0.3f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	float MagnitudeTimeScalar = 1.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	float HitsPerSecond = 100.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	bool bLethal = false;
+
 	UPROPERTY(EditDefaultsOnly)
 	float ShootingAngle = 21.0f;
 
@@ -125,14 +135,14 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	class UPaperSpriteComponent* AttackSprite = nullptr;
 
-	/*UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	class UAudioComponent* AttackSound = nullptr;
-
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	class UProjectileMovementComponent* ProjectileComponent = nullptr;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<AActor> BurstClass = nullptr;
+
+	/*UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	class UAudioComponent* AttackSound = nullptr;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<AGDamage> DamageClass = nullptr;

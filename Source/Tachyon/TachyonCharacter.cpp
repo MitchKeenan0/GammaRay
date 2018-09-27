@@ -53,6 +53,8 @@ void ATachyonCharacter::BeginPlay()
 	Super::BeginPlay();
 	
 	Health = MaxHealth;
+	Tags.Add("Player");
+	Tags.Add("FramingActor");
 }
 
 
@@ -62,11 +64,11 @@ void ATachyonCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	UpdateHealth();
-
-	if ((Controller != nullptr) && Controller->IsLocalController())
+	if (Controller != nullptr)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Blue, FString::Printf(TEXT("Health: %f"), Health));
+		UpdateHealth(DeltaTime);
+		UpdateBody(DeltaTime);
+		UpdateCamera(DeltaTime);
 	}
 }
 
@@ -88,12 +90,8 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 // MOVEMENT
 void ATachyonCharacter::MoveRight(float Value)
 {
-	if (InputX != Value)
-	{
-		InputX = Value;
-	}
+	SetX(Value);
 	
-
 	float MoveByDot = 0.0f;
 	FVector MoveInput = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
 	FVector CurrentV = GetMovementComponent()->Velocity;
@@ -118,11 +116,7 @@ void ATachyonCharacter::MoveRight(float Value)
 
 void ATachyonCharacter::MoveUp(float Value)
 {
-	if (InputZ != Value)
-	{
-		InputZ = Value;
-	}
-
+	SetZ(Value);
 
 	float MoveByDot = 0.0f;
 	FVector MoveInput = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
@@ -145,6 +139,52 @@ void ATachyonCharacter::MoveUp(float Value)
 	}
 }
 
+void ATachyonCharacter::SetX(float Value)
+{
+	InputX = FMath::FInterpConstantTo(InputX, Value, GetWorld()->DeltaTimeSeconds, 15.0f);
+	
+	if (ActorHasTag("Bot"))
+	{
+		MoveRight(InputX);
+	}
+
+	if (Role < ROLE_Authority)
+	{
+		ServerSetX(Value);
+	}
+}
+void ATachyonCharacter::ServerSetX_Implementation(float Value)
+{
+	SetX(Value);
+}
+bool ATachyonCharacter::ServerSetX_Validate(float Value)
+{
+	return true;
+}
+
+void ATachyonCharacter::SetZ(float Value)
+{
+	InputZ = FMath::FInterpConstantTo(InputZ, Value, GetWorld()->DeltaTimeSeconds, 15.0f);
+
+	if (ActorHasTag("Bot"))
+	{
+		MoveUp(InputZ);
+	}
+
+	if (Role < ROLE_Authority)
+	{
+		ServerSetZ(Value);
+	}
+}
+void ATachyonCharacter::ServerSetZ_Implementation(float Value)
+{
+	SetZ(Value);
+}
+bool ATachyonCharacter::ServerSetZ_Validate(float Value)
+{
+	return true;
+}
+
 
 ////////////////////////////////////////////////////////////////////////
 // ATTACKING
@@ -156,26 +196,15 @@ void ATachyonCharacter::FireAttack()
 	}
 	else
 	{
-		if (HasAuthority() && (ActiveAttack == nullptr))
+		if (HasAuthority() && (AttackTimer <= 0.0f))
 		{
 			if ((AttackClass != nullptr))/// || bMultipleAttacks)
 			{
 				// Aim by InputY
-				float AimClampedInputZ = FMath::Clamp((InputZ * 10.0f), -1.0f, 1.0f);
 				FVector FirePosition = GetActorLocation(); ///AttackScene->GetComponentLocation();
 				FVector LocalForward = GetActorForwardVector(); /// AttackScene->GetForwardVector();
 				LocalForward.Y = 0.0f;
-				FRotator FireRotation = LocalForward.Rotation() + FRotator(InputZ * 21.0f, 0.0f, 0.0f); /// AimClampedInputZ
-				FireRotation.Yaw = GetActorRotation().Yaw;
-				if (FMath::Abs(FireRotation.Yaw) >= 90.0f)
-				{
-					FireRotation.Yaw = 180.0f;
-				}
-				else
-				{
-					FireRotation.Yaw = 0.0f;
-				}
-				FireRotation.Pitch = FMath::Clamp(FireRotation.Pitch, -21.0f, 21.0f);
+				FRotator FireRotation = LocalForward.GetSafeNormal().Rotation();
 
 				// Spawning
 				FActorSpawnParameters SpawnParams;
@@ -186,11 +215,12 @@ void ATachyonCharacter::FireAttack()
 					// The attack is born
 					if (ActiveAttack != nullptr)
 					{
+						GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::Green, FString::Printf(TEXT("Bang -- Z Direction:  %f"), InputZ));
 						ActiveAttack->InitAttack(this, 1.0f, InputZ); /// PrefireVal, AimClampedInputZ);
 					}
 
 					// Position lock, or naw
-					if ((ActiveAttack != nullptr) && ActiveAttack->LockedEmitPoint)
+					if ((ActiveAttack != nullptr) && ActiveAttack->IsLockedEmitPoint())
 					{
 						ActiveAttack->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
 					}
@@ -274,13 +304,15 @@ bool ATachyonCharacter::ServerModifyHealth_Validate(float Value)
 	return true;
 }
 
-void ATachyonCharacter::UpdateHealth()
+void ATachyonCharacter::UpdateHealth(float DeltaTime)
 {
+	GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Blue, FString::Printf(TEXT("Health: %f"), Health));
+
 	// Update smooth health value
 	if (MaxHealth < Health)
 	{
 		float InterpSpeed = FMath::Abs(Health - MaxHealth) * 5.1f;
-		Health = FMath::FInterpConstantTo(Health, MaxHealth, UGameplayStatics::GetWorldDeltaSeconds(GetWorld()), InterpSpeed);
+		Health = FMath::FInterpConstantTo(Health, MaxHealth, DeltaTime, InterpSpeed);
 		///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("InterpSpeed: %f"), InterpSpeed));
 
 		//// Player killed fx
@@ -315,15 +347,344 @@ void ATachyonCharacter::UpdateHealth()
 	}
 }
 
-void ATachyonCharacter::UpdateAttack()
+void ATachyonCharacter::UpdateBody(float DeltaTime)
 {
-	if (ActiveAttack != nullptr)
+	
+	float VelocitySize = GetCharacterMovement()->Velocity.Size();
+	float AccelSpeed = FMath::Clamp((100.0f / VelocitySize) * MaxMoveSpeed, 1.0f, MaxMoveSpeed * 100.0f);
+	GetCharacterMovement()->MaxFlySpeed = AccelSpeed;
+	//GEngine->AddOnScreenDebugMessage(-1, 0.f, FColor::White, FString::Printf(TEXT("max fly speed: %f"), GetCharacterMovement()->MaxFlySpeed));
+
+	// Surface place
+	/*FVector PlayerPosition = GetActorLocation();
+	PlayerPosition.Z = FMath::Clamp(PlayerPosition.Z, -3000.0f, 10000.0f);
+	SetActorLocation(PlayerPosition);*/
+
+	// Timescale recovery
+	//float GlobalTimeDil = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+	//if (GlobalTimeDil > 0.3f)
+	//{
+	//	float t = (FMath::Square(MyTimeDilation) * 100.0f) * DeltaTime;
+	//	float ReturnTime = FMath::FInterpConstantTo(MyTimeDilation, 1.0f, DeltaTime, 2.6f); // t or DeltaTime
+	//	CustomTimeDilation = FMath::Clamp(ReturnTime, 0.01f, 1.0f);
+	//	///GEngine->AddOnScreenDebugMessage(-1, 0.f, FColor::White, FString::Printf(TEXT("t: %f"), t));
+	//}
+
+	// Set rotation so character faces direction of travel
+	float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
+	float ClimbDirection = FMath::Clamp(InputZ, -1.0f, 1.0f) * 5.0f;
+	float Roll = FMath::Clamp(InputZ, -1.0f, 1.0f) * 15.0f;
+	float RotatoeSpeed = 15.0f;
+
+	if (TravelDirection < 0.0f)
 	{
-		if (ActiveAttack->IsPendingKillOrUnreachable())
+		FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, Roll), DeltaTime, RotatoeSpeed);
+		Controller->SetControlRotation(Fint);
+	}
+	else if (TravelDirection > 0.0f)
+	{
+		FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, -Roll), DeltaTime, RotatoeSpeed);
+		Controller->SetControlRotation(Fint);
+	}
+
+	// No lateral Input - finish rotation
+	else
+	{
+		if (FMath::Abs(Controller->GetControlRotation().Yaw) > 90.0f)
 		{
-			ActiveAttack = nullptr;
+			FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, -Roll), DeltaTime, RotatoeSpeed);
+			Controller->SetControlRotation(Fint);
+		}
+		else if (FMath::Abs(Controller->GetControlRotation().Yaw) < 90.0f)
+		{
+			FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, Roll), DeltaTime, RotatoeSpeed);
+			Controller->SetControlRotation(Fint);
 		}
 	}
+
+	// Locator scaling
+	/*if (UGameplayStatics::GetGlobalTimeDilation(GetWorld()) > 0.01f)
+	{
+		LocatorScaling();
+	}*/
+}
+
+void ATachyonCharacter::UpdateCamera(float DeltaTime)
+{
+	// Start by checking valid actor
+	AActor* Actor1 = nullptr;
+	AActor* Actor2 = nullptr;
+
+	float GlobalTimeScale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+
+	// Poll for framing actors
+	UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("FramingActor"), FramingActors);
+	///GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("FramingActors Num:  %i"), FramingActors.Num()));
+	/// TODO - add defense on running get?
+
+	// Spectator ez life
+	if (!this->ActorHasTag("Spectator"))
+	{
+		Actor1 = this;
+	}
+
+	if ((Controller != nullptr) && (FramingActors.Num() >= 1))
+	{
+		// Edge case: player is spectator, find a sub
+		if (Actor1 == nullptr)
+		{
+			int LoopSize = FramingActors.Num();
+			for (int i = 0; i < LoopSize; ++i)
+			{
+				AActor* Actore = FramingActors[i];
+				if (Actore != nullptr
+					&& !Actore->ActorHasTag("Spectator")
+					&& Actore->ActorHasTag("Player"))
+				{
+					Actor1 = Actore;
+					break;
+				}
+			}
+		}
+
+		// Let's go
+		if ((Actor1 != nullptr)) ///  && IsValid(Actor1) && !Actor1->IsUnreachable()
+		{
+
+			float VelocityCameraSpeed = CameraMoveSpeed;
+			float CameraMaxSpeed = 10000.0f;
+			float ConsideredDistanceScalar = CameraDistanceScalar;
+
+			// Position by another actor
+			bool bAlone = true;
+			// Find closest best candidate for Actor 2
+			if (Actor2 == nullptr)
+			{
+
+				// Find Actor2 by nominating best actor
+				float DistToActor2 = 99999.0f;
+				int LoopCount = FramingActors.Num();
+				AActor* CurrentActor = nullptr;
+				AActor* BestCandidate = nullptr;
+				float BestDistance = 0.0f;
+				for (int i = 0; i < LoopCount; ++i)
+				{
+					CurrentActor = FramingActors[i];
+					if (CurrentActor != nullptr
+						&& CurrentActor != Actor1
+						&& !CurrentActor->ActorHasTag("Spectator")
+						&& !CurrentActor->ActorHasTag("Obstacle"))
+					{
+						float DistToTemp = FVector::Dist(CurrentActor->GetActorLocation(), GetActorLocation());
+						if (DistToTemp < DistToActor2)
+						{
+
+							// Players get veto importance
+							if ((BestCandidate == nullptr)
+								|| (!BestCandidate->ActorHasTag("Player")))
+							{
+								BestCandidate = CurrentActor;
+								DistToActor2 = DistToTemp;
+							}
+						}
+					}
+				}
+
+				// Got your boye
+				Actor2 = BestCandidate;
+			}
+
+
+
+			// Framing up first actor with their own velocity
+			FVector Actor1Velocity = Actor1->GetVelocity();
+			float SafeVelocitySize = FMath::Clamp(Actor1Velocity.Size() * 0.005f, 0.01f, 10.0f);
+			VelocityCameraSpeed = CameraMoveSpeed * SafeVelocitySize * FMath::Sqrt(1.0f / GlobalTimeScale);
+			VelocityCameraSpeed = FMath::Clamp(VelocityCameraSpeed, 0.1f, CameraMaxSpeed * 0.1f);
+
+			FVector LocalPos = Actor1->GetActorLocation() + (Actor1Velocity * DeltaTime * CameraVelocityChase);
+			PositionOne = FMath::VInterpTo(PositionOne, LocalPos, DeltaTime, VelocityCameraSpeed);
+
+			// Setting up distance and speed dynamics
+			float ChargeScalar = FMath::Clamp((FMath::Sqrt(Charge - 0.9f)), 1.0f, ChargeMax);
+			float SpeedScalar = FMath::Sqrt(Actor1Velocity.Size() + 0.01f) * 0.1f;
+			float PersonalScalar = 1.0f + (36.0f * ChargeScalar * SpeedScalar) * (FMath::Sqrt(SafeVelocitySize));
+			float CameraMinimumDistance = 2500.0f + (PersonalScalar * CameraDistanceScalar); // (1100.0f + PersonalScalar)
+			float CameraMaxDistance = 11551000.0f;
+
+
+			// If Actor2 is valid, make Pair Framing
+			if (Actor2 != nullptr)
+			{
+
+				// Distance check i.e pair bounds
+				float PairDistanceThreshold = FMath::Clamp(Actor1->GetVelocity().Size(), 3000.0f, 15000.0f); /// formerly 3000.0f
+				if (this->ActorHasTag("Spectator"))
+				{
+					PairDistanceThreshold *= 3.3f;
+				}
+				if (!Actor2->ActorHasTag("Player"))
+				{
+					PairDistanceThreshold *= 0.5f;
+				}
+
+				// Special care taken for vertical as we are probably widescreen
+				float Vertical = FMath::Abs((Actor2->GetActorLocation() - Actor1->GetActorLocation()).Z);
+				bool bInRange = (FVector::Dist(Actor1->GetActorLocation(), Actor2->GetActorLocation()) <= PairDistanceThreshold)
+					&& (Vertical <= (PairDistanceThreshold * 0.55f));
+				bool TargetVisible = Actor2->WasRecentlyRendered(0.2f);
+
+				if (bInRange && TargetVisible)
+				{
+					bAlone = false;
+
+					//// Framing up with second actor
+					FVector Actor2Velocity = Actor2->GetVelocity();
+
+					// Declare Position Two
+					FVector PairFraming = Actor2->GetActorLocation() + (Actor2Velocity * DeltaTime * CameraVelocityChase);
+					PositionTwo = FMath::VInterpTo(PositionTwo, PairFraming, DeltaTime, VelocityCameraSpeed);
+				}
+			}
+
+			// Lone player gets Velocity Framing
+			if (bAlone || (FramingActors.Num() == 1))
+			{
+				// Framing lone player by their velocity
+				Actor1Velocity = Actor1->GetVelocity();
+
+				// Declare Position Two
+				FVector VelocityFraming = Actor1->GetActorLocation() + (Actor1Velocity * DeltaTime * CameraSoloVelocityChase);
+				PositionTwo = FMath::VInterpTo(PositionTwo, VelocityFraming, DeltaTime, VelocityCameraSpeed * 0.5f);
+
+				Actor2 = nullptr;
+			}
+
+
+			// Positions done
+			// Find the midpoint
+			float MidpointBias = 0.5f;
+			/*if ((Actor2 != nullptr) && !Actor2->ActorHasTag("Player")) {
+			MidpointBias = 0.2f; /// super jerky
+			}*/
+			FVector TargetMidpoint = PositionOne + ((PositionTwo - PositionOne) * MidpointBias);
+			float MidpointInterpSpeed = FMath::Clamp(TargetMidpoint.Size() * 0.01f, 1.0f, 100.0f);
+
+			Midpoint = FMath::VInterpTo(Midpoint, TargetMidpoint, DeltaTime, MidpointInterpSpeed);
+			if (Midpoint.Size() > 0.0f)
+			{
+
+				// Distance
+				float DistBetweenActors = FVector::Dist(PositionOne, PositionTwo);
+				float ProcessedDist = (FMath::Sqrt(DistBetweenActors) * 1500.0f);
+				float VerticalDist = FMath::Abs((PositionTwo - PositionOne).Z);
+				// If paired, widescreen edges are vulnerable to overshoot
+				if (!bAlone)
+				{
+					VerticalDist *= 1.5f;
+				}
+				else
+				{
+					ProcessedDist *= 1.5f;
+					CameraMinimumDistance *= 1.5f;
+				}
+
+				// Handle horizontal bias
+				float DistancePreClamp = ProcessedDist + FMath::Sqrt(VerticalDist);
+				///GEngine->AddOnScreenDebugMessage(-1, 0.f, FColor::White, FString::Printf(TEXT("DistancePreClamp: %f"), DistancePreClamp));
+				float TargetLength = FMath::Clamp(DistancePreClamp, CameraMinimumDistance, CameraMaxDistance);
+
+				// Modifier for prefire timing
+				//if (PrefireTimer > 0.0f)
+				//{
+				//	float PrefireScalarRaw = PrefireTimer; //  FMath::Sqrt(PrefireTimer * 0.618f);
+				//	float PrefireScalarClamped = FMath::Clamp(PrefireScalarRaw, 0.1f, 0.99f);
+				//	float PrefireProduct = (-PrefireScalarClamped);
+				//	TargetLength += PrefireProduct;
+				//}
+
+				// Last modifier for global time dilation
+				float RefinedGScalar = FMath::Clamp(GlobalTimeScale, 0.5f, 1.0f);
+				if (GlobalTimeScale < 0.02f)
+				{
+					TargetLength *= 0.5f;
+					VelocityCameraSpeed *= 15.0f;
+				}
+				if (GlobalTimeScale <= 0.1f)
+				{
+					TargetLength *= RefinedGScalar;
+				}
+
+				// Clamp useable distance
+				float TargetLengthClamped = FMath::Clamp(FMath::Sqrt(TargetLength * 215.0f) * ConsideredDistanceScalar,
+					CameraMinimumDistance,
+					CameraMaxDistance);
+
+				// Set Camera Distance
+				float InverseTimeSpeed = FMath::Clamp((1.0f / GlobalTimeScale), 1.0f, 2.0f);
+				float DesiredCameraDistance = FMath::FInterpTo(CameraBoom->TargetArmLength,
+					TargetLengthClamped, DeltaTime, (VelocityCameraSpeed * 0.5f) * InverseTimeSpeed);
+
+				// Narrowing and expanding camera FOV for closeup and outer zones
+				float ScalarSize = FMath::Clamp(DistBetweenActors * 0.005f, 0.05f, 1.5f);
+				float FOVTimeScalar = FMath::Clamp(GlobalTimeScale, 0.1f, 1.0f);
+				float FOV = 23.0f;
+				float FOVSpeed = 1.0f;
+				float Verticality = FMath::Abs((PositionOne - PositionTwo).Z);
+
+				// Inner and Outer zones
+				if ((DistBetweenActors <= 90.0f) && !bAlone)
+				{
+					FOV = 19.0f;
+				}
+				else if (((DistBetweenActors >= 700.0f) || (Verticality >= 250.0f))
+					&& !bAlone)
+				{
+					float WideAngleFOV = FMath::Clamp((0.02f * DistBetweenActors), 42.0f, 71.0f);
+					FOV = WideAngleFOV; // 40
+				}
+				// GGTime Timescale adjustment
+				if (GlobalTimeScale < 0.02f)
+				{
+					FOV *= FOVTimeScalar;
+					FOVSpeed *= 0.5f;
+				}
+
+				// Set FOV
+				SideViewCameraComponent->FieldOfView = FMath::FInterpTo(
+					SideViewCameraComponent->FieldOfView,
+					FOV,
+					DeltaTime,
+					FOVSpeed * ScalarSize);
+
+				// Make it so
+				CameraBoom->SetWorldLocation(Midpoint);
+				CameraBoom->TargetArmLength = DesiredCameraDistance;
+				SideViewCameraComponent->OrthoWidth = (DesiredCameraDistance);
+			}
+		}
+	}
+}
+
+
+void ATachyonCharacter::UpdateAttack(float DeltaTime)
+{
+	if (Role < ROLE_Authority)
+	{
+		ServerUpdateAttack(DeltaTime);
+	}
+	else if (ActiveAttack != nullptr)
+	{
+		
+	}
+}
+void ATachyonCharacter::ServerUpdateAttack_Implementation(float DeltaTime)
+{
+	UpdateAttack(DeltaTime);
+}
+bool ATachyonCharacter::ServerUpdateAttack_Validate(float DeltaTime)
+{
+	return true;
 }
 
 
@@ -337,6 +698,7 @@ void ATachyonCharacter::GetLifetimeReplicatedProps(TArray <FLifetimeProperty> & 
 	DOREPLIFETIME(ATachyonCharacter, InputZ);
 	DOREPLIFETIME(ATachyonCharacter, Charge);
 	DOREPLIFETIME(ATachyonCharacter, Health);
+	DOREPLIFETIME(ATachyonCharacter, AttackTimer);
 }
 
 
