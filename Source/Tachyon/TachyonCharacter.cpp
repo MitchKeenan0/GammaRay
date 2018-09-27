@@ -69,6 +69,15 @@ void ATachyonCharacter::Tick(float DeltaTime)
 		UpdateHealth(DeltaTime);
 		UpdateBody(DeltaTime);
 		UpdateCamera(DeltaTime);
+
+		if (bShooting)
+		{
+			WindupAttack(DeltaTime);
+		}
+		else
+		{
+			
+		}
 	}
 }
 
@@ -79,8 +88,11 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-	PlayerInputComponent->BindAction("Attack", IE_Pressed, this, &ATachyonCharacter::FireAttack);
+	// Actions
+	PlayerInputComponent->BindAction("Attack", IE_Pressed, this, &ATachyonCharacter::ArmAttack);
+	PlayerInputComponent->BindAction("Attack", IE_Released, this, &ATachyonCharacter::DisarmAttack);
 
+	// Axes
 	PlayerInputComponent->BindAxis("MoveRight", this, &ATachyonCharacter::MoveRight);
 	PlayerInputComponent->BindAxis("MoveUp", this, &ATachyonCharacter::MoveUp);
 }
@@ -188,6 +200,100 @@ bool ATachyonCharacter::ServerSetZ_Validate(float Value)
 
 ////////////////////////////////////////////////////////////////////////
 // ATTACKING
+void ATachyonCharacter::ArmAttack()
+{
+	if (!bShooting)
+	{
+		bShooting = true;
+	}
+
+	if (Role < ROLE_Authority)
+	{
+		ServerArmAttack();
+	}
+}
+void ATachyonCharacter::ServerArmAttack_Implementation()
+{
+	ArmAttack();
+}
+bool ATachyonCharacter::ServerArmAttack_Validate()
+{
+	return true;
+}
+
+
+void ATachyonCharacter::DisarmAttack()
+{
+	if (bShooting)
+	{
+		bShooting = false;
+	}
+
+	if (WindupTimer > 0.0f)
+	{
+		FireAttack();
+	}
+
+	WindupTimer = 0.0f;
+	ActiveWindup->Destroy();
+	ActiveWindup = nullptr;
+
+	if (Role < ROLE_Authority)
+	{
+		ServerDisarmAttack();
+	}
+}
+void ATachyonCharacter::ServerDisarmAttack_Implementation()
+{
+	DisarmAttack();
+}
+bool ATachyonCharacter::ServerDisarmAttack_Validate()
+{
+	return true;
+}
+
+
+void ATachyonCharacter::WindupAttack(float DeltaTime)
+{
+	if (ActiveWindup == nullptr)
+	{
+		FVector FirePosition = GetActorLocation(); ///AttackScene->GetComponentLocation();
+		FVector LocalForward = GetActorForwardVector(); /// AttackScene->GetForwardVector();
+		LocalForward.Y = 0.0f;
+		FRotator FireRotation = LocalForward.GetSafeNormal().Rotation();
+		FActorSpawnParameters SpawnParams;
+		ActiveWindup = GetWorld()->SpawnActor<AActor>(AttackWindupClass, FirePosition, FireRotation, SpawnParams);
+		if (ActiveWindup != nullptr)
+		{
+			ActiveWindup->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+		}
+	}
+
+	WindupTimer += DeltaTime;
+	GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Black, FString::Printf(TEXT("WindupTimer: %f"), WindupTimer));
+
+	/*if (WindupTimer >= WindupTime)
+	{
+		FireAttack();
+		DisarmAttack();
+		WindupTimer = 0.0f;
+	}*/
+
+	if (Role < ROLE_Authority)
+	{
+		ServerWindupAttack(DeltaTime);
+	}
+}
+void ATachyonCharacter::ServerWindupAttack_Implementation(float DeltaTime)
+{
+	WindupAttack(DeltaTime);
+}
+bool ATachyonCharacter::ServerWindupAttack_Validate(float DeltaTime)
+{
+	return true;
+}
+
+
 void ATachyonCharacter::FireAttack()
 {
 	if (Role < ROLE_Authority)
@@ -304,6 +410,9 @@ bool ATachyonCharacter::ServerModifyHealth_Validate(float Value)
 	return true;
 }
 
+
+////////////////////////////////////////////////////////////////////////
+// CHARACTER UPDATES
 void ATachyonCharacter::UpdateHealth(float DeltaTime)
 {
 	GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Blue, FString::Printf(TEXT("Health: %f"), Health));
@@ -699,6 +808,8 @@ void ATachyonCharacter::GetLifetimeReplicatedProps(TArray <FLifetimeProperty> & 
 	DOREPLIFETIME(ATachyonCharacter, Charge);
 	DOREPLIFETIME(ATachyonCharacter, Health);
 	DOREPLIFETIME(ATachyonCharacter, AttackTimer);
+	DOREPLIFETIME(ATachyonCharacter, bShooting);
+	DOREPLIFETIME(ATachyonCharacter, WindupTimer);
 }
 
 

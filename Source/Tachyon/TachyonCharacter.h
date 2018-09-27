@@ -68,6 +68,12 @@ public:
 	float TurnSpeed = 1.0f;
 
 	UPROPERTY(EditDefaultsOnly)
+	float AttackFireRate = 0.5f;
+
+	UPROPERTY(EditDefaultsOnly)
+	float WindupTime = 0.1f;
+
+	UPROPERTY(EditDefaultsOnly)
 	float MaxHealth = 100.0f;
 
 	UPROPERTY(EditDefaultsOnly)
@@ -90,6 +96,21 @@ public:
 
 
 	// NETWORK FUNCTIONS ////////////////////////////////////////////////////////
+	UFUNCTION()
+	void ArmAttack();
+	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
+	void ServerArmAttack();
+
+	UFUNCTION()
+	void DisarmAttack();
+	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
+	void ServerDisarmAttack();
+
+	UFUNCTION()
+	void WindupAttack(float DeltaTime);
+	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
+	void ServerWindupAttack(float DeltaTime);
+
 	UFUNCTION()
 	void FireAttack();
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
@@ -138,14 +159,22 @@ protected:
 	float Health = 0.0f;
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
 	float AttackTimer = 0.0f;
+	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
+	float WindupTimer = 0.0f;
+	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
+	bool bShooting = false;
 
 
 	// ARMAMENT ///////////////////////////////////////////////////////////////
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<ATachyonAttack> AttackClass;
-
 	UPROPERTY(EditDefaultsOnly)
 	class ATachyonAttack* ActiveAttack = nullptr;
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<AActor> AttackWindupClass;
+	UPROPERTY(EditDefaultsOnly)
+	class AActor* ActiveWindup = nullptr;
 	
 	
 };
