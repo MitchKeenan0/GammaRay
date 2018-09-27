@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "TachyonAttack.h"
+#include "TachyonCharacter.h"
 #include "PaperSpriteComponent.h"
 
 
@@ -188,11 +189,11 @@ void ATachyonAttack::RaycastForHit(FVector RaycastVector)
 		FVector Start = GetActorLocation() + (GetActorForwardVector() * -100.0f);
 		Start.Y = 0.0f;
 		FVector End = Start + (RaycastVector * RaycastHitRange);
-		End.Y = 0.0f; /// strange y-axis drift
+		End.Y = 0.0f;
 
 
 
-					  // Swords, etc, get tangible ray space
+		// Swords, etc, get tangible ray space
 		if (bRaycastOnMesh)
 		{
 			if (AttackSprite->GetSprite() != nullptr)
@@ -241,6 +242,13 @@ void ATachyonAttack::RaycastForHit(FVector RaycastVector)
 				{
 					GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Green, TEXT("B A N G    G O T T E M"));
 					//HitEffects(HitActor, Hits[i].ImpactPoint);
+					
+					// Test damage
+					ATachyonCharacter* PotentialCharacter = Cast<ATachyonCharacter>(HitActor);
+					if (PotentialCharacter != nullptr)
+					{
+						PotentialCharacter->ModifyHealth(-AttackDamage);
+					}
 				}
 			}
 		}

@@ -6,7 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "TachyonAttack.generated.h"
 
-//class ATachyonCharacter;
+class ATachyonCharacter;
 
 UCLASS()
 class TACHYON_API ATachyonAttack : public AActor
