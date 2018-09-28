@@ -23,7 +23,7 @@ ATachyonCharacter::ATachyonCharacter()
 
 	// Create a camera and attach it to the boom
 	SideViewCameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("SideViewCamera"));
-	SideViewCameraComponent->ProjectionMode = ECameraProjectionMode::Orthographic;
+	SideViewCameraComponent->ProjectionMode = ECameraProjectionMode::Perspective;
 	SideViewCameraComponent->OrthoWidth = 2048.0f;
 	SideViewCameraComponent->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 
@@ -306,13 +306,11 @@ void ATachyonCharacter::FireAttack()
 		{
 			if ((AttackClass != nullptr))/// || bMultipleAttacks)
 			{
-				// Aim by InputY
+				// Spawning
 				FVector FirePosition = GetActorLocation(); ///AttackScene->GetComponentLocation();
 				FVector LocalForward = GetActorForwardVector(); /// AttackScene->GetForwardVector();
 				LocalForward.Y = 0.0f;
 				FRotator FireRotation = LocalForward.GetSafeNormal().Rotation();
-
-				// Spawning
 				FActorSpawnParameters SpawnParams;
 				ActiveAttack = Cast<ATachyonAttack>(GetWorld()->SpawnActor<ATachyonAttack>(AttackClass, FirePosition, FireRotation, SpawnParams));
 				if (ActiveAttack != nullptr)

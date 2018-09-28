@@ -111,16 +111,24 @@ void ATachyonAttack::RedirectAttack()
 	FVector LocalForward = AttackScene->GetForwardVector();
 	LocalForward.Y = 0.0f;
 	FRotator FireRotation = LocalForward.Rotation() + FRotator(AimClampedInputZ * ShootingAngle, 0.0f, 0.0f); /// AimClampedInputZ
-	FireRotation.Yaw = GetActorRotation().Yaw;
-	if (FMath::Abs(FireRotation.Yaw) >= 90.0f)
+	FireRotation.Pitch = FMath::Clamp(FireRotation.Pitch, -ShootingAngle, ShootingAngle);
+	float ShooterYaw = FMath::Abs(OwningShooter->GetActorRotation().Yaw);
+	float Yaw = 0.0f;
+	if ((ShooterYaw > 50.0f)) {
+		Yaw = 180.0f;
+	}
+	FireRotation.Yaw = Yaw;
+
+
+	/*if (FMath::Abs(FireRotation.Yaw) >= 90.0f)
 	{
 		FireRotation.Yaw = 180.0f;
 	}
 	else
 	{
 		FireRotation.Yaw = 0.0f;
-	}
-	FireRotation.Pitch = FMath::Clamp(FireRotation.Pitch, -ShootingAngle, ShootingAngle);
+	}*/
+	
 	
 	GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("RedirectAttack Direction:  %f"), AimClampedInputZ));
 
@@ -134,13 +142,7 @@ void ATachyonAttack::Tick(float DeltaTime)
 
 	if (bInitialized)
 	{
-		
 		UpdateLifeTime(DeltaTime);
-
-		if (bLethal)
-		{
-			RaycastForHit(GetActorForwardVector());
-		}
 	}
 }
 
@@ -150,10 +152,19 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 {
 	LifeTimer += DeltaT;
 
+	if (LifeTimer < DeliveryTime)
+	{
+		RedirectAttack();
+	}
+
+	if (bLethal)
+	{
+		RaycastForHit(GetActorForwardVector());
+	}
+
 	if ((LifeTimer >= DeliveryTime)
 		&& !bLethal)
 	{
-		RedirectAttack();
 		Lethalize();
 	}
 
