@@ -58,7 +58,16 @@ protected:
 	);
 
 	UFUNCTION()
+	void MainHit(AActor* HitActor, FVector HitLocation);
+
+	UFUNCTION()
 	void RaycastForHit(FVector RaycastVector);
+
+	UFUNCTION()
+	void SpawnHit(AActor* HitActor, FVector HitLocation);
+
+	UFUNCTION()
+	void ApplyKnockForce(AActor* HitActor, FVector HitLocation, float HitScalar);
 
 
 	/////////////////////////////////////////////////////////////////////////
@@ -80,6 +89,12 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	float HitsPerSecond = 100.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	float HitSlow = 0.5f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	bool bAbsoluteHitForce = true;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	bool bLethal = false;
@@ -112,13 +127,13 @@ protected:
 	float FireDelay = 0.0f;
 
 	UPROPERTY(EditDefaultsOnly)
-	float RaycastHitRange = 100.0f;
+	float RaycastHitRange = 1000.0f;
 
 	UPROPERTY(EditDefaultsOnly)
 	bool bRaycastOnMesh = false;
 
 	UPROPERTY(EditDefaultsOnly)
-	float KineticForce = 30000.0f;
+	float KineticForce = 100.0f;
 
 
 	/////////////////////////////////////////////////////////////////////////
@@ -177,7 +192,7 @@ protected:
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	float DynamicLifetime = 0.0f;
 
-	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
+	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
 	float LethalTime = 0.2f;
 
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
@@ -192,7 +207,7 @@ protected:
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	float AttackDirection = 0.0f;
 
-	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
+	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
 	float AttackDamage = 1.0f;
 
 	

@@ -30,7 +30,6 @@ ATachyonAttack::ATachyonAttack()
 
 	bReplicates = true;
 	bReplicateMovement = true;
-	ProjectileComponent->SetIsReplicated(true);
 }
 
 // Called when the game starts or when spawned
@@ -75,21 +74,25 @@ void ATachyonAttack::SpawnBurst()
 
 void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 {
-	if (HasAuthority())
+	OwningShooter = Shooter;
+	if (OwningShooter != nullptr)
 	{
-		OwningShooter = Shooter;
-		if (OwningShooter != nullptr)
+		AttackMagnitude = Magnitude;
+		AttackDirection = YScale;
+
+		RedirectAttack();
+		SpawnBurst();
+
+		// Speed
+		if (ProjectileComponent != nullptr)
 		{
-			AttackMagnitude = Magnitude;
-			AttackDirection = YScale;
-
-			RedirectAttack();
-			SpawnBurst();
-
-			// Lifetime
-			DynamicLifetime = (DeliveryTime + LethalTime + DurationTime);
-			bInitialized = true;
+			FVector ShooterVelocity = OwningShooter->GetVelocity() * 0.3f;
+			ProjectileComponent->Velocity += ShooterVelocity;
 		}
+
+		// Lifetime
+		DynamicLifetime = (DeliveryTime + LethalTime + DurationTime);
+		bInitialized = true;
 	}
 }
 
@@ -118,20 +121,7 @@ void ATachyonAttack::RedirectAttack()
 		Yaw = 180.0f;
 	}
 	FireRotation.Yaw = Yaw;
-
-
-	/*if (FMath::Abs(FireRotation.Yaw) >= 90.0f)
-	{
-		FireRotation.Yaw = 180.0f;
-	}
-	else
-	{
-		FireRotation.Yaw = 0.0f;
-	}*/
 	
-	
-	GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("RedirectAttack Direction:  %f"), AimClampedInputZ));
-
 	SetActorRotation(FireRotation);
 }
 
@@ -184,85 +174,115 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 // Raycast firing solution
 void ATachyonAttack::RaycastForHit(FVector RaycastVector)
 {
-	if (HasAuthority())
+	// Linecast ingredients
+	TArray<TEnumAsByte<EObjectTypeQuery>> TraceObjects;
+	TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_Pawn));
+	TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_WorldStatic));
+	TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_WorldDynamic));
+	TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_PhysicsBody));
+	TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_Destructible));
+	TArray<FHitResult> Hits;
+	TArray<AActor*> IgnoredActors;
+	IgnoredActors.Add(OwningShooter);
+	IgnoredActors.Add(this->GetOwner());
+
+	// Set up ray position
+	FVector Start = GetActorLocation() + (GetActorForwardVector() * -100.0f);
+	Start.Y = 0.0f;
+	FVector End = Start + (RaycastVector * RaycastHitRange);
+	End.Y = 0.0f;
+
+	// Swords, etc, get tangible ray space
+	if (bRaycastOnMesh)
 	{
-		// Linecast ingredients
-		TArray<TEnumAsByte<EObjectTypeQuery>> TraceObjects;
-		TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_Pawn));
-		TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_WorldStatic));
-		TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_WorldDynamic));
-		TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_PhysicsBody));
-		TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_Destructible));
-
-		TArray<AActor*> IgnoredActors;
-		IgnoredActors.Add(OwningShooter);
-
-		FVector Start = GetActorLocation() + (GetActorForwardVector() * -100.0f);
-		Start.Y = 0.0f;
-		FVector End = Start + (RaycastVector * RaycastHitRange);
-		End.Y = 0.0f;
-
-
-
-		// Swords, etc, get tangible ray space
-		if (bRaycastOnMesh)
+		if (AttackSprite->GetSprite() != nullptr)
 		{
-			if (AttackSprite->GetSprite() != nullptr)
-			{
-				float SpriteLength = (AttackSprite->Bounds.BoxExtent.X) * (1.0f + AttackMagnitude);
-				float AttackBodyLength = SpriteLength * RaycastHitRange;
-				Start = AttackSprite->GetComponentLocation() + (GetActorForwardVector() * (-SpriteLength / 2.1f));
-				Start.Y = 0.0f;
-				End = Start + (RaycastVector * AttackBodyLength);
-				End.Y = 0.0f;
-			}
-			else if (AttackParticles != nullptr)
-			{
-				float AttackBodyLength = RaycastHitRange;
-				Start = AttackParticles->GetComponentLocation() + (GetActorForwardVector() * (-AttackBodyLength / 2.1f));
-				Start.Y = 0.0f;
-				End = Start + (RaycastVector * AttackBodyLength);
-				End.Y = 0.0f;
-			}
+			float SpriteLength = (AttackSprite->Bounds.BoxExtent.X) * (1.0f + AttackMagnitude);
+			float AttackBodyLength = SpriteLength * RaycastHitRange;
+			Start = AttackSprite->GetComponentLocation() + (GetActorForwardVector() * (-SpriteLength / 2.1f));
+			Start.Y = 0.0f;
+			End = Start + (RaycastVector * AttackBodyLength);
+			End.Y = 0.0f;
 		}
-
-		TArray<FHitResult> Hits;
-
-		// Pew pew
-		bool HitResult = UKismetSystemLibrary::LineTraceMultiForObjects(
-			this,
-			Start,
-			End,
-			TraceObjects,
-			false,
-			IgnoredActors,
-			EDrawDebugTrace::ForDuration,
-			Hits,
-			true,
-			FLinearColor::Black, FLinearColor::Red, 5.0f);
-
-		if (HitResult)
+		else if (AttackParticles != nullptr)
 		{
-			int NumHits = Hits.Num();
-			for (int i = 0; i < NumHits; ++i)
+			float AttackBodyLength = RaycastHitRange;
+			Start = AttackParticles->GetComponentLocation() + (GetActorForwardVector() * (-AttackBodyLength / 2.1f));
+			Start.Y = 0.0f;
+			End = Start + (RaycastVector * AttackBodyLength);
+			End.Y = 0.0f;
+		}
+	}
+
+	// Pew pew
+	bool HitResult = UKismetSystemLibrary::LineTraceMultiForObjects(
+		this,
+		Start,
+		End,
+		TraceObjects,
+		false,
+		IgnoredActors,
+		EDrawDebugTrace::None,
+		Hits,
+		true,
+		FLinearColor::Black, FLinearColor::Red, 5.0f);
+
+	if (HitResult)
+	{
+		int NumHits = Hits.Num();
+		for (int i = 0; i < NumHits; ++i)
+		{
+			HitActor = Hits[i].GetActor();
+			
+			if ((HitActor != nullptr)
+				&& (HitActor->WasRecentlyRendered(0.2f))
+				&& (!HitActor->ActorHasTag("FX")))
 			{
-				HitActor = Hits[i].Actor.Get();
-				if ((HitActor != nullptr)
-					&& (HitActor != OwningShooter)
-					&& (HitActor->WasRecentlyRendered(0.2f)))
-				{
-					//HitEffects(HitActor, Hits[i].ImpactPoint);
-					
-					// Test damage
-					ATachyonCharacter* PotentialCharacter = Cast<ATachyonCharacter>(HitActor);
-					if (PotentialCharacter != nullptr)
-					{
-						PotentialCharacter->ModifyHealth(-AttackDamage);
-					}
-				}
+				MainHit(HitActor, Hits[i].ImpactPoint);
 			}
 		}
 	}
+}
+
+void ATachyonAttack::SpawnHit(AActor* HitActor, FVector HitLocation)
+{
+	FActorSpawnParameters SpawnParams;
+	FVector ToHitLocation = (HitLocation - GetActorLocation()).GetSafeNormal();
+	AActor* HitSpawning = GetWorld()->SpawnActor<AActor>(DamageClass, HitLocation, ToHitLocation.Rotation(), SpawnParams);
+}
+
+void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, float HitScalar)
+{
+	FVector KnockDirection = (HitActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+	FVector KnockVector = KnockDirection * KineticForce * HitScalar;
+	KnockVector.Y = 0.0f;
+
+	// Character case
+	ATachyonCharacter* Chara = Cast<ATachyonCharacter>(HitActor);
+	if (Chara != nullptr)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("applying knock force"));
+		
+		FVector CurrentCharVel = Chara->GetCharacterMovement()->Velocity; ///PotentialCharacter->GetCharacterMovement()->Velocity;
+		Chara->GetCharacterMovement()->Velocity = CurrentCharVel + KnockVector;
+		ForceNetUpdate();
+	}
+}
+
+void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
+{
+	// Smashy fx
+	SpawnHit(HitActor, HitLocation);
+	ApplyKnockForce(HitActor, HitLocation, 1.0f);
+
+	// Test damage
+	ATachyonCharacter* PotentialCharacter = Cast<ATachyonCharacter>(HitActor);
+	if (PotentialCharacter != nullptr)
+	{
+		PotentialCharacter->ModifyHealth(-AttackDamage);
+	}
+
+	
 }
 
 

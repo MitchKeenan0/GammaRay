@@ -13,8 +13,7 @@ UCLASS()
 class TACHYON_API ATachyonGameModeBase : public AGameModeBase
 {
 	GENERATED_BODY()
-	
-	
-	
-	
+
+
+
 };

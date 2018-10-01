@@ -9,8 +9,21 @@ ATachyonCharacter::ATachyonCharacter()
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
-	bReplicates = true;
-	bReplicateMovement = true;
+	// Configure character movement
+	GetCapsuleComponent()->SetIsReplicated(true);
+	GetCapsuleComponent()->SetCapsuleHalfHeight(88.0f);
+	GetCapsuleComponent()->SetCapsuleRadius(34.0f);
+
+	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	GetCharacterMovement()->GravityScale = 0.0f;
+	GetCharacterMovement()->AirControl = 1.0f;
+	GetCharacterMovement()->MaxFlySpeed = 600.0f;
+	GetCharacterMovement()->MovementMode = MOVE_Flying;
+	GetCharacterMovement()->DefaultLandMovementMode = MOVE_Flying;
+	GetCharacterMovement()->bConstrainToPlane = true;
+	GetCharacterMovement()->SetPlaneConstraintNormal(FVector(0.0f, -1.0f, 0.0f));
+	GetCharacterMovement()->NetworkSmoothingMode = ENetworkSmoothingMode::Linear;
 
 	// Create a camera boom attached to the root (capsule)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
@@ -32,17 +45,10 @@ ATachyonCharacter::ATachyonCharacter()
 	SideViewCameraComponent->bUsePawnControlRotation = false;
 	SideViewCameraComponent->bAutoActivate = true;
 	GetCharacterMovement()->bOrientRotationToMovement = false;
+	
 
-	// Configure character movement
-	GetCharacterMovement()->GravityScale = 0.0f;
-	GetCharacterMovement()->AirControl = 1.0f;
-	GetCharacterMovement()->MaxFlySpeed = 600.0f;
-	GetCharacterMovement()->MovementMode = MOVE_Flying;
-	GetCharacterMovement()->DefaultLandMovementMode = MOVE_Flying;
-
-	// Lock character motion onto the XZ plane, so the character can't move in or out of the screen
-	GetCharacterMovement()->bConstrainToPlane = true;
-	GetCharacterMovement()->SetPlaneConstraintNormal(FVector(0.0f, -1.0f, 0.0f));
+	bReplicates = true;
+	bReplicateMovement = true;
 }
 
 
@@ -51,6 +57,9 @@ ATachyonCharacter::ATachyonCharacter()
 void ATachyonCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// Helps with networked movement
+	UKismetSystemLibrary::ExecuteConsoleCommand(GetWorld(), TEXT("p.NetEnableMoveCombining 0"));
 	
 	Health = MaxHealth;
 	Tags.Add("Player");
@@ -74,10 +83,6 @@ void ATachyonCharacter::Tick(float DeltaTime)
 		{
 			WindupAttack(DeltaTime);
 		}
-		else
-		{
-			
-		}
 	}
 }
 
@@ -90,7 +95,7 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 
 	// Actions
 	PlayerInputComponent->BindAction("Attack", IE_Pressed, this, &ATachyonCharacter::ArmAttack);
-	PlayerInputComponent->BindAction("Attack", IE_Released, this, &ATachyonCharacter::DisarmAttack);
+	PlayerInputComponent->BindAction("Attack", IE_Released, this, &ATachyonCharacter::ReleaseAttack);
 
 	// Axes
 	PlayerInputComponent->BindAxis("MoveRight", this, &ATachyonCharacter::MoveRight);
@@ -202,10 +207,8 @@ bool ATachyonCharacter::ServerSetZ_Validate(float Value)
 // ATTACKING
 void ATachyonCharacter::ArmAttack()
 {
-	if (!bShooting)
-	{
-		bShooting = true;
-	}
+	bShooting = true;
+	GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("ARMING"));
 
 	if (Role < ROLE_Authority)
 	{
@@ -222,32 +225,30 @@ bool ATachyonCharacter::ServerArmAttack_Validate()
 }
 
 
-void ATachyonCharacter::DisarmAttack()
+void ATachyonCharacter::ReleaseAttack()
 {
-	if (bShooting)
-	{
-		bShooting = false;
-	}
+	bShooting = false;
+	GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("DISARMING"));
 
-	if (WindupTimer > 0.0f)
+	if ((WindupTimer > 0.0f)
+		&& HasAuthority())
 	{
 		FireAttack();
+		WindupTimer = 0.0f;
+		ActiveWindup->Destroy();
+		ActiveWindup = nullptr;
 	}
-
-	WindupTimer = 0.0f;
-	ActiveWindup->Destroy();
-	ActiveWindup = nullptr;
-
+	
 	if (Role < ROLE_Authority)
 	{
-		ServerDisarmAttack();
+		ServerReleaseAttack();
 	}
 }
-void ATachyonCharacter::ServerDisarmAttack_Implementation()
+void ATachyonCharacter::ServerReleaseAttack_Implementation()
 {
-	DisarmAttack();
+	ReleaseAttack();
 }
-bool ATachyonCharacter::ServerDisarmAttack_Validate()
+bool ATachyonCharacter::ServerReleaseAttack_Validate()
 {
 	return true;
 }
@@ -255,29 +256,32 @@ bool ATachyonCharacter::ServerDisarmAttack_Validate()
 
 void ATachyonCharacter::WindupAttack(float DeltaTime)
 {
-	if (ActiveWindup == nullptr)
+	if (HasAuthority())
 	{
-		FVector FirePosition = GetActorLocation(); ///AttackScene->GetComponentLocation();
-		FVector LocalForward = GetActorForwardVector(); /// AttackScene->GetForwardVector();
-		LocalForward.Y = 0.0f;
-		FRotator FireRotation = LocalForward.GetSafeNormal().Rotation();
-		FActorSpawnParameters SpawnParams;
-		ActiveWindup = GetWorld()->SpawnActor<AActor>(AttackWindupClass, FirePosition, FireRotation, SpawnParams);
-		if (ActiveWindup != nullptr)
+		if (ActiveWindup == nullptr)
 		{
-			ActiveWindup->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+			FVector FirePosition = GetActorLocation(); ///AttackScene->GetComponentLocation();
+			FVector LocalForward = GetActorForwardVector(); /// AttackScene->GetForwardVector();
+			LocalForward.Y = 0.0f;
+			FRotator FireRotation = LocalForward.GetSafeNormal().Rotation();
+			FActorSpawnParameters SpawnParams;
+			ActiveWindup = GetWorld()->SpawnActor<AActor>(AttackWindupClass, FirePosition, FireRotation, SpawnParams);
+			if (ActiveWindup != nullptr)
+			{
+				ActiveWindup->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+			}
 		}
-	}
 
-	WindupTimer += DeltaTime;
-	GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Black, FString::Printf(TEXT("WindupTimer: %f"), WindupTimer));
+		WindupTimer += DeltaTime;
+		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Black, FString::Printf(TEXT("WindupTimer: %f"), WindupTimer));
 
-	/*if (WindupTimer >= WindupTime)
-	{
+		/*if (WindupTimer >= WindupTime)
+		{
 		FireAttack();
-		DisarmAttack();
+		ReleaseAttack();
 		WindupTimer = 0.0f;
-	}*/
+		}*/
+	}
 
 	if (Role < ROLE_Authority)
 	{
@@ -319,7 +323,6 @@ void ATachyonCharacter::FireAttack()
 					// The attack is born
 					if (ActiveAttack != nullptr)
 					{
-						GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::Green, FString::Printf(TEXT("Bang -- Z Direction:  %f"), InputZ));
 						ActiveAttack->InitAttack(this, 1.0f, InputZ); /// PrefireVal, AimClampedInputZ);
 					}
 

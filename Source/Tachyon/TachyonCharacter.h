@@ -102,9 +102,9 @@ public:
 	void ServerArmAttack();
 
 	UFUNCTION()
-	void DisarmAttack();
+	void ReleaseAttack();
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
-	void ServerDisarmAttack();
+	void ServerReleaseAttack();
 
 	UFUNCTION()
 	void WindupAttack(float DeltaTime);
