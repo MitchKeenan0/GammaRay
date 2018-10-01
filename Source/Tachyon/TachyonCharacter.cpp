@@ -15,7 +15,7 @@ ATachyonCharacter::ATachyonCharacter()
 	// Create a camera boom attached to the root (capsule)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
-	CameraBoom->TargetArmLength = 500.0f;
+	CameraBoom->TargetArmLength = 1500.0f;
 	CameraBoom->SocketOffset = FVector(0.0f, 0.0f, 75.0f);
 	CameraBoom->bAbsoluteRotation = true;
 	CameraBoom->bDoCollisionTest = false;
@@ -744,7 +744,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				{
 					FOV = 19.0f;
 				}
-				else if (((DistBetweenActors >= 700.0f) || (Verticality >= 250.0f))
+				else if (((DistBetweenActors >= 555.0f) || (Verticality >= 250.0f))
 					&& !bAlone)
 				{
 					float WideAngleFOV = FMath::Clamp((0.02f * DistBetweenActors), 42.0f, 71.0f);

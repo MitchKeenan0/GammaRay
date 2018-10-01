@@ -251,7 +251,6 @@ void ATachyonAttack::RaycastForHit(FVector RaycastVector)
 					&& (HitActor != OwningShooter)
 					&& (HitActor->WasRecentlyRendered(0.2f)))
 				{
-					GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Green, TEXT("B A N G    G O T T E M"));
 					//HitEffects(HitActor, Hits[i].ImpactPoint);
 					
 					// Test damage

@@ -141,6 +141,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<AActor> BurstClass = nullptr;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TSubclassOf<AActor> DamageClass = nullptr;
+
 	/*UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	class UAudioComponent* AttackSound = nullptr;
 
