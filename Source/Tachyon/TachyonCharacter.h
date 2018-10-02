@@ -49,10 +49,6 @@ public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	void UpdateHealth(float DeltaTime);
-	void UpdateBody(float DeltaTime);
-	void UpdateCamera(float DeltaTime);
-
 	UFUNCTION(BlueprintCallable)
 	void NullifyAttack() { ActiveAttack = nullptr; }
 
@@ -60,6 +56,9 @@ public:
 	// ATTRIBUTES ///////////////////////////////////////////////////////////////
 	UPROPERTY(EditDefaultsOnly)
 	float MoveSpeed = 100.0f;
+
+	UPROPERTY(EditDefaultsOnly)
+	float BoostSpeed = 2500.0f;
 
 	UPROPERTY(EditDefaultsOnly)
 	float MaxMoveSpeed = 2000.0f;
@@ -128,6 +127,22 @@ public:
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
 	void ServerSetZ(float Value);
 
+	void UpdateBody(float DeltaTime);
+	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
+	void ServerUpdateBody(float DeltaTime);
+
+	void EngageJump();
+	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
+	void ServerEngageJump();
+
+	void DisengageJump();
+	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
+	void ServerDisengageJump();
+
+	void UpdateJump(float DeltaTime);
+	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
+	void ServerUpdateJump(float DeltaTime);
+
 
 	UFUNCTION(BlueprintCallable)
 	void ModifyHealth(float Value);
@@ -146,6 +161,10 @@ protected:
 	void MoveRight(float Value);
 	void MoveUp(float Value);
 
+	// HEALTH & CAMERA ///////////////////////////////////////////////////////////////
+	void UpdateHealth(float DeltaTime);
+	void UpdateCamera(float DeltaTime);
+
 
 
 	// REPLICATED VARIABLES ///////////////////////////////////////////////////////////////
@@ -163,6 +182,8 @@ protected:
 	float WindupTimer = 0.0f;
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
 	bool bShooting = false;
+	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
+	bool bJumping = false;
 
 
 	// ARMAMENT ///////////////////////////////////////////////////////////////

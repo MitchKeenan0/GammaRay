@@ -235,8 +235,7 @@ void ATachyonAttack::RaycastForHit(FVector RaycastVector)
 			HitActor = Hits[i].GetActor();
 			
 			if ((HitActor != nullptr)
-				&& (HitActor->WasRecentlyRendered(0.2f))
-				&& (!HitActor->ActorHasTag("FX")))
+				&& (HitActor->WasRecentlyRendered(0.2f)))
 			{
 				MainHit(HitActor, Hits[i].ImpactPoint);
 			}
@@ -254,23 +253,30 @@ void ATachyonAttack::SpawnHit(AActor* HitActor, FVector HitLocation)
 void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, float HitScalar)
 {
 	FVector KnockDirection = (HitActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
-	FVector KnockVector = KnockDirection * KineticForce * HitScalar;
+	FVector KnockVector = KnockDirection * (KineticForce * HitScalar * AttackMagnitude);
 	KnockVector.Y = 0.0f;
 
 	// Character case
 	ATachyonCharacter* Chara = Cast<ATachyonCharacter>(HitActor);
 	if (Chara != nullptr)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("applying knock force"));
-		
-		FVector CurrentCharVel = Chara->GetCharacterMovement()->Velocity; ///PotentialCharacter->GetCharacterMovement()->Velocity;
-		Chara->GetCharacterMovement()->Velocity = CurrentCharVel + KnockVector;
-		ForceNetUpdate();
+		/*FVector CurrentCharVel = Chara->GetCharacterMovement()->Velocity;
+		Chara->GetCharacterMovement()->Velocity += KnockVector;*/
+		Chara->GetCharacterMovement()->AddImpulse(KnockVector, true);
 	}
 }
 
 void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 {
+	ATachyonAttack* PotentialAttack = Cast<ATachyonAttack>(HitActor);
+	if (PotentialAttack != nullptr)
+	{
+		if (PotentialAttack->OwningShooter == this->OwningShooter)
+		{
+			return;
+		}
+	}
+
 	// Smashy fx
 	SpawnHit(HitActor, HitLocation);
 	ApplyKnockForce(HitActor, HitLocation, 1.0f);
@@ -281,8 +287,6 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 	{
 		PotentialCharacter->ModifyHealth(-AttackDamage);
 	}
-
-	
 }
 
 

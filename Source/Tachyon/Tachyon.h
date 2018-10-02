@@ -3,5 +3,8 @@
 #pragma once
 
 #include "Engine.h"
+#include "Online.h"
+#include "OnlineSubsystem.h"
+#include "OnlineSubsystemUtils.h"
 #include "UnrealNetwork.h"
 

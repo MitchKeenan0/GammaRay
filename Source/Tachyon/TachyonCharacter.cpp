@@ -10,10 +10,11 @@ ATachyonCharacter::ATachyonCharacter()
 	PrimaryActorTick.bCanEverTick = true;
 
 	// Configure character movement
-	GetCapsuleComponent()->SetIsReplicated(true);
+	///GetCapsuleComponent()->SetIsReplicated(true);
 	GetCapsuleComponent()->SetCapsuleHalfHeight(88.0f);
 	GetCapsuleComponent()->SetCapsuleRadius(34.0f);
 
+	///GetMesh()->SetIsReplicated(true);
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	GetCharacterMovement()->GravityScale = 0.0f;
@@ -96,6 +97,8 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 	// Actions
 	PlayerInputComponent->BindAction("Attack", IE_Pressed, this, &ATachyonCharacter::ArmAttack);
 	PlayerInputComponent->BindAction("Attack", IE_Released, this, &ATachyonCharacter::ReleaseAttack);
+	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ATachyonCharacter::EngageJump);
+	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ATachyonCharacter::DisengageJump);
 
 	// Axes
 	PlayerInputComponent->BindAxis("MoveRight", this, &ATachyonCharacter::MoveRight);
@@ -107,64 +110,140 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 // MOVEMENT
 void ATachyonCharacter::MoveRight(float Value)
 {
-	SetX(Value);
-	
-	float MoveByDot = 0.0f;
-	FVector MoveInput = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
-	FVector CurrentV = GetMovementComponent()->Velocity;
-	FVector VNorm = CurrentV.GetSafeNormal();
-
-	// Move by dot product for skating effect
-	if ((MoveInput != FVector::ZeroVector)
-		&& (Controller != nullptr))
+	if (Value != InputX)
 	{
+		SetX(Value);
+	}
+	
+	if (!bJumping)
+	{
+		float MoveByDot = 0.0f;
+		FVector MoveInput = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
+		FVector CurrentV = GetMovementComponent()->Velocity;
+		FVector VNorm = CurrentV.GetSafeNormal();
 
-		float DotToInput = (FVector::DotProduct(MoveInput, VNorm));
-		float AngleToInput = FMath::Acos(DotToInput);
-		AngleToInput = FMath::Clamp(AngleToInput, 1.0f, 1000.0f);
+		// Move by dot product for skating effect
+		if ((MoveInput != FVector::ZeroVector)
+			&& (Controller != nullptr))
+		{
 
-		// Effect Move
-		float TurnScalar = MoveSpeed + FMath::Square(TurnSpeed * AngleToInput);
-		float DeltaTime = GetWorld()->DeltaTimeSeconds;
-		MoveByDot = MoveSpeed * TurnScalar;
-		AddMovementInput(FVector(1.0f, 0.0f, 0.0f), InputX * DeltaTime * MoveSpeed * MoveByDot);
+			float DotToInput = (FVector::DotProduct(MoveInput, VNorm));
+			float AngleToInput = FMath::Acos(DotToInput);
+			AngleToInput = FMath::Clamp(AngleToInput, 1.0f, 1000.0f);
+
+			// Effect Move
+			float TurnScalar = MoveSpeed + FMath::Square(TurnSpeed * AngleToInput);
+			float DeltaTime = GetWorld()->DeltaTimeSeconds;
+			MoveByDot = MoveSpeed * TurnScalar;
+			AddMovementInput(FVector(1.0f, 0.0f, 0.0f), InputX * DeltaTime * MoveSpeed * MoveByDot);
+		}
 	}
 }
 
 void ATachyonCharacter::MoveUp(float Value)
 {
-	SetZ(Value);
-
-	float MoveByDot = 0.0f;
-	FVector MoveInput = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
-	FVector CurrentV = GetMovementComponent()->Velocity;
-	FVector VNorm = CurrentV.GetSafeNormal();
-
-	// Move by dot product for skating effect
-	if ((MoveInput != FVector::ZeroVector)
-		&& (Controller != nullptr))
+	if (Value != InputZ)
 	{
-		float DotToInput = (FVector::DotProduct(MoveInput, VNorm));
-		float AngleToInput = FMath::Acos(DotToInput);
-		AngleToInput = FMath::Clamp(AngleToInput, 1.0f, 1000.0f);
-
-		// Effect Move
-		float TurnScalar = MoveSpeed + FMath::Square(TurnSpeed * AngleToInput);
-		float DeltaTime = GetWorld()->DeltaTimeSeconds;
-		MoveByDot = MoveSpeed * TurnScalar;
-		AddMovementInput(FVector(0.0f, 0.0f, 1.0f), InputZ * DeltaTime * MoveSpeed * MoveByDot);
+		SetZ(Value);
 	}
+
+	if (!bJumping)
+	{
+		float MoveByDot = 0.0f;
+		FVector MoveInput = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
+		FVector CurrentV = GetMovementComponent()->Velocity;
+		FVector VNorm = CurrentV.GetSafeNormal();
+
+		// Move by dot product for skating effect
+		if ((MoveInput != FVector::ZeroVector)
+			&& (Controller != nullptr))
+		{
+			float DotToInput = (FVector::DotProduct(MoveInput, VNorm));
+			float AngleToInput = FMath::Acos(DotToInput);
+			AngleToInput = FMath::Clamp(AngleToInput, 1.0f, 1000.0f);
+
+			// Effect Move
+			float TurnScalar = MoveSpeed + FMath::Square(TurnSpeed * AngleToInput);
+			float DeltaTime = GetWorld()->DeltaTimeSeconds;
+			MoveByDot = MoveSpeed * TurnScalar;
+			AddMovementInput(FVector(0.0f, 0.0f, 1.0f), InputZ * DeltaTime * MoveSpeed * MoveByDot);
+		}
+	}
+}
+
+void ATachyonCharacter::EngageJump()
+{
+	if (!bJumping)
+	{
+		if (Role < ROLE_Authority)
+		{
+			ServerEngageJump();
+		}
+
+		bJumping = true;
+
+		// Jump Impulse
+		float JumpX = InputX;
+		if (JumpX == 0.0f)
+		{
+			JumpX = 1.0f;
+		}
+		FVector JumpVector = FVector(InputX, 0.0f, InputZ).GetSafeNormal() * BoostSpeed;
+		GetCharacterMovement()->AddImpulse(JumpVector, true);
+	}
+}
+void ATachyonCharacter::ServerEngageJump_Implementation()
+{
+	EngageJump();
+}
+bool ATachyonCharacter::ServerEngageJump_Validate()
+{
+	return true;
+}
+
+void ATachyonCharacter::DisengageJump()
+{
+	if (bJumping)
+	{
+		if (Role < ROLE_Authority)
+		{
+			ServerDisengageJump();
+		}
+
+		bJumping = false;
+		GetCharacterMovement()->MaxAcceleration = 600.0f;
+	}
+}
+void ATachyonCharacter::ServerDisengageJump_Implementation()
+{
+	DisengageJump();
+}
+bool ATachyonCharacter::ServerDisengageJump_Validate()
+{
+	return true;
+}
+
+void ATachyonCharacter::UpdateJump(float DeltaTime)
+{
+
+	if (Role < ROLE_Authority)
+	{
+		ServerUpdateJump(DeltaTime);
+	}
+}
+void ATachyonCharacter::ServerUpdateJump_Implementation(float DeltaTime)
+{
+	UpdateJump(DeltaTime);
+}
+bool ATachyonCharacter::ServerUpdateJump_Validate(float DeltaTime)
+{
+	return true;
 }
 
 void ATachyonCharacter::SetX(float Value)
 {
-	InputX = FMath::FInterpConstantTo(InputX, Value, GetWorld()->DeltaTimeSeconds, 15.0f);
+	InputX = Value; /// FMath::FInterpConstantTo(InputX, Value, GetWorld()->DeltaTimeSeconds, 100.0f);
 	
-	if (ActorHasTag("Bot"))
-	{
-		MoveRight(InputX);
-	}
-
 	if (Role < ROLE_Authority)
 	{
 		ServerSetX(Value);
@@ -181,12 +260,7 @@ bool ATachyonCharacter::ServerSetX_Validate(float Value)
 
 void ATachyonCharacter::SetZ(float Value)
 {
-	InputZ = FMath::FInterpConstantTo(InputZ, Value, GetWorld()->DeltaTimeSeconds, 15.0f);
-
-	if (ActorHasTag("Bot"))
-	{
-		MoveUp(InputZ);
-	}
+	InputZ = Value; /// FMath::FInterpConstantTo(InputZ, Value, GetWorld()->DeltaTimeSeconds, 100.0f);
 
 	if (Role < ROLE_Authority)
 	{
@@ -208,7 +282,6 @@ bool ATachyonCharacter::ServerSetZ_Validate(float Value)
 void ATachyonCharacter::ArmAttack()
 {
 	bShooting = true;
-	GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("ARMING"));
 
 	if (Role < ROLE_Authority)
 	{
@@ -228,7 +301,6 @@ bool ATachyonCharacter::ServerArmAttack_Validate()
 void ATachyonCharacter::ReleaseAttack()
 {
 	bShooting = false;
-	GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("DISARMING"));
 
 	if ((WindupTimer > 0.0f)
 		&& HasAuthority())
@@ -323,7 +395,8 @@ void ATachyonCharacter::FireAttack()
 					// The attack is born
 					if (ActiveAttack != nullptr)
 					{
-						ActiveAttack->InitAttack(this, 1.0f, InputZ); /// PrefireVal, AimClampedInputZ);
+						float AttackStrength = FMath::Clamp(WindupTimer, 0.1f, 1.0f);
+						ActiveAttack->InitAttack(this, AttackStrength, InputZ); /// PrefireVal, AimClampedInputZ);
 					}
 
 					// Position lock, or naw
@@ -378,6 +451,27 @@ void ATachyonCharacter::ServerFireAttack_Implementation()
 	FireAttack();
 }
 bool ATachyonCharacter::ServerFireAttack_Validate()
+{
+	return true;
+}
+
+
+void ATachyonCharacter::UpdateAttack(float DeltaTime)
+{
+	if (Role < ROLE_Authority)
+	{
+		ServerUpdateAttack(DeltaTime);
+	}
+	else if (ActiveAttack != nullptr)
+	{
+
+	}
+}
+void ATachyonCharacter::ServerUpdateAttack_Implementation(float DeltaTime)
+{
+	UpdateAttack(DeltaTime);
+}
+bool ATachyonCharacter::ServerUpdateAttack_Validate(float DeltaTime)
 {
 	return true;
 }
@@ -459,26 +553,9 @@ void ATachyonCharacter::UpdateHealth(float DeltaTime)
 
 void ATachyonCharacter::UpdateBody(float DeltaTime)
 {
-	
 	float VelocitySize = GetCharacterMovement()->Velocity.Size();
 	float AccelSpeed = FMath::Clamp((100.0f / VelocitySize) * MaxMoveSpeed, 1.0f, MaxMoveSpeed * 100.0f);
 	GetCharacterMovement()->MaxFlySpeed = AccelSpeed;
-	//GEngine->AddOnScreenDebugMessage(-1, 0.f, FColor::White, FString::Printf(TEXT("max fly speed: %f"), GetCharacterMovement()->MaxFlySpeed));
-
-	// Surface place
-	/*FVector PlayerPosition = GetActorLocation();
-	PlayerPosition.Z = FMath::Clamp(PlayerPosition.Z, -3000.0f, 10000.0f);
-	SetActorLocation(PlayerPosition);*/
-
-	// Timescale recovery
-	//float GlobalTimeDil = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
-	//if (GlobalTimeDil > 0.3f)
-	//{
-	//	float t = (FMath::Square(MyTimeDilation) * 100.0f) * DeltaTime;
-	//	float ReturnTime = FMath::FInterpConstantTo(MyTimeDilation, 1.0f, DeltaTime, 2.6f); // t or DeltaTime
-	//	CustomTimeDilation = FMath::Clamp(ReturnTime, 0.01f, 1.0f);
-	//	///GEngine->AddOnScreenDebugMessage(-1, 0.f, FColor::White, FString::Printf(TEXT("t: %f"), t));
-	//}
 
 	// Set rotation so character faces direction of travel
 	float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
@@ -512,11 +589,24 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 		}
 	}
 
+	if (Role < ROLE_Authority)
+	{
+		ServerUpdateBody(DeltaTime);
+	}
+
 	// Locator scaling
 	/*if (UGameplayStatics::GetGlobalTimeDilation(GetWorld()) > 0.01f)
 	{
 		LocatorScaling();
 	}*/
+}
+void ATachyonCharacter::ServerUpdateBody_Implementation(float DeltaTime)
+{
+	UpdateBody(DeltaTime);
+}
+bool ATachyonCharacter::ServerUpdateBody_Validate(float DeltaTime)
+{
+	return true;
 }
 
 void ATachyonCharacter::UpdateCamera(float DeltaTime)
@@ -610,14 +700,14 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 			FVector Actor1Velocity = Actor1->GetVelocity();
 			float SafeVelocitySize = FMath::Clamp(Actor1Velocity.Size() * 0.005f, 0.01f, 10.0f);
 			VelocityCameraSpeed = CameraMoveSpeed * SafeVelocitySize * FMath::Sqrt(1.0f / GlobalTimeScale);
-			VelocityCameraSpeed = FMath::Clamp(VelocityCameraSpeed, 0.1f, CameraMaxSpeed * 0.1f);
+			VelocityCameraSpeed = FMath::Clamp(VelocityCameraSpeed, 1.0f, CameraMaxSpeed * 0.1f);
 
 			FVector LocalPos = Actor1->GetActorLocation() + (Actor1Velocity * DeltaTime * CameraVelocityChase);
 			PositionOne = FMath::VInterpTo(PositionOne, LocalPos, DeltaTime, VelocityCameraSpeed);
 
 			// Setting up distance and speed dynamics
 			float ChargeScalar = FMath::Clamp((FMath::Sqrt(Charge - 0.9f)), 1.0f, ChargeMax);
-			float SpeedScalar = FMath::Sqrt(Actor1Velocity.Size() + 0.01f) * 0.1f;
+			float SpeedScalar = 1.0f + FMath::Sqrt(Actor1Velocity.Size() + 0.01f) * 0.1f;
 			float PersonalScalar = 1.0f + (36.0f * ChargeScalar * SpeedScalar) * (FMath::Sqrt(SafeVelocitySize));
 			float CameraMinimumDistance = 2500.0f + (PersonalScalar * CameraDistanceScalar); // (1100.0f + PersonalScalar)
 			float CameraMaxDistance = 11551000.0f;
@@ -678,9 +768,9 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 			MidpointBias = 0.2f; /// super jerky
 			}*/
 			FVector TargetMidpoint = PositionOne + ((PositionTwo - PositionOne) * MidpointBias);
-			float MidpointInterpSpeed = FMath::Clamp(TargetMidpoint.Size() * 0.01f, 1.0f, 100.0f);
+			float MidpointInterpSpeed = 10.0f * FMath::Clamp(TargetMidpoint.Size() * 0.01f, 10.0f, 100.0f);
 
-			Midpoint = FMath::VInterpTo(Midpoint, TargetMidpoint, DeltaTime, MidpointInterpSpeed);
+			Midpoint = TargetMidpoint; /// FMath::VInterpTo(Midpoint, TargetMidpoint, DeltaTime, MidpointInterpSpeed);
 			if (Midpoint.Size() > 0.0f)
 			{
 
@@ -736,7 +826,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 					TargetLengthClamped, DeltaTime, (VelocityCameraSpeed * 0.5f) * InverseTimeSpeed);
 
 				// Narrowing and expanding camera FOV for closeup and outer zones
-				float ScalarSize = FMath::Clamp(DistBetweenActors * 0.005f, 0.05f, 1.5f);
+				float ScalarSize = FMath::Clamp(DistBetweenActors * 0.005f, 0.05f, 1.0f);
 				float FOVTimeScalar = FMath::Clamp(GlobalTimeScale, 0.1f, 1.0f);
 				float FOV = 23.0f;
 				float FOVSpeed = 1.0f;
@@ -750,7 +840,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				else if (((DistBetweenActors >= 555.0f) || (Verticality >= 250.0f))
 					&& !bAlone)
 				{
-					float WideAngleFOV = FMath::Clamp((0.02f * DistBetweenActors), 42.0f, 71.0f);
+					float WideAngleFOV = FMath::Clamp((0.025f * DistBetweenActors), 42.0f, 71.0f);
 					FOV = WideAngleFOV; // 40
 				}
 				// GGTime Timescale adjustment
@@ -770,31 +860,13 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				// Make it so
 				CameraBoom->SetWorldLocation(Midpoint);
 				CameraBoom->TargetArmLength = DesiredCameraDistance;
-				SideViewCameraComponent->OrthoWidth = (DesiredCameraDistance);
+				//SideViewCameraComponent->OrthoWidth = (DesiredCameraDistance);
+
+				GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("FOV: %f"), SideViewCameraComponent->FieldOfView));
+				GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Dist: %f"), CameraBoom->TargetArmLength));
 			}
 		}
 	}
-}
-
-
-void ATachyonCharacter::UpdateAttack(float DeltaTime)
-{
-	if (Role < ROLE_Authority)
-	{
-		ServerUpdateAttack(DeltaTime);
-	}
-	else if (ActiveAttack != nullptr)
-	{
-		
-	}
-}
-void ATachyonCharacter::ServerUpdateAttack_Implementation(float DeltaTime)
-{
-	UpdateAttack(DeltaTime);
-}
-bool ATachyonCharacter::ServerUpdateAttack_Validate(float DeltaTime)
-{
-	return true;
 }
 
 
@@ -811,6 +883,7 @@ void ATachyonCharacter::GetLifetimeReplicatedProps(TArray <FLifetimeProperty> & 
 	DOREPLIFETIME(ATachyonCharacter, AttackTimer);
 	DOREPLIFETIME(ATachyonCharacter, bShooting);
 	DOREPLIFETIME(ATachyonCharacter, WindupTimer);
+	DOREPLIFETIME(ATachyonCharacter, bJumping);
 }
 
 

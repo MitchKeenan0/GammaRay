@@ -9,6 +9,8 @@ public class TachyonTarget : TargetRules
 	{
 		Type = TargetType.Game;
 
+		bUsesSteam = true;
+
 		ExtraModuleNames.AddRange( new string[] { "Tachyon" } );
 	}
 }
