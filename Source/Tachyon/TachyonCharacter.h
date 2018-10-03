@@ -58,7 +58,7 @@ public:
 	float MoveSpeed = 100.0f;
 
 	UPROPERTY(EditDefaultsOnly)
-	float BoostSpeed = 2500.0f;
+	float BoostSpeed = 1.0f;
 
 	UPROPERTY(EditDefaultsOnly)
 	float MaxMoveSpeed = 2000.0f;
@@ -70,7 +70,13 @@ public:
 	float AttackFireRate = 0.5f;
 
 	UPROPERTY(EditDefaultsOnly)
+	float AttackAngle = 21.0f;
+
+	UPROPERTY(EditDefaultsOnly)
 	float WindupTime = 0.1f;
+
+	UPROPERTY(EditDefaultsOnly)
+	float AttackRecoil = 100.0f;
 
 	UPROPERTY(EditDefaultsOnly)
 	float MaxHealth = 100.0f;
@@ -160,10 +166,16 @@ protected:
 	// MOVEMENT ///////////////////////////////////////////////////////////////
 	void MoveRight(float Value);
 	void MoveUp(float Value);
+	void MoveJump(float DeltaTime);
+	void BeginJump();
+	void EndJump();
 
 	// HEALTH & CAMERA ///////////////////////////////////////////////////////////////
 	void UpdateHealth(float DeltaTime);
 	void UpdateCamera(float DeltaTime);
+
+	UPROPERTY(EditDefaultsOnly)
+	class USceneComponent* AttackScene = nullptr;
 
 
 
@@ -184,6 +196,10 @@ protected:
 	bool bShooting = false;
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
 	bool bJumping = false;
+	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
+	float DiminishingJumpValue = 0.0f;
+	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
+	float BoostTimeAlive = 0.0f;
 
 
 	// ARMAMENT ///////////////////////////////////////////////////////////////
@@ -196,6 +212,11 @@ protected:
 	TSubclassOf<AActor> AttackWindupClass;
 	UPROPERTY(EditDefaultsOnly)
 	class AActor* ActiveWindup = nullptr;
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<AActor> BoostClass;
+	UPROPERTY(EditDefaultsOnly)
+	class AActor* ActiveBoost = nullptr;
 	
 	
 };

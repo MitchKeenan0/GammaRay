@@ -106,6 +106,9 @@ protected:
 	float ProjectileSpeed = 0.0f;
 
 	UPROPERTY(EditDefaultsOnly)
+	float ProjectileDrag = 0.0f;
+
+	UPROPERTY(EditDefaultsOnly)
 	bool bScaleProjectileSpeed = false;
 
 	UPROPERTY(EditDefaultsOnly)

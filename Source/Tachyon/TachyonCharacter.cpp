@@ -19,12 +19,17 @@ ATachyonCharacter::ATachyonCharacter()
 
 	GetCharacterMovement()->GravityScale = 0.0f;
 	GetCharacterMovement()->AirControl = 1.0f;
-	GetCharacterMovement()->MaxFlySpeed = 600.0f;
+	GetCharacterMovement()->MaxFlySpeed = 1000.0f;
 	GetCharacterMovement()->MovementMode = MOVE_Flying;
 	GetCharacterMovement()->DefaultLandMovementMode = MOVE_Flying;
 	GetCharacterMovement()->bConstrainToPlane = true;
 	GetCharacterMovement()->SetPlaneConstraintNormal(FVector(0.0f, -1.0f, 0.0f));
-	GetCharacterMovement()->NetworkSmoothingMode = ENetworkSmoothingMode::Linear;
+	GetCharacterMovement()->SetNetAddressable();
+	GetCharacterMovement()->SetIsReplicated(true);
+	GetCharacterMovement()->NetworkMaxSmoothUpdateDistance = 500.0f;
+	GetCharacterMovement()->NetworkMinTimeBetweenClientAckGoodMoves = 0.0f;
+	GetCharacterMovement()->NetworkMinTimeBetweenClientAdjustments = 0.0f;
+	GetCharacterMovement()->NetworkMinTimeBetweenClientAdjustmentsLargeCorrection = 0.0f;
 
 	// Create a camera boom attached to the root (capsule)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
@@ -46,6 +51,9 @@ ATachyonCharacter::ATachyonCharacter()
 	SideViewCameraComponent->bUsePawnControlRotation = false;
 	SideViewCameraComponent->bAutoActivate = true;
 	GetCharacterMovement()->bOrientRotationToMovement = false;
+
+	AttackScene = CreateDefaultSubobject<USceneComponent>(TEXT("AttackScene"));
+	AttackScene->SetupAttachment(RootComponent);
 	
 
 	bReplicates = true;
@@ -74,11 +82,21 @@ void ATachyonCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (Controller != nullptr)
+
+	// Local stuff
+	if ((Controller != nullptr))
 	{
 		UpdateHealth(DeltaTime);
 		UpdateBody(DeltaTime);
 		UpdateCamera(DeltaTime);
+	}
+
+	if (HasAuthority())
+	{
+		if (bJumping)
+		{
+			UpdateJump(DeltaTime);
+		}
 
 		if (bShooting)
 		{
@@ -110,86 +128,64 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 // MOVEMENT
 void ATachyonCharacter::MoveRight(float Value)
 {
-	if (Value != InputX)
-	{
-		SetX(Value);
-	}
+	SetX(Value);
 	
-	if (!bJumping)
+	float MoveByDot = 0.0f;
+	FVector MoveInput = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
+	FVector CurrentV = GetMovementComponent()->Velocity;
+	FVector VNorm = CurrentV.GetSafeNormal();
+
+	// Move by dot product for skating effect
+	if ((MoveInput != FVector::ZeroVector)
+		&& (Controller != nullptr))
 	{
-		float MoveByDot = 0.0f;
-		FVector MoveInput = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
-		FVector CurrentV = GetMovementComponent()->Velocity;
-		FVector VNorm = CurrentV.GetSafeNormal();
 
-		// Move by dot product for skating effect
-		if ((MoveInput != FVector::ZeroVector)
-			&& (Controller != nullptr))
-		{
+		float DotToInput = (FVector::DotProduct(MoveInput, VNorm));
+		float AngleToInput = FMath::Acos(DotToInput);
+		AngleToInput = FMath::Clamp(AngleToInput, 1.0f, 1000.0f);
 
-			float DotToInput = (FVector::DotProduct(MoveInput, VNorm));
-			float AngleToInput = FMath::Acos(DotToInput);
-			AngleToInput = FMath::Clamp(AngleToInput, 1.0f, 1000.0f);
-
-			// Effect Move
-			float TurnScalar = MoveSpeed + FMath::Square(TurnSpeed * AngleToInput);
-			float DeltaTime = GetWorld()->DeltaTimeSeconds;
-			MoveByDot = MoveSpeed * TurnScalar;
-			AddMovementInput(FVector(1.0f, 0.0f, 0.0f), InputX * DeltaTime * MoveSpeed * MoveByDot);
-		}
+		// Effect Move
+		float TurnScalar = MoveSpeed + FMath::Square(TurnSpeed * AngleToInput);
+		float DeltaTime = GetWorld()->DeltaTimeSeconds;
+		MoveByDot = MoveSpeed * TurnScalar;
+		AddMovementInput(FVector(1.0f, 0.0f, 0.0f), InputX * DeltaTime * MoveSpeed * MoveByDot);
 	}
 }
 
 void ATachyonCharacter::MoveUp(float Value)
 {
-	if (Value != InputZ)
+	SetZ(Value);
+
+	float MoveByDot = 0.0f;
+	FVector MoveInput = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
+	FVector CurrentV = GetMovementComponent()->Velocity;
+	FVector VNorm = CurrentV.GetSafeNormal();
+
+	// Move by dot product for skating effect
+	if ((MoveInput != FVector::ZeroVector)
+		&& (Controller != nullptr))
 	{
-		SetZ(Value);
-	}
+		float DotToInput = (FVector::DotProduct(MoveInput, VNorm));
+		float AngleToInput = FMath::Acos(DotToInput);
+		AngleToInput = FMath::Clamp(AngleToInput, 1.0f, 1000.0f);
 
-	if (!bJumping)
-	{
-		float MoveByDot = 0.0f;
-		FVector MoveInput = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
-		FVector CurrentV = GetMovementComponent()->Velocity;
-		FVector VNorm = CurrentV.GetSafeNormal();
-
-		// Move by dot product for skating effect
-		if ((MoveInput != FVector::ZeroVector)
-			&& (Controller != nullptr))
-		{
-			float DotToInput = (FVector::DotProduct(MoveInput, VNorm));
-			float AngleToInput = FMath::Acos(DotToInput);
-			AngleToInput = FMath::Clamp(AngleToInput, 1.0f, 1000.0f);
-
-			// Effect Move
-			float TurnScalar = MoveSpeed + FMath::Square(TurnSpeed * AngleToInput);
-			float DeltaTime = GetWorld()->DeltaTimeSeconds;
-			MoveByDot = MoveSpeed * TurnScalar;
-			AddMovementInput(FVector(0.0f, 0.0f, 1.0f), InputZ * DeltaTime * MoveSpeed * MoveByDot);
-		}
+		// Effect Move
+		float TurnScalar = MoveSpeed + FMath::Square(TurnSpeed * AngleToInput);
+		float DeltaTime = GetWorld()->DeltaTimeSeconds;
+		MoveByDot = MoveSpeed * TurnScalar;
+		AddMovementInput(FVector(0.0f, 0.0f, 1.0f), InputZ * DeltaTime * MoveSpeed * MoveByDot);
 	}
 }
 
 void ATachyonCharacter::EngageJump()
 {
-	if (!bJumping)
+	if (Role < ROLE_Authority)
 	{
-		if (Role < ROLE_Authority)
-		{
-			ServerEngageJump();
-		}
-
+		ServerEngageJump();
+	}
+	else if (!bJumping)
+	{
 		bJumping = true;
-
-		// Jump Impulse
-		float JumpX = InputX;
-		if (JumpX == 0.0f)
-		{
-			JumpX = 1.0f;
-		}
-		FVector JumpVector = FVector(InputX, 0.0f, InputZ).GetSafeNormal() * BoostSpeed;
-		GetCharacterMovement()->AddImpulse(JumpVector, true);
 	}
 }
 void ATachyonCharacter::ServerEngageJump_Implementation()
@@ -203,15 +199,24 @@ bool ATachyonCharacter::ServerEngageJump_Validate()
 
 void ATachyonCharacter::DisengageJump()
 {
-	if (bJumping)
+	if (Role < ROLE_Authority)
 	{
-		if (Role < ROLE_Authority)
-		{
-			ServerDisengageJump();
-		}
-
+		ServerDisengageJump();
+	}
+	else if (bJumping)
+	{
 		bJumping = false;
-		GetCharacterMovement()->MaxAcceleration = 600.0f;
+		DiminishingJumpValue = 0.0f;
+		BoostTimeAlive = 0.0f;
+
+		if (ActiveBoost != nullptr)
+		{
+			ActiveBoost->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+			ActiveBoost->SetActorLocation(GetActorLocation());
+			ActiveBoost->ForceNetUpdate();
+			ActiveBoost->SetLifeSpan(0.5f);
+			ActiveBoost = nullptr;
+		}
 	}
 }
 void ATachyonCharacter::ServerDisengageJump_Implementation()
@@ -225,10 +230,53 @@ bool ATachyonCharacter::ServerDisengageJump_Validate()
 
 void ATachyonCharacter::UpdateJump(float DeltaTime)
 {
-
 	if (Role < ROLE_Authority)
 	{
 		ServerUpdateJump(DeltaTime);
+	}
+	else
+	{
+		FVector MoveInputVector = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
+		if ((ActiveBoost == nullptr) && (BoostClass != nullptr))
+		{
+			if (HasAuthority())
+			{
+				FActorSpawnParameters SpawnParams;
+				FRotator InputRotation = MoveInputVector.Rotation();
+				FVector SpawnLocation = GetActorLocation() + (FVector::UpVector * 10.0f);
+				
+				ActiveBoost = GetWorld()->SpawnActor<AActor>(BoostClass, SpawnLocation, InputRotation, SpawnParams);
+				if (ActiveBoost != nullptr)
+				{
+					ActiveBoost->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
+				}
+			}
+		}
+		else
+		{
+			// Diminishing propulsion
+			if (ActiveBoost != nullptr)
+			{
+				BoostTimeAlive = ActiveBoost->GetGameTimeSinceCreation();
+				if (BoostTimeAlive > 0.05f)
+				{
+					DiminishingJumpValue = FMath::Clamp((1.0f / BoostTimeAlive), 0.9f, 100.0f);
+					FVector JumpVector = MoveInputVector * BoostSpeed * DiminishingJumpValue * DeltaTime;
+
+					if (GetCharacterMovement() != nullptr)
+					{
+						GetCharacterMovement()->AddImpulse(JumpVector, true);
+						//GetCharacterMovement()->AddInputVector(JumpVector * 1000.0f);
+						//GetCharacterMovement()->MaxAcceleration = JumpVector.Size();
+						//GetCharacterMovement()->UpdateComponentVelocity();
+						//ForceNetUpdate();
+
+						GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Green, TEXT("UPDATING JUMP..."));
+					}
+					
+				}
+			}
+		}
 	}
 }
 void ATachyonCharacter::ServerUpdateJump_Implementation(float DeltaTime)
@@ -383,27 +431,33 @@ void ATachyonCharacter::FireAttack()
 			if ((AttackClass != nullptr))/// || bMultipleAttacks)
 			{
 				// Spawning
-				FVector FirePosition = GetActorLocation(); ///AttackScene->GetComponentLocation();
-				FVector LocalForward = GetActorForwardVector(); /// AttackScene->GetForwardVector();
+				FVector FirePosition = AttackScene->GetComponentLocation();
+				FVector LocalForward = AttackScene->GetForwardVector();
 				LocalForward.Y = 0.0f;
 				FRotator FireRotation = LocalForward.GetSafeNormal().Rotation();
+				FireRotation += FRotator((AttackAngle * InputZ), 0.0f, 0.0f);
 				FActorSpawnParameters SpawnParams;
+				
 				ActiveAttack = Cast<ATachyonAttack>(GetWorld()->SpawnActor<ATachyonAttack>(AttackClass, FirePosition, FireRotation, SpawnParams));
 				if (ActiveAttack != nullptr)
 				{
-
 					// The attack is born
 					if (ActiveAttack != nullptr)
 					{
 						float AttackStrength = FMath::Clamp(WindupTimer, 0.1f, 1.0f);
 						ActiveAttack->InitAttack(this, AttackStrength, InputZ); /// PrefireVal, AimClampedInputZ);
+						
+						// Position lock, or naw
+						if (ActiveAttack->IsLockedEmitPoint())
+						{
+							ActiveAttack->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
+						}
+
+						// Recoil
+						GetCharacterMovement()->AddImpulse(FireRotation.Vector() * -(AttackRecoil * AttackStrength * 1000.0f));
 					}
 
-					// Position lock, or naw
-					if ((ActiveAttack != nullptr) && ActiveAttack->IsLockedEmitPoint())
-					{
-						ActiveAttack->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
-					}
+					
 
 					// Clean up previous flash
 					/*if ((GetActiveFlash() != nullptr))
@@ -510,7 +564,7 @@ bool ATachyonCharacter::ServerModifyHealth_Validate(float Value)
 // CHARACTER UPDATES
 void ATachyonCharacter::UpdateHealth(float DeltaTime)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Blue, FString::Printf(TEXT("Health: %f"), Health));
+	///GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Blue, FString::Printf(TEXT("Health: %f"), Health));
 
 	// Update smooth health value
 	if (MaxHealth < Health)
@@ -553,10 +607,6 @@ void ATachyonCharacter::UpdateHealth(float DeltaTime)
 
 void ATachyonCharacter::UpdateBody(float DeltaTime)
 {
-	float VelocitySize = GetCharacterMovement()->Velocity.Size();
-	float AccelSpeed = FMath::Clamp((100.0f / VelocitySize) * MaxMoveSpeed, 1.0f, MaxMoveSpeed * 100.0f);
-	GetCharacterMovement()->MaxFlySpeed = AccelSpeed;
-
 	// Set rotation so character faces direction of travel
 	float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
 	float ClimbDirection = FMath::Clamp(InputZ, -1.0f, 1.0f) * 5.0f;
@@ -862,8 +912,8 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				CameraBoom->TargetArmLength = DesiredCameraDistance;
 				//SideViewCameraComponent->OrthoWidth = (DesiredCameraDistance);
 
-				GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("FOV: %f"), SideViewCameraComponent->FieldOfView));
-				GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Dist: %f"), CameraBoom->TargetArmLength));
+				///GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("FOV: %f"), SideViewCameraComponent->FieldOfView));
+				///GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Dist: %f"), CameraBoom->TargetArmLength));
 			}
 		}
 	}
@@ -884,6 +934,7 @@ void ATachyonCharacter::GetLifetimeReplicatedProps(TArray <FLifetimeProperty> & 
 	DOREPLIFETIME(ATachyonCharacter, bShooting);
 	DOREPLIFETIME(ATachyonCharacter, WindupTimer);
 	DOREPLIFETIME(ATachyonCharacter, bJumping);
+	DOREPLIFETIME(ATachyonCharacter, DiminishingJumpValue);
 }
 
 

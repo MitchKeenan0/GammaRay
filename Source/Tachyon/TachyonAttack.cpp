@@ -83,11 +83,13 @@ void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 		RedirectAttack();
 		SpawnBurst();
 
-		// Speed
+		// Inherit speed from shooter
 		if (ProjectileComponent != nullptr)
 		{
-			FVector ShooterVelocity = OwningShooter->GetVelocity() * 0.3f;
-			ProjectileComponent->Velocity += ShooterVelocity;
+			FVector ShooterVelocity = OwningShooter->GetVelocity();
+			float VelSize = ShooterVelocity.Size();
+			FVector ScalarVelocity = ShooterVelocity.GetSafeNormal() * FMath::Sqrt(VelSize);
+			ProjectileComponent->Velocity += ScalarVelocity;
 		}
 
 		// Lifetime
