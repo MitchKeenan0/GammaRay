@@ -37,6 +37,7 @@ void ATachyonAttack::BeginPlay()
 {
 	Super::BeginPlay();
 	bLethal = false;
+	HitTimer = (1.0f / HitsPerSecond);
 	if (AttackParticles != nullptr)
 	{
 		AttackParticles->Deactivate();
@@ -90,6 +91,11 @@ void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 			float VelSize = ShooterVelocity.Size();
 			FVector ScalarVelocity = ShooterVelocity.GetSafeNormal() * FMath::Sqrt(VelSize);
 			ProjectileComponent->Velocity += ScalarVelocity;
+		}
+
+		if (FireShake != nullptr)
+		{
+			UGameplayStatics::PlayWorldCameraShake(GetWorld(), FireShake, GetActorLocation(), 1000.0f, 5555.0f, 1.0f, false);
 		}
 
 		// Lifetime
@@ -151,7 +157,13 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 
 	if (bLethal)
 	{
-		RaycastForHit(GetActorForwardVector());
+		HitTimer += DeltaT;
+		float TimeBetweenHits = (1.0f / HitsPerSecond);
+		if (HitTimer >= TimeBetweenHits)
+		{
+			RaycastForHit(GetActorForwardVector());
+			HitTimer = 0.0f;
+		}
 	}
 
 	if ((LifeTimer >= DeliveryTime)
@@ -330,5 +342,6 @@ void ATachyonAttack::GetLifetimeReplicatedProps(TArray <FLifetimeProperty> & Out
 	DOREPLIFETIME(ATachyonAttack, AttackMagnitude);
 	DOREPLIFETIME(ATachyonAttack, AttackDirection);
 	DOREPLIFETIME(ATachyonAttack, AttackDamage);
-	
+	DOREPLIFETIME(ATachyonAttack, LifeTimer);
+	DOREPLIFETIME(ATachyonAttack, HitTimer);
 }

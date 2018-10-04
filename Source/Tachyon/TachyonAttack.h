@@ -162,6 +162,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<AActor> DamageClass = nullptr;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TSubclassOf<UCameraShake> FireShake = nullptr;
+
 	/*UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	class UAudioComponent* AttackSound = nullptr;
 
@@ -170,15 +173,6 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<AGDamage> BlockedClass = nullptr;*/
-
-
-	/////////////////////////////////////////////////////////////////////////
-	// Local Variables
-	UPROPERTY(EditDefaultsOnly)
-	float LifeTimer = 0.0f;
-
-	UPROPERTY(EditDefaultsOnly)
-	float HitTimer = 0.0f;
 
 
 	/////////////////////////////////////////////////////////////////////////
@@ -198,11 +192,17 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
 	float LethalTime = 0.2f;
 
+	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
+	float LifeTimer = 0.0f;
+
+	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
+	float HitTimer = 0.0f;
+
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	bool bHit = false;
 
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
-	int NumHits = 1;
+	int NumHits = 0;
 
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	float AttackMagnitude = 0.0f;

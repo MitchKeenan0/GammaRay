@@ -4,6 +4,7 @@
 
 #include "Tachyon.h"
 #include "TachyonAttack.h"
+#include "TApparel.h"
 #include "GameFramework/Character.h"
 #include "TachyonCharacter.generated.h"
 
@@ -52,6 +53,12 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void NullifyAttack() { ActiveAttack = nullptr; }
 
+	UFUNCTION(BlueprintCallable)
+	void SetApparel(ATApparel* NewApparel) { ActiveApparel = NewApparel; DonApparel(); }
+
+	UFUNCTION(BlueprintCallable)
+	void DonApparel();
+
 
 	// ATTRIBUTES ///////////////////////////////////////////////////////////////
 	UPROPERTY(EditDefaultsOnly)
@@ -73,10 +80,10 @@ public:
 	float AttackAngle = 21.0f;
 
 	UPROPERTY(EditDefaultsOnly)
-	float WindupTime = 0.1f;
+	float AttackRecoil = 2100.0f;
 
 	UPROPERTY(EditDefaultsOnly)
-	float AttackRecoil = 100.0f;
+	float WindupTime = 0.1f;
 
 	UPROPERTY(EditDefaultsOnly)
 	float MaxHealth = 100.0f;
@@ -217,6 +224,11 @@ protected:
 	TSubclassOf<AActor> BoostClass;
 	UPROPERTY(EditDefaultsOnly)
 	class AActor* ActiveBoost = nullptr;
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<ATApparel> ApparelClass;
+	UPROPERTY(EditDefaultsOnly)
+	class ATApparel* ActiveApparel = nullptr;
 	
 	
 };

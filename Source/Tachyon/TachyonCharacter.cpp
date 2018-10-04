@@ -73,6 +73,13 @@ void ATachyonCharacter::BeginPlay()
 	Health = MaxHealth;
 	Tags.Add("Player");
 	Tags.Add("FramingActor");
+
+	// Setup Apparel
+	if ((Controller != nullptr)
+		&& (Controller->IsLocalController()))
+	{
+		DonApparel();
+	}
 }
 
 
@@ -454,7 +461,12 @@ void ATachyonCharacter::FireAttack()
 						}
 
 						// Recoil
-						GetCharacterMovement()->AddImpulse(FireRotation.Vector() * -(AttackRecoil * AttackStrength * 1000.0f));
+						FVector RecoilVector = FireRotation.Vector().GetSafeNormal();
+						GetCharacterMovement()->AddImpulse(
+							RecoilVector 
+							* -AttackRecoil
+							* FMath::Square(1.0f + AttackStrength) 
+							* 30.0f);
 					}
 
 					
@@ -919,6 +931,20 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 	}
 }
 
+
+void ATachyonCharacter::DonApparel()
+{
+	if (ActiveApparel == nullptr)
+	{
+		FActorSpawnParameters SpawnParams;
+		ActiveApparel = GetWorld()->SpawnActor<ATApparel>(ApparelClass, GetActorLocation(), GetActorRotation(), SpawnParams);
+	}
+	
+	if (ActiveApparel != nullptr)
+	{
+		GetMesh()->SetMaterial(0, ActiveApparel->ApparelMaterial);
+	}
+}
 
 ////////////////////////////////////////////////////////////////////////
 // NETWORK REPLICATION
