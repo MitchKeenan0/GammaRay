@@ -15,6 +15,7 @@ class TACHYON_API ATachyonAttack : public AActor
 
 	void UpdateLifeTime(float DeltaT);
 	void SpawnBurst();
+
 	
 public:	
 	// Sets default values for this actor's properties
@@ -39,6 +40,9 @@ public:
 
 	UFUNCTION()
 	void Lethalize();
+
+	UFUNCTION()
+	void SetInitVelocities();
 
 
 
@@ -96,9 +100,6 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	bool bAbsoluteHitForce = true;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	bool bLethal = false;
-
 	UPROPERTY(EditDefaultsOnly)
 	float ShootingAngle = 21.0f;
 
@@ -138,6 +139,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	float KineticForce = 100.0f;
 
+	UPROPERTY(EditDefaultsOnly)
+	float RecoilForce = 1000.0f;
+
 
 	/////////////////////////////////////////////////////////////////////////
 	// Components
@@ -165,53 +169,47 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<UCameraShake> FireShake = nullptr;
 
-	/*UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	class UAudioComponent* AttackSound = nullptr;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	TSubclassOf<AGDamage> DamageClass = nullptr;
+	/*
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	TSubclassOf<AGDamage> BlockedClass = nullptr;*/
+	TSubclassOf<AGDamage> BlockedClass = nullptr;
+	
+	*/
 
 
 	/////////////////////////////////////////////////////////////////////////
 	// Replicated Variables
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	bool bInitialized = false;
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated)
 	class AActor* OwningShooter = nullptr;
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated)
 	class AActor* HitActor = nullptr;
-
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	float DynamicLifetime = 0.0f;
-
 	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
 	float LethalTime = 0.2f;
-
 	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
 	float LifeTimer = 0.0f;
-
 	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
 	float HitTimer = 0.0f;
-
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	bool bHit = false;
-
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	int NumHits = 0;
-
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	float AttackMagnitude = 0.0f;
-
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	float AttackDirection = 0.0f;
-
 	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
 	float AttackDamage = 1.0f;
+	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
+	bool bLethal = false;
+	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
+	bool bDoneLethal = false;
 
 	
 

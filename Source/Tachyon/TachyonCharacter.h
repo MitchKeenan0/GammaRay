@@ -4,6 +4,7 @@
 
 #include "Tachyon.h"
 #include "TachyonAttack.h"
+#include "TachyonPlayerState.h"
 #include "TApparel.h"
 #include "GameFramework/Character.h"
 #include "TachyonCharacter.generated.h"
@@ -52,9 +53,6 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void NullifyAttack() { ActiveAttack = nullptr; }
-
-	UFUNCTION(BlueprintCallable)
-	void SetApparel(ATApparel* NewApparel) { ActiveApparel = NewApparel; DonApparel(); }
 
 	UFUNCTION(BlueprintCallable)
 	void DonApparel();
@@ -161,6 +159,12 @@ public:
 	void ModifyHealth(float Value);
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
 	void ServerModifyHealth(float Value);
+
+	UFUNCTION(BlueprintCallable)
+	void SetApparel(int ApparelIndex);
+	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
+	void ServerSetApparel(int ApparelIndex);
+
 	
 
 protected:
@@ -207,6 +211,10 @@ protected:
 	float DiminishingJumpValue = 0.0f;
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
 	float BoostTimeAlive = 0.0f;
+	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
+	int iApparelIndex = 0;
+	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
+	class ATApparel* ActiveApparel = nullptr;
 
 
 	// ARMAMENT ///////////////////////////////////////////////////////////////
@@ -227,8 +235,8 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<ATApparel> ApparelClass;
-	UPROPERTY(EditDefaultsOnly)
-	class ATApparel* ActiveApparel = nullptr;
+	/*UPROPERTY(EditDefaultsOnly)
+	class ATApparel* ActiveApparel = nullptr;*/
 	
 	
 };

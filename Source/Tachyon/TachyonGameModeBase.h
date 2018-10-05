@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "TApparel.h"
+#include "TachyonGameState.h"
 #include "GameFramework/GameModeBase.h"
 #include "TachyonGameModeBase.generated.h"
 
@@ -15,10 +15,6 @@ class TACHYON_API ATachyonGameModeBase : public AGameModeBase
 {
 	GENERATED_BODY()
 
-	
-public:
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	TArray<TSubclassOf<ATApparel>> Skins;
+
 
 };

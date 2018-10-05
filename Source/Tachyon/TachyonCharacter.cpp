@@ -74,12 +74,7 @@ void ATachyonCharacter::BeginPlay()
 	Tags.Add("Player");
 	Tags.Add("FramingActor");
 
-	// Setup Apparel
-	if ((Controller != nullptr)
-		&& (Controller->IsLocalController()))
-	{
-		DonApparel();
-	}
+	///DonApparel();
 }
 
 
@@ -273,14 +268,7 @@ void ATachyonCharacter::UpdateJump(float DeltaTime)
 					if (GetCharacterMovement() != nullptr)
 					{
 						GetCharacterMovement()->AddImpulse(JumpVector, true);
-						//GetCharacterMovement()->AddInputVector(JumpVector * 1000.0f);
-						//GetCharacterMovement()->MaxAcceleration = JumpVector.Size();
-						//GetCharacterMovement()->UpdateComponentVelocity();
-						//ForceNetUpdate();
-
-						GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Green, TEXT("UPDATING JUMP..."));
 					}
-					
 				}
 			}
 		}
@@ -463,7 +451,7 @@ void ATachyonCharacter::FireAttack()
 						// Recoil
 						FVector RecoilVector = FireRotation.Vector().GetSafeNormal();
 						GetCharacterMovement()->AddImpulse(
-							RecoilVector 
+							RecoilVector
 							* -AttackRecoil
 							* FMath::Square(1.0f + AttackStrength) 
 							* 30.0f);
@@ -934,16 +922,53 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 
 void ATachyonCharacter::DonApparel()
 {
-	if (ActiveApparel == nullptr)
+	if (Controller != nullptr)
 	{
-		FActorSpawnParameters SpawnParams;
-		ActiveApparel = GetWorld()->SpawnActor<ATApparel>(ApparelClass, GetActorLocation(), GetActorRotation(), SpawnParams);
+		APlayerState* PlayerState = Controller->PlayerState;
+		if (PlayerState != nullptr)
+		{
+			ATachyonPlayerState* MyState = Cast<ATachyonPlayerState>(PlayerState);
+			if (MyState != nullptr)
+			{
+				TArray<TSubclassOf<ATApparel>> MyApparels = MyState->Skins;
+				if (MyApparels.Num() > 0)
+				{
+					FActorSpawnParameters SpawnParams;
+					TSubclassOf<ATApparel> Attire = MyApparels[iApparelIndex];
+					if (Attire != nullptr)
+					{
+						ActiveApparel = GetWorld()->SpawnActor<ATApparel>(Attire, SpawnParams);
+
+						if (ActiveApparel != nullptr)
+						{
+							GetMesh()->SetMaterial(0, ActiveApparel->ApparelMaterial);
+
+							GEngine->AddOnScreenDebugMessage(-1, 30.0f, FColor::Green, TEXT("Donned New Apparel"));
+						}
+					}
+				}
+			}
+		}
 	}
+}
+
+void ATachyonCharacter::SetApparel(int ApparelIndex)
+{
+	iApparelIndex = ApparelIndex;
+	DonApparel();
 	
-	if (ActiveApparel != nullptr)
+	if (Role < ROLE_Authority)
 	{
-		GetMesh()->SetMaterial(0, ActiveApparel->ApparelMaterial);
+		ServerSetApparel(ApparelIndex);
 	}
+}
+void ATachyonCharacter::ServerSetApparel_Implementation(int ApparelIndex)
+{
+	SetApparel(ApparelIndex);
+}
+bool ATachyonCharacter::ServerSetApparel_Validate(int ApparelIndex)
+{
+	return true;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -961,6 +986,8 @@ void ATachyonCharacter::GetLifetimeReplicatedProps(TArray <FLifetimeProperty> & 
 	DOREPLIFETIME(ATachyonCharacter, WindupTimer);
 	DOREPLIFETIME(ATachyonCharacter, bJumping);
 	DOREPLIFETIME(ATachyonCharacter, DiminishingJumpValue);
+	DOREPLIFETIME(ATachyonCharacter, ActiveApparel);
+	DOREPLIFETIME(ATachyonCharacter, iApparelIndex);
 }
 
 

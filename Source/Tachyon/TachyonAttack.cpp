@@ -28,6 +28,10 @@ ATachyonAttack::ATachyonAttack()
 	ProjectileComponent->ProjectileGravityScale = 0.0f;
 	ProjectileComponent->SetIsReplicated(true);
 
+	AttackSound = CreateDefaultSubobject<UAudioComponent>(TEXT("AttackSound"));
+	AttackSound->SetupAttachment(RootComponent);
+	AttackSound->bAutoActivate = false;
+
 	bReplicates = true;
 	bReplicateMovement = true;
 }
@@ -53,22 +57,12 @@ void ATachyonAttack::SpawnBurst()
 		if (NewBurst != nullptr)
 		{
 			NewBurst->AttachToActor(OwningShooter, FAttachmentTransformRules::KeepWorldTransform);
-			float MagnitudeScalar = FMath::Clamp(AttackMagnitude * 2.1f, 0.5f, 1.1f);
-			FVector NewBurstScale = NewBurst->GetActorRelativeScale3D() * MagnitudeScalar;
+			
+			float VisibleMagnitude = FMath::Clamp(AttackMagnitude, 0.5f, 1.0f);
+			FVector NewBurstScale = NewBurst->GetActorRelativeScale3D() * VisibleMagnitude;
 			NewBurst->SetActorRelativeScale3D(NewBurstScale);
-		}
-
-		// Inherit some velocity from owning shooter
-		if (ProjectileSpeed != 0.0f)
-		{
-			FVector ShooterVelocity = OwningShooter->GetVelocity();
-			FVector ScalarVelocity = FVector::ZeroVector;
-			float VelFloat = ShooterVelocity.Size();
-			if (VelFloat != 0.0f)
-			{
-				ScalarVelocity = ShooterVelocity.GetSafeNormal() * FMath::Sqrt(VelFloat);
-				ProjectileComponent->Velocity += ScalarVelocity;
-			}
+			
+			NewBurst->SetLifeSpan(AttackMagnitude);
 		}
 	}
 }
@@ -78,20 +72,21 @@ void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 	OwningShooter = Shooter;
 	if (OwningShooter != nullptr)
 	{
-		AttackMagnitude = Magnitude;
+		AttackMagnitude = FMath::Clamp(Magnitude, 0.1f, 1.0f);
 		AttackDirection = YScale;
 
-		RedirectAttack();
-		SpawnBurst();
+		float MagnitudeDelivery = (DeliveryTime * AttackMagnitude) * 0.5f;
+		DeliveryTime += MagnitudeDelivery;
 
-		// Inherit speed from shooter
-		if (ProjectileComponent != nullptr)
-		{
-			FVector ShooterVelocity = OwningShooter->GetVelocity();
-			float VelSize = ShooterVelocity.Size();
-			FVector ScalarVelocity = ShooterVelocity.GetSafeNormal() * FMath::Sqrt(VelSize);
-			ProjectileComponent->Velocity += ScalarVelocity;
-		}
+		float ModifiedHitsPerSecond = HitsPerSecond * AttackMagnitude;
+		HitsPerSecond += ModifiedHitsPerSecond;
+
+		float ModifiedKineticForce = (KineticForce * AttackMagnitude) * 0.2f;
+		KineticForce -= ModifiedKineticForce;
+
+		RedirectAttack();
+		SetInitVelocities();
+		SpawnBurst();
 
 		if (FireShake != nullptr)
 		{
@@ -107,10 +102,54 @@ void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 void ATachyonAttack::Lethalize()
 {
 	bLethal = true;
+	bDoneLethal = true;
+
+	if (AttackSound != nullptr)
+	{
+		float ModifiedPitch = AttackSound->PitchMultiplier * (AttackMagnitude);
+		AttackSound->SetPitchMultiplier(ModifiedPitch);
+		AttackSound->Activate();
+	}
 
 	if (AttackParticles != nullptr)
 	{
 		AttackParticles->Activate();
+	}
+
+	// Shooter Recoil
+	FVector RecoilVector = GetActorRotation().Vector().GetSafeNormal();
+	ACharacter* CharacterShooter = Cast<ACharacter>(OwningShooter);
+	if (CharacterShooter != nullptr)
+	{
+		FVector ShooterVelocity = CharacterShooter->GetCharacterMovement()->Velocity;
+		RecoilVector *= (RecoilForce * -AttackMagnitude);
+		CharacterShooter->GetCharacterMovement()->Velocity = (ShooterVelocity + RecoilVector);
+	}
+}
+
+void ATachyonAttack::SetInitVelocities()
+{
+	FVector ShooterVelocity = OwningShooter->GetVelocity();
+
+	// Inherit some velocity from owning shooter
+	if ((ProjectileComponent != nullptr) && (ProjectileSpeed != 0.0f))
+	{
+		
+		FVector ScalarVelocity = FVector::ZeroVector;
+		float VelFloat = ShooterVelocity.Size();
+		if (VelFloat != 0.0f)
+		{
+			ScalarVelocity = ShooterVelocity.GetSafeNormal() * FMath::Sqrt(VelFloat);
+			ProjectileComponent->Velocity += ScalarVelocity;
+		}
+	}
+
+	// Slow shooter
+	FVector PostFireShooterVelocity = (ShooterVelocity * HitSlow);
+	ACharacter* CharacterShooter = Cast<ACharacter>(OwningShooter);
+	if (CharacterShooter != nullptr)
+	{
+		CharacterShooter->GetCharacterMovement()->Velocity = PostFireShooterVelocity;
 	}
 }
 
@@ -167,7 +206,7 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 	}
 
 	if ((LifeTimer >= DeliveryTime)
-		&& !bLethal)
+		&& !bLethal && !bDoneLethal)
 	{
 		Lethalize();
 	}
@@ -344,4 +383,6 @@ void ATachyonAttack::GetLifetimeReplicatedProps(TArray <FLifetimeProperty> & Out
 	DOREPLIFETIME(ATachyonAttack, AttackDamage);
 	DOREPLIFETIME(ATachyonAttack, LifeTimer);
 	DOREPLIFETIME(ATachyonAttack, HitTimer);
+	DOREPLIFETIME(ATachyonAttack, bLethal);
+	DOREPLIFETIME(ATachyonAttack, bDoneLethal);
 }
