@@ -51,11 +51,12 @@ ATachyonCharacter::ATachyonCharacter()
 	SideViewCameraComponent->bUsePawnControlRotation = false;
 	SideViewCameraComponent->bAutoActivate = true;
 	GetCharacterMovement()->bOrientRotationToMovement = false;
+	bUseControllerRotationPitch = true;
+	bUseControllerRotationRoll = true;
 
 	AttackScene = CreateDefaultSubobject<USceneComponent>(TEXT("AttackScene"));
 	AttackScene->SetupAttachment(RootComponent);
 	
-
 	bReplicates = true;
 	bReplicateMovement = true;
 }
@@ -86,7 +87,7 @@ void ATachyonCharacter::Tick(float DeltaTime)
 
 
 	// Local stuff
-	if ((Controller != nullptr))
+	if (Controller != nullptr)
 	{
 		UpdateHealth(DeltaTime);
 		UpdateBody(DeltaTime);
@@ -179,6 +180,8 @@ void ATachyonCharacter::MoveUp(float Value)
 	}
 }
 
+////////////////////////////////////////////////////////////////////////
+// JUMP
 void ATachyonCharacter::EngageJump()
 {
 	if (Role < ROLE_Authority)
@@ -239,8 +242,15 @@ void ATachyonCharacter::UpdateJump(float DeltaTime)
 	else
 	{
 		FVector MoveInputVector = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
+		
+		// First-timer does initial kick and visuals
 		if ((ActiveBoost == nullptr) && (BoostClass != nullptr))
 		{
+			if (GetCharacterMovement() != nullptr)
+			{
+				GetCharacterMovement()->AddImpulse(MoveInputVector * 1000.0f, true);
+			}
+
 			if (HasAuthority())
 			{
 				FActorSpawnParameters SpawnParams;
@@ -262,7 +272,7 @@ void ATachyonCharacter::UpdateJump(float DeltaTime)
 				BoostTimeAlive = ActiveBoost->GetGameTimeSinceCreation();
 				if (BoostTimeAlive > 0.05f)
 				{
-					DiminishingJumpValue = FMath::Clamp((1.0f / BoostTimeAlive), 0.9f, 100.0f);
+					DiminishingJumpValue = FMath::Clamp((1.0f / BoostTimeAlive), 0.1f, 1000.0f);
 					FVector JumpVector = MoveInputVector * BoostSpeed * DiminishingJumpValue * DeltaTime;
 
 					if (GetCharacterMovement() != nullptr)
@@ -283,6 +293,8 @@ bool ATachyonCharacter::ServerUpdateJump_Validate(float DeltaTime)
 	return true;
 }
 
+////////////////////////////////////////////////////////////////////////
+// NET AIM
 void ATachyonCharacter::SetX(float Value)
 {
 	InputX = Value; /// FMath::FInterpConstantTo(InputX, Value, GetWorld()->DeltaTimeSeconds, 100.0f);
@@ -532,7 +544,7 @@ bool ATachyonCharacter::ServerUpdateAttack_Validate(float DeltaTime)
 
 
 ////////////////////////////////////////////////////////////////////////
-// MODIFY HEALTH
+// HEALTH
 void ATachyonCharacter::ModifyHealth(float Value)
 {
 	if (Value >= 100.0f)
@@ -638,6 +650,20 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 			Controller->SetControlRotation(Fint);
 		}
 	}
+
+	// Body stretch-and-squash
+	float Lateral = 1.0f + FMath::Abs(InputX * 0.1f);
+	float Vertical = 1.0f + (InputZ * 0.1f);
+	FVector BodyVector = FVector(Lateral, 1.1f, Vertical) * 2.2f; // Hard-Code!!
+	GetMesh()->SetWorldScale3D(BodyVector);
+
+	// Camera Move-Sway
+	//bool bMoving = (InputX != InputZ);
+	//if (bMoving && (CameraMoveShake != nullptr))
+	//{
+	//	UGameplayStatics::GetPlayerCameraManager(GetWorld(), 0)->PlayCameraShake(CameraMoveShake, 1.0f, ECameraAnimPlaySpace::CameraLocal, FRotator::ZeroRotator);
+	//	//UGameplayStatics::PlayWorldCameraShake(GetWorld(), CameraMoveShake, GetActorLocation(), 0.0f, 5555.0f, 1.0f, false);
+	//}
 
 	if (Role < ROLE_Authority)
 	{
@@ -920,6 +946,8 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 }
 
 
+////////////////////////////////////////////////////////////////////////
+// COSMETICS
 void ATachyonCharacter::DonApparel()
 {
 	if (Controller != nullptr)
@@ -970,6 +998,7 @@ bool ATachyonCharacter::ServerSetApparel_Validate(int ApparelIndex)
 {
 	return true;
 }
+
 
 ////////////////////////////////////////////////////////////////////////
 // NETWORK REPLICATION

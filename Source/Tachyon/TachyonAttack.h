@@ -65,6 +65,9 @@ protected:
 	void MainHit(AActor* HitActor, FVector HitLocation);
 
 	UFUNCTION()
+	void ReportHitToMatch(AActor* Shooter, AActor* Mark);
+
+	UFUNCTION()
 	void RaycastForHit(FVector RaycastVector);
 
 	UFUNCTION()
@@ -160,6 +163,11 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	class UProjectileMovementComponent* ProjectileComponent = nullptr;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	class URadialForceComponent* AttackRadial = nullptr;
+
+	/////////////////////////////////////////////////////////////////////////
+	// Spawned Resources
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<AActor> BurstClass = nullptr;
 
@@ -210,6 +218,8 @@ protected:
 	bool bLethal = false;
 	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
 	bool bDoneLethal = false;
+	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
+	bool bFirstHitReported = false;
 
 	
 

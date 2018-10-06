@@ -50,14 +50,15 @@ void ATachyonAttackWarmup::InitWarmup()
 
 void ATachyonAttackWarmup::UpdateWarmup(float DeltaTime)
 {
-
 	// Scaling sound
 	if (WarmupSound != nullptr)
 	{
 		float CurrentPitch = WarmupSound->PitchMultiplier;
-		float InterpPitch = FMath::FInterpTo(CurrentPitch, MaxPitch, DeltaTime, (GainSpeed + CurrentPitch));
+		float InterpPitch = FMath::FInterpTo(CurrentPitch, MaxPitch, DeltaTime, (GainSpeed * CurrentPitch));
+		
 		float CurrentVolume = WarmupSound->VolumeMultiplier;
-		float InterpVolume = FMath::FInterpConstantTo(CurrentVolume, MaxVolume, DeltaTime, (GainSpeed + CurrentVolume));
+		float InterpVolume = FMath::FInterpConstantTo(CurrentVolume, MaxVolume, DeltaTime, (GainSpeed * CurrentVolume));
+		
 		WarmupSound->SetPitchMultiplier(InterpPitch);
 		WarmupSound->SetVolumeMultiplier(InterpVolume);
 	}

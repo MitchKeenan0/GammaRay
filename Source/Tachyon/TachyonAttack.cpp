@@ -2,6 +2,7 @@
 
 #include "TachyonAttack.h"
 #include "TachyonCharacter.h"
+#include "TachyonGameStateBase.h"
 #include "PaperSpriteComponent.h"
 
 
@@ -24,13 +25,15 @@ ATachyonAttack::ATachyonAttack()
 	AttackSprite = CreateDefaultSubobject<UPaperSpriteComponent>(TEXT("AttackSprite"));
 	AttackSprite->SetupAttachment(RootComponent);
 
+	AttackSound = CreateDefaultSubobject<UAudioComponent>(TEXT("AttackSound"));
+	AttackSound->SetupAttachment(RootComponent);
+	AttackSound->bAutoActivate = false;
+
 	ProjectileComponent = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileComponent"));
 	ProjectileComponent->ProjectileGravityScale = 0.0f;
 	ProjectileComponent->SetIsReplicated(true);
 
-	AttackSound = CreateDefaultSubobject<UAudioComponent>(TEXT("AttackSound"));
-	AttackSound->SetupAttachment(RootComponent);
-	AttackSound->bAutoActivate = false;
+	AttackRadial = CreateDefaultSubobject<URadialForceComponent>(TEXT("AttackRadial"));
 
 	bReplicates = true;
 	bReplicateMovement = true;
@@ -45,6 +48,10 @@ void ATachyonAttack::BeginPlay()
 	if (AttackParticles != nullptr)
 	{
 		AttackParticles->Deactivate();
+	}
+	if (AttackRadial != nullptr)
+	{
+		AttackRadial->SetWorldLocation(GetActorLocation());
 	}
 }
 
@@ -72,29 +79,33 @@ void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 	OwningShooter = Shooter;
 	if (OwningShooter != nullptr)
 	{
+
 		AttackMagnitude = FMath::Clamp(Magnitude, 0.1f, 1.0f);
 		AttackDirection = YScale;
 
-		float MagnitudeDelivery = (DeliveryTime * AttackMagnitude) * 0.5f;
+		// Attack magnitude characteristics
+		float MagnitudeDelivery = (DeliveryTime * AttackMagnitude) * 0.5555f;
 		DeliveryTime += MagnitudeDelivery;
 
-		float ModifiedHitsPerSecond = HitsPerSecond * AttackMagnitude;
+		float ModifiedHitsPerSecond = HitsPerSecond * (AttackMagnitude * 2.1f);
 		HitsPerSecond += ModifiedHitsPerSecond;
 
-		float ModifiedKineticForce = (KineticForce * AttackMagnitude) * 0.2f;
-		KineticForce -= ModifiedKineticForce;
+		float ModifiedKineticForce = (KineticForce * AttackMagnitude) * 0.2222f;
+		KineticForce += ModifiedKineticForce;
 
+		// Movement and VFX
 		RedirectAttack();
 		SetInitVelocities();
 		SpawnBurst();
 
 		if (FireShake != nullptr)
 		{
-			UGameplayStatics::PlayWorldCameraShake(GetWorld(), FireShake, GetActorLocation(), 1000.0f, 5555.0f, 1.0f, false);
+			UGameplayStatics::PlayWorldCameraShake(GetWorld(), FireShake, GetActorLocation(), 0.0f, 5555.0f, 1.0f, false);
 		}
 
 		// Lifetime
 		DynamicLifetime = (DeliveryTime + LethalTime + DurationTime);
+		
 		bInitialized = true;
 	}
 }
@@ -113,6 +124,11 @@ void ATachyonAttack::Lethalize()
 
 	if (AttackParticles != nullptr)
 	{
+		float ParticleSize = FMath::Clamp((AttackMagnitude * 2.0f), 0.5f, 1.5f);
+		FVector ModifiedScale = AttackParticles->GetComponentScale();
+		ModifiedScale.Z *= ParticleSize;
+		ModifiedScale.Y *= ParticleSize;
+		AttackParticles->SetRelativeScale3D(ModifiedScale);
 		AttackParticles->Activate();
 	}
 
@@ -134,12 +150,13 @@ void ATachyonAttack::SetInitVelocities()
 	// Inherit some velocity from owning shooter
 	if ((ProjectileComponent != nullptr) && (ProjectileSpeed != 0.0f))
 	{
+		ProjectileComponent->Velocity = GetActorForwardVector() * ProjectileSpeed;
 		
-		FVector ScalarVelocity = FVector::ZeroVector;
-		float VelFloat = ShooterVelocity.Size();
-		if (VelFloat != 0.0f)
+		float VelSize = ShooterVelocity.Size();
+		if (VelSize != 0.0f)
 		{
-			ScalarVelocity = ShooterVelocity.GetSafeNormal() * FMath::Sqrt(VelFloat);
+			FVector ScalarVelocity = ShooterVelocity.GetSafeNormal() * FMath::Sqrt(VelSize) * ProjectileSpeed;
+			ScalarVelocity.Z *= 0.315f;
 			ProjectileComponent->Velocity += ScalarVelocity;
 		}
 	}
@@ -196,9 +213,9 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 
 	if (bLethal)
 	{
+		float TimeProofDelta = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
 		HitTimer += DeltaT;
-		float TimeBetweenHits = (1.0f / HitsPerSecond);
-		if (HitTimer >= TimeBetweenHits)
+		if (HitTimer >= ((1.0f / HitsPerSecond) * TimeProofDelta))
 		{
 			RaycastForHit(GetActorForwardVector());
 			HitTimer = 0.0f;
@@ -340,6 +357,30 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 	{
 		PotentialCharacter->ModifyHealth(-AttackDamage);
 	}
+
+	// Update GameState
+	ReportHitToMatch(OwningShooter, HitActor);
+}
+
+void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
+{
+	ATachyonCharacter* MarkTachyon = Cast<ATachyonCharacter>(Mark);
+	if (MarkTachyon != nullptr)
+	{
+		if (!bFirstHitReported)
+		{
+			
+			ATachyonGameStateBase* GameState = Cast<ATachyonGameStateBase>(GetWorld()->GetGameState());
+			if (GameState != nullptr)
+			{
+				float ImpactScalar = AttackMagnitude * 1.5f;
+				float HitTimescale = FMath::Clamp((1.0f - ImpactScalar), 0.05f, 0.1f);
+				GameState->SetGlobalTimescale(HitTimescale);
+				bFirstHitReported = true;
+				NumHits += 1;
+			}
+		}
+	}
 }
 
 
@@ -385,4 +426,5 @@ void ATachyonAttack::GetLifetimeReplicatedProps(TArray <FLifetimeProperty> & Out
 	DOREPLIFETIME(ATachyonAttack, HitTimer);
 	DOREPLIFETIME(ATachyonAttack, bLethal);
 	DOREPLIFETIME(ATachyonAttack, bDoneLethal);
+	DOREPLIFETIME(ATachyonAttack, bFirstHitReported);
 }

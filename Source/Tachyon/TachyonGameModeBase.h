@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+///#include "Tachyon.h"
 #include "TachyonGameState.h"
 #include "GameFramework/GameModeBase.h"
 #include "TachyonGameModeBase.generated.h"
@@ -14,7 +14,6 @@ UCLASS()
 class TACHYON_API ATachyonGameModeBase : public AGameModeBase
 {
 	GENERATED_BODY()
-
 
 
 };

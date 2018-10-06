@@ -98,6 +98,9 @@ public:
 	UPROPERTY(EditDefaultsOnly)
 	float CameraSoloVelocityChase = 5.0f;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TSubclassOf<UCameraShake> CameraMoveShake = nullptr;
+
 	UPROPERTY(EditDefaultsOnly)
 	float ChargeMax = 4.0f;
 
