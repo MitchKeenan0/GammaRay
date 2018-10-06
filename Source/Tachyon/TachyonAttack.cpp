@@ -370,12 +370,14 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		if (!bFirstHitReported)
 		{
 			
-			ATachyonGameStateBase* GameState = Cast<ATachyonGameStateBase>(GetWorld()->GetGameState());
-			if (GameState != nullptr)
+			ATachyonGameStateBase* GState = Cast<ATachyonGameStateBase>(GetWorld()->GetGameState());
+			if (GState != nullptr)
 			{
 				float ImpactScalar = AttackMagnitude * 1.5f;
 				float HitTimescale = FMath::Clamp((1.0f - ImpactScalar), 0.05f, 0.1f);
-				GameState->SetGlobalTimescale(HitTimescale);
+				GState->SetGlobalTimescale(HitTimescale);
+				GState->FlushNetDormancy();
+
 				bFirstHitReported = true;
 				NumHits += 1;
 			}

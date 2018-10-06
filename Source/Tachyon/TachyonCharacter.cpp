@@ -85,7 +85,7 @@ void ATachyonCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-
+	
 	// Local stuff
 	if (Controller != nullptr)
 	{
@@ -94,8 +94,14 @@ void ATachyonCharacter::Tick(float DeltaTime)
 		UpdateCamera(DeltaTime);
 	}
 
+	// Net stuff
 	if (HasAuthority())
 	{
+		if (AttackTimer != 0.0f)
+		{
+			UpdateAttack(DeltaTime);
+		}
+
 		if (bJumping)
 		{
 			UpdateJump(DeltaTime);
@@ -358,6 +364,7 @@ void ATachyonCharacter::ReleaseAttack()
 	bShooting = false;
 
 	if ((WindupTimer > 0.0f)
+		&& (AttackTimer <= 0.0f)
 		&& HasAuthority())
 	{
 		FireAttack();
@@ -467,31 +474,15 @@ void ATachyonCharacter::FireAttack()
 							* -AttackRecoil
 							* FMath::Square(1.0f + AttackStrength) 
 							* 30.0f);
+
+						// Refire timing
+						AttackTimer = (AttackFireRate * FMath::Sqrt(AttackStrength));
 					}
-
-					
-
-					// Clean up previous flash
-					/*if ((GetActiveFlash() != nullptr))
-					{
-						ActiveFlash->Destroy();
-						ActiveFlash = nullptr;
-					}*/
-
-					// Slowing the character on fire
-					/*if (GetCharacterMovement() != nullptr)
-					{
-						GetCharacterMovement()->Velocity *= SlowmoMoveBoost;
-					}*/
 
 					// Break handbrake
 					//CheckPowerSlideOff();
 				}
 			}
-			//else
-			//{
-			//	GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Blue, TEXT("No attack class to spawn"));
-			//}
 
 			//// Spend it!
 			//float ChargeSpend = 1.0f;
@@ -524,13 +515,22 @@ bool ATachyonCharacter::ServerFireAttack_Validate()
 
 void ATachyonCharacter::UpdateAttack(float DeltaTime)
 {
+	if (HasAuthority())
+	{
+		// Attack Refire Timing
+		if (AttackTimer > 0.0f)
+		{
+			AttackTimer -= DeltaTime;
+		}
+		else
+		{
+			AttackTimer = 0.0f;
+		}
+	}
+
 	if (Role < ROLE_Authority)
 	{
 		ServerUpdateAttack(DeltaTime);
-	}
-	else if (ActiveAttack != nullptr)
-	{
-
 	}
 }
 void ATachyonCharacter::ServerUpdateAttack_Implementation(float DeltaTime)
@@ -619,51 +619,48 @@ void ATachyonCharacter::UpdateHealth(float DeltaTime)
 
 void ATachyonCharacter::UpdateBody(float DeltaTime)
 {
-	// Set rotation so character faces direction of travel
-	float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
-	float ClimbDirection = FMath::Clamp(InputZ, -1.0f, 1.0f) * 5.0f;
-	float Roll = FMath::Clamp(InputZ, -1.0f, 1.0f) * 15.0f;
-	float RotatoeSpeed = 15.0f;
+	if (Controller != nullptr)
+	{
+		// Set rotation so character faces direction of travel
+		float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
+		float ClimbDirection = FMath::Clamp(InputZ, -1.0f, 1.0f) * 5.0f;
+		float Roll = FMath::Clamp(InputZ, -1.0f, 1.0f) * 15.0f;
+		float RotatoeSpeed = 15.0f;
 
-	if (TravelDirection < 0.0f)
-	{
-		FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, Roll), DeltaTime, RotatoeSpeed);
-		Controller->SetControlRotation(Fint);
-	}
-	else if (TravelDirection > 0.0f)
-	{
-		FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, -Roll), DeltaTime, RotatoeSpeed);
-		Controller->SetControlRotation(Fint);
-	}
-
-	// No lateral Input - finish rotation
-	else
-	{
-		if (FMath::Abs(Controller->GetControlRotation().Yaw) > 90.0f)
+		if (TravelDirection < 0.0f)
 		{
-			FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, -Roll), DeltaTime, RotatoeSpeed);
+			FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, Roll), DeltaTime, RotatoeSpeed);
 			Controller->SetControlRotation(Fint);
 		}
-		else if (FMath::Abs(Controller->GetControlRotation().Yaw) < 90.0f)
+		else if (TravelDirection > 0.0f)
 		{
-			FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, Roll), DeltaTime, RotatoeSpeed);
+			FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, -Roll), DeltaTime, RotatoeSpeed);
 			Controller->SetControlRotation(Fint);
 		}
+
+		// No lateral Input - finish rotation
+		else
+		{
+			if (FMath::Abs(Controller->GetControlRotation().Yaw) > 90.0f)
+			{
+				FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, -Roll), DeltaTime, RotatoeSpeed);
+				Controller->SetControlRotation(Fint);
+			}
+			else if (FMath::Abs(Controller->GetControlRotation().Yaw) < 90.0f)
+			{
+				FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, Roll), DeltaTime, RotatoeSpeed);
+				Controller->SetControlRotation(Fint);
+			}
+		}
+
+		// Stretch & Squash on moving
+		float Lateral = 1.0f + FMath::Abs(InputX * 0.1f);
+		float Vertical = 1.0f + (InputZ * 0.1f);
+		FVector BodyVector = FVector(Lateral, 1.1f, Vertical) * 2.2f; // Hard-Code!!
+		GetMesh()->SetWorldScale3D(BodyVector);
+		FlushNetDormancy();
 	}
 
-	// Body stretch-and-squash
-	float Lateral = 1.0f + FMath::Abs(InputX * 0.1f);
-	float Vertical = 1.0f + (InputZ * 0.1f);
-	FVector BodyVector = FVector(Lateral, 1.1f, Vertical) * 2.2f; // Hard-Code!!
-	GetMesh()->SetWorldScale3D(BodyVector);
-
-	// Camera Move-Sway
-	//bool bMoving = (InputX != InputZ);
-	//if (bMoving && (CameraMoveShake != nullptr))
-	//{
-	//	UGameplayStatics::GetPlayerCameraManager(GetWorld(), 0)->PlayCameraShake(CameraMoveShake, 1.0f, ECameraAnimPlaySpace::CameraLocal, FRotator::ZeroRotator);
-	//	//UGameplayStatics::PlayWorldCameraShake(GetWorld(), CameraMoveShake, GetActorLocation(), 0.0f, 5555.0f, 1.0f, false);
-	//}
 
 	if (Role < ROLE_Authority)
 	{
