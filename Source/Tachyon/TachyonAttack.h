@@ -25,25 +25,12 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 	UFUNCTION()
-	bool IsInitialized() { return bInitialized; }
-	UFUNCTION()
-	bool IsLockedEmitPoint() { return LockedEmitPoint; }
-
-
-	/////////////////////////////////////////////////////////////////////////
-	// Attack functions
-	UFUNCTION()
 	void InitAttack(AActor* Shooter, float Magnitude, float YScale);
 
 	UFUNCTION()
-	void RedirectAttack();
-
+	bool IsInitialized() { return bInitialized; }
 	UFUNCTION()
-	void Lethalize();
-
-	UFUNCTION()
-	void SetInitVelocities();
-
+	bool IsLockedEmitPoint() { return LockedEmitPoint; }
 
 
 protected:
@@ -60,6 +47,17 @@ protected:
 		bool bFromSweep,
 		const FHitResult& SweepResult
 	);
+
+	/////////////////////////////////////////////////////////////////////////
+	// Attack functions
+	UFUNCTION()
+	void RedirectAttack();
+
+	UFUNCTION()
+	void Lethalize();
+
+	UFUNCTION()
+	void SetInitVelocities();
 
 	UFUNCTION()
 	void MainHit(AActor* HitActor, FVector HitLocation);
@@ -85,16 +83,16 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	bool LockedEmitPoint = true;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
 	float DeliveryTime = 0.1f;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
 	float DurationTime = 0.3f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	float MagnitudeTimeScalar = 1.0f;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
 	float HitsPerSecond = 100.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
@@ -106,7 +104,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	float ShootingAngle = 21.0f;
 
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
 	float ProjectileSpeed = 0.0f;
 
 	UPROPERTY(EditDefaultsOnly)
@@ -139,10 +137,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	bool bRaycastOnMesh = false;
 
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
 	float KineticForce = 100.0f;
 
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
 	float RecoilForce = 1000.0f;
 
 
@@ -198,11 +196,11 @@ protected:
 	class AActor* HitActor = nullptr;
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	float DynamicLifetime = 0.0f;
-	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
+	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	float LethalTime = 0.2f;
-	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
+	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	float LifeTimer = 0.0f;
-	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
+	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	float HitTimer = 0.0f;
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	bool bHit = false;
@@ -212,14 +210,19 @@ protected:
 	float AttackMagnitude = 0.0f;
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	float AttackDirection = 0.0f;
-	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
+	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	float AttackDamage = 1.0f;
-	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
+	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	bool bLethal = false;
-	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
+	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	bool bDoneLethal = false;
-	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
+	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	bool bFirstHitReported = false;
+
+	/*UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
+	float NetDeliveryTime = 0.1f;
+	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
+	float NetHitRate = 25.0f;*/
 
 	
 

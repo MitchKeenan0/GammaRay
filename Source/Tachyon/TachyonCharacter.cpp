@@ -390,7 +390,7 @@ bool ATachyonCharacter::ServerReleaseAttack_Validate()
 
 void ATachyonCharacter::WindupAttack(float DeltaTime)
 {
-	if (HasAuthority())
+	if (Role == ROLE_Authority)
 	{
 		if (ActiveWindup == nullptr)
 		{
@@ -440,9 +440,9 @@ void ATachyonCharacter::FireAttack()
 	}
 	else
 	{
-		if (HasAuthority() && (AttackTimer <= 0.0f))
+		if (Role == ROLE_Authority) /// && HasAuthority()
 		{
-			if ((AttackClass != nullptr))/// || bMultipleAttacks)
+			if ((AttackTimer <= 0.0f) && (AttackClass != nullptr))/// || bMultipleAttacks)
 			{
 				// Spawning
 				FVector FirePosition = AttackScene->GetComponentLocation();

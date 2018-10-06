@@ -14,6 +14,7 @@ ATachyonAttack::ATachyonAttack()
 
 	AttackScene = CreateDefaultSubobject<USceneComponent>(TEXT("AttackScene"));
 	SetRootComponent(AttackScene);
+	AttackScene->SetIsReplicated(true);
 
 	CapsuleComponent = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CapsuleComponent"));
 	CapsuleComponent->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
@@ -21,13 +22,14 @@ ATachyonAttack::ATachyonAttack()
 
 	AttackParticles = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("AttackParticles"));
 	AttackParticles->SetupAttachment(RootComponent);
+	AttackParticles->SetIsReplicated(true);
 
 	AttackSprite = CreateDefaultSubobject<UPaperSpriteComponent>(TEXT("AttackSprite"));
 	AttackSprite->SetupAttachment(RootComponent);
 
 	AttackSound = CreateDefaultSubobject<UAudioComponent>(TEXT("AttackSound"));
 	AttackSound->SetupAttachment(RootComponent);
-	AttackSound->bAutoActivate = false;
+	AttackSound->SetIsReplicated(true);
 
 	ProjectileComponent = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileComponent"));
 	ProjectileComponent->ProjectileGravityScale = 0.0f;
@@ -43,11 +45,19 @@ ATachyonAttack::ATachyonAttack()
 void ATachyonAttack::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	// Tactical setup
 	bLethal = false;
 	HitTimer = (1.0f / HitsPerSecond);
+	
+	// PreInit Component setup
 	if (AttackParticles != nullptr)
 	{
 		AttackParticles->Deactivate();
+	}
+	if (AttackSound != nullptr)
+	{
+		AttackSound->Deactivate();
 	}
 	if (AttackRadial != nullptr)
 	{
@@ -76,8 +86,10 @@ void ATachyonAttack::SpawnBurst()
 
 void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 {
+	
 	OwningShooter = Shooter;
-	if (OwningShooter != nullptr)
+	if ((OwningShooter != nullptr)
+		&& (Role == ROLE_Authority))
 	{
 
 		AttackMagnitude = FMath::Clamp(Magnitude, 0.1f, 1.0f);
@@ -85,10 +97,10 @@ void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 
 		// Attack magnitude characteristics
 		float MagnitudeDelivery = (DeliveryTime * AttackMagnitude) * 0.5555f;
-		DeliveryTime += MagnitudeDelivery;
+		DeliveryTime = (DeliveryTime + MagnitudeDelivery);
 
 		float ModifiedHitsPerSecond = HitsPerSecond * (AttackMagnitude * 2.1f);
-		HitsPerSecond += ModifiedHitsPerSecond;
+		HitsPerSecond = (HitsPerSecond + ModifiedHitsPerSecond);
 
 		float ModifiedKineticForce = (KineticForce * AttackMagnitude) * 0.2222f;
 		KineticForce += ModifiedKineticForce;
@@ -105,7 +117,7 @@ void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 
 		// Lifetime
 		DynamicLifetime = (DeliveryTime + LethalTime + DurationTime);
-		
+
 		bInitialized = true;
 	}
 }
@@ -114,6 +126,16 @@ void ATachyonAttack::Lethalize()
 {
 	bLethal = true;
 	bDoneLethal = true;
+
+	// Shooter Recoil
+	FVector RecoilVector = GetActorRotation().Vector().GetSafeNormal();
+	ACharacter* CharacterShooter = Cast<ACharacter>(OwningShooter);
+	if (CharacterShooter != nullptr)
+	{
+		FVector ShooterVelocity = CharacterShooter->GetCharacterMovement()->Velocity;
+		RecoilVector *= (RecoilForce * -AttackMagnitude);
+		CharacterShooter->GetCharacterMovement()->Velocity = (ShooterVelocity + RecoilVector);
+	}
 
 	if (AttackSound != nullptr)
 	{
@@ -130,16 +152,6 @@ void ATachyonAttack::Lethalize()
 		ModifiedScale.Y *= ParticleSize;
 		AttackParticles->SetRelativeScale3D(ModifiedScale);
 		AttackParticles->Activate();
-	}
-
-	// Shooter Recoil
-	FVector RecoilVector = GetActorRotation().Vector().GetSafeNormal();
-	ACharacter* CharacterShooter = Cast<ACharacter>(OwningShooter);
-	if (CharacterShooter != nullptr)
-	{
-		FVector ShooterVelocity = CharacterShooter->GetCharacterMovement()->Velocity;
-		RecoilVector *= (RecoilForce * -AttackMagnitude);
-		CharacterShooter->GetCharacterMovement()->Velocity = (ShooterVelocity + RecoilVector);
 	}
 }
 
@@ -172,12 +184,20 @@ void ATachyonAttack::SetInitVelocities()
 
 void ATachyonAttack::RedirectAttack()
 {
-	// Aim by InputY
+	// Location Update
+	ATachyonCharacter* PotentialCharacter = Cast<ATachyonCharacter>(OwningShooter);
+	if (PotentialCharacter != nullptr)
+	{
+		FVector EmitLocation = PotentialCharacter->GetAttackScene()->GetComponentLocation();
+		SetActorLocation(EmitLocation);
+	}
+
+	// Rotation Update
 	float AimClampedInputZ = FMath::Clamp((AttackDirection * 10.0f), -1.0f, 1.0f);
 	FVector FirePosition = AttackScene->GetComponentLocation();
 	FVector LocalForward = AttackScene->GetForwardVector();
 	LocalForward.Y = 0.0f;
-	FRotator FireRotation = LocalForward.Rotation() + FRotator(AimClampedInputZ * ShootingAngle, 0.0f, 0.0f); /// AimClampedInputZ
+	FRotator FireRotation = LocalForward.Rotation() + FRotator(AimClampedInputZ * ShootingAngle, 0.0f, 0.0f);
 	FireRotation.Pitch = FMath::Clamp(FireRotation.Pitch, -ShootingAngle, ShootingAngle);
 	float ShooterYaw = FMath::Abs(OwningShooter->GetActorRotation().Yaw);
 	float Yaw = 0.0f;
@@ -185,7 +205,6 @@ void ATachyonAttack::RedirectAttack()
 		Yaw = 180.0f;
 	}
 	FireRotation.Yaw = Yaw;
-	
 	SetActorRotation(FireRotation);
 }
 
@@ -330,9 +349,13 @@ void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, floa
 	ATachyonCharacter* Chara = Cast<ATachyonCharacter>(HitActor);
 	if (Chara != nullptr)
 	{
-		/*FVector CurrentCharVel = Chara->GetCharacterMovement()->Velocity;
-		Chara->GetCharacterMovement()->Velocity += KnockVector;*/
-		Chara->GetCharacterMovement()->AddImpulse(KnockVector, true);
+		FVector CharaVelocity = Chara->GetVelocity();
+		FVector KnockbackVector = CharaVelocity + KnockVector;
+
+		Chara->GetCharacterMovement()->Velocity = KnockbackVector;
+		Chara->GetMovementComponent()->UpdateComponentVelocity();
+		///Chara->GetCharacterMovement()->AddImpulse(KnockVector, true);
+		///Chara->FlushNetDormancy();
 	}
 }
 
@@ -429,4 +452,8 @@ void ATachyonAttack::GetLifetimeReplicatedProps(TArray <FLifetimeProperty> & Out
 	DOREPLIFETIME(ATachyonAttack, bLethal);
 	DOREPLIFETIME(ATachyonAttack, bDoneLethal);
 	DOREPLIFETIME(ATachyonAttack, bFirstHitReported);
+	DOREPLIFETIME(ATachyonAttack, DeliveryTime);
+	DOREPLIFETIME(ATachyonAttack, HitsPerSecond);
+	DOREPLIFETIME(ATachyonAttack, KineticForce);
+	DOREPLIFETIME(ATachyonAttack, RecoilForce);
 }

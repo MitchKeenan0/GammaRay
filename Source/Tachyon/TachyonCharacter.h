@@ -52,6 +52,9 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	UFUNCTION(BlueprintCallable)
+	USceneComponent* GetAttackScene() { return AttackScene; }
+
+	UFUNCTION(BlueprintCallable)
 	void NullifyAttack() { ActiveAttack = nullptr; }
 
 	UFUNCTION(BlueprintCallable)

@@ -47,7 +47,7 @@ void ATachyonGameStateBase::UpdateGlobalTimescale(float DeltaTime)
 		SetGlobalTimescale(1.0f);
 	}
 	
-	float InterpTime = FMath::FInterpConstantTo(CurrentTime, 1.0f, DeltaTime, 15.0f);
+	float InterpTime = FMath::FInterpConstantTo(CurrentTime, 1.0f, DeltaTime, 11.0f);
 	SetGlobalTimescale(InterpTime);
 }
 
