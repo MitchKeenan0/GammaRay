@@ -110,6 +110,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	float GetAPM() { return APM; }
 
+	UFUNCTION(BlueprintCallable)
+	float GetHealth() { return Health; }
+
 
 	// NETWORK FUNCTIONS ////////////////////////////////////////////////////////
 	UFUNCTION()

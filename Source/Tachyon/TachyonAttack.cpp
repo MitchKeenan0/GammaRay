@@ -94,6 +94,7 @@ void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 
 		AttackMagnitude = FMath::Clamp(Magnitude, 0.1f, 1.0f);
 		AttackDirection = YScale;
+		AttackDamage = (15.0f * AttackMagnitude);
 
 		// Attack magnitude characteristics
 		float MagnitudeDelivery = (DeliveryTime * AttackMagnitude) * 0.5555f;
