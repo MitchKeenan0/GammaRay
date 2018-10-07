@@ -58,6 +58,9 @@ public:
 	void NullifyAttack() { ActiveAttack = nullptr; }
 
 	UFUNCTION(BlueprintCallable)
+	void SetOpponent(ATachyonCharacter* NewTarget) { Opponent = NewTarget; }
+
+	UFUNCTION(BlueprintCallable)
 	void DonApparel();
 
 
@@ -67,6 +70,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly)
 	float BoostSpeed = 1.0f;
+
+	UPROPERTY(EditDefaultsOnly)
+	float BoostSustain = 1.0f;
 
 	UPROPERTY(EditDefaultsOnly)
 	float MaxMoveSpeed = 2000.0f;
@@ -112,6 +118,12 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	float GetHealth() { return Health; }
+
+	UFUNCTION(BlueprintCallable)
+	float GetHealthDelta() { return FMath::Clamp(FMath::Abs(Health - MaxHealth), 1.0f, 50.0f); }
+
+	UFUNCTION(BlueprintCallable)
+	ATachyonCharacter* GetOpponent() { return Opponent; }
 
 
 	// NETWORK FUNCTIONS ////////////////////////////////////////////////////////
@@ -224,6 +236,8 @@ protected:
 	int iApparelIndex = 0;
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
 	class ATApparel* ActiveApparel = nullptr;
+	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
+	class ATachyonCharacter* Opponent = nullptr;
 
 
 	// ARMAMENT ///////////////////////////////////////////////////////////////

@@ -234,11 +234,14 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 	if (bLethal)
 	{
 		float TimeProofDelta = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
-		HitTimer += DeltaT;
-		if (HitTimer >= ((1.0f / HitsPerSecond) * TimeProofDelta))
+		if (TimeProofDelta > 0.01f)
 		{
-			RaycastForHit(GetActorForwardVector());
-			HitTimer = 0.0f;
+			HitTimer += DeltaT;
+			if (HitTimer >= ((1.0f / HitsPerSecond) * TimeProofDelta))
+			{
+				RaycastForHit(GetActorForwardVector());
+				HitTimer = 0.0f;
+			}
 		}
 	}
 
@@ -362,6 +365,7 @@ void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, floa
 
 void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 {
+	// Bail out if we hit our own attack type
 	ATachyonAttack* PotentialAttack = Cast<ATachyonAttack>(HitActor);
 	if (PotentialAttack != nullptr)
 	{
@@ -375,33 +379,56 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 	SpawnHit(HitActor, HitLocation);
 	ApplyKnockForce(HitActor, HitLocation, 1.0f);
 
-	// Test damage
-	ATachyonCharacter* PotentialCharacter = Cast<ATachyonCharacter>(HitActor);
-	if (PotentialCharacter != nullptr)
-	{
-		PotentialCharacter->ModifyHealth(-AttackDamage);
-	}
-
 	// Update GameState
 	ReportHitToMatch(OwningShooter, HitActor);
 }
 
 void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 {
-	ATachyonCharacter* MarkTachyon = Cast<ATachyonCharacter>(Mark);
-	if (MarkTachyon != nullptr)
+	ATachyonCharacter* HitTachyon = Cast<ATachyonCharacter>(Mark);
+	if (HitTachyon != nullptr)
 	{
+		// Modify Health of Mark
+		bool bMarkKilled = false;
+		float TachyonHealth = HitTachyon->GetHealth();
+		if (TachyonHealth > 0.0f)
+		{
+			HitTachyon->ModifyHealth(-AttackDamage);
+		}
+		else
+		{
+			bMarkKilled = true;
+		}
+
+		// Update Shooter's Opponent reference
+		ATachyonCharacter* OwningTachyon = Cast<ATachyonCharacter>(OwningShooter);
+		if (OwningTachyon != nullptr)
+		{
+			if (OwningTachyon->GetOpponent() != HitTachyon)
+			{
+				OwningTachyon->SetOpponent(HitTachyon);
+			}
+		}
+
+		// Call it in
 		if (!bFirstHitReported)
 		{
-			
 			ATachyonGameStateBase* GState = Cast<ATachyonGameStateBase>(GetWorld()->GetGameState());
 			if (GState != nullptr)
 			{
-				float ImpactScalar = AttackMagnitude * 1.5f;
-				float HitTimescale = FMath::Clamp((1.0f - ImpactScalar), 0.05f, 0.1f);
-				GState->SetGlobalTimescale(HitTimescale);
+				float TargetTimescale = 1.0f;
+				if (!bMarkKilled)
+				{
+					float ImpactScalar = AttackMagnitude * 1.5f;
+					float HitTimescale = FMath::Clamp((1.0f - ImpactScalar), 0.05f, 0.1f);
+					GState->SetGlobalTimescale(HitTimescale);
+				}
+				else
+				{
+					GState->SetGlobalTimescale(0.01f);
+				}
+				
 				GState->FlushNetDormancy();
-
 				bFirstHitReported = true;
 				NumHits += 1;
 			}

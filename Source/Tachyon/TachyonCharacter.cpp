@@ -59,6 +59,7 @@ ATachyonCharacter::ATachyonCharacter()
 	
 	bReplicates = true;
 	bReplicateMovement = true;
+	ReplicatedMovement.VelocityQuantizationLevel = EVectorQuantization::RoundTwoDecimals;
 }
 
 
@@ -157,7 +158,7 @@ void ATachyonCharacter::MoveRight(float Value)
 		float TurnScalar = MoveSpeed + FMath::Square(TurnSpeed * AngleToInput);
 		float DeltaTime = GetWorld()->DeltaTimeSeconds;
 		MoveByDot = MoveSpeed * TurnScalar;
-		AddMovementInput(FVector(1.0f, 0.0f, 0.0f), InputX * DeltaTime * MoveSpeed * MoveByDot);
+		AddMovementInput(FVector(1.0f, 0.0f, 0.0f), InputX * DeltaTime * MoveByDot);
 	}
 }
 
@@ -182,7 +183,7 @@ void ATachyonCharacter::MoveUp(float Value)
 		float TurnScalar = MoveSpeed + FMath::Square(TurnSpeed * AngleToInput);
 		float DeltaTime = GetWorld()->DeltaTimeSeconds;
 		MoveByDot = MoveSpeed * TurnScalar;
-		AddMovementInput(FVector(0.0f, 0.0f, 1.0f), InputZ * DeltaTime * MoveSpeed * MoveByDot);
+		AddMovementInput(FVector(0.0f, 0.0f, 1.0f), InputZ * DeltaTime * MoveByDot);
 	}
 }
 
@@ -248,15 +249,22 @@ void ATachyonCharacter::UpdateJump(float DeltaTime)
 	else
 	{
 		FVector MoveInputVector = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
+		if (MoveInputVector.X == 0.0f)
+		{
+			MoveInputVector.X = GetActorForwardVector().X;
+			MoveInputVector = MoveInputVector.GetSafeNormal();
+		}
 		
 		// First-timer does initial kick and visuals
 		if ((ActiveBoost == nullptr) && (BoostClass != nullptr))
 		{
 			if (GetCharacterMovement() != nullptr)
 			{
-				GetCharacterMovement()->AddImpulse(MoveInputVector * 1000.0f, true);
+				FVector InitialJump = MoveInputVector * BoostSpeed;
+				GetCharacterMovement()->AddImpulse(InitialJump, true);
 			}
 
+			// Spawning jump FX
 			if (HasAuthority())
 			{
 				FActorSpawnParameters SpawnParams;
@@ -276,18 +284,21 @@ void ATachyonCharacter::UpdateJump(float DeltaTime)
 			if (ActiveBoost != nullptr)
 			{
 				BoostTimeAlive = ActiveBoost->GetGameTimeSinceCreation();
-				if (BoostTimeAlive > 0.05f)
+				if (BoostTimeAlive > 0.1f)
 				{
-					DiminishingJumpValue = FMath::Clamp((1.0f / BoostTimeAlive), 0.1f, 1000.0f);
-					FVector JumpVector = MoveInputVector * BoostSpeed * DiminishingJumpValue * DeltaTime;
+					float InverseTimeAlive = (1.0f / BoostTimeAlive) * BoostSustain;
+					DiminishingJumpValue = FMath::Clamp(InverseTimeAlive, 0.1f, 100.0f);
+					FVector SustainedJump = MoveInputVector * BoostSpeed * DiminishingJumpValue * DeltaTime;
 
 					if (GetCharacterMovement() != nullptr)
 					{
-						GetCharacterMovement()->AddImpulse(JumpVector, true);
+						GetCharacterMovement()->AddImpulse(SustainedJump, true);
 					}
 				}
 			}
 		}
+
+		FlushNetDormancy();
 	}
 }
 void ATachyonCharacter::ServerUpdateJump_Implementation(float DeltaTime)
@@ -407,14 +418,7 @@ void ATachyonCharacter::WindupAttack(float DeltaTime)
 		}
 
 		WindupTimer += DeltaTime;
-		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Black, FString::Printf(TEXT("WindupTimer: %f"), WindupTimer));
-
-		/*if (WindupTimer >= WindupTime)
-		{
-		FireAttack();
-		ReleaseAttack();
-		WindupTimer = 0.0f;
-		}*/
+		///GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Black, FString::Printf(TEXT("WindupTimer: %f"), WindupTimer));
 	}
 
 	if (Role < ROLE_Authority)
@@ -581,9 +585,9 @@ void ATachyonCharacter::UpdateHealth(float DeltaTime)
 	// Update smooth health value
 	if (MaxHealth < Health)
 	{
-		float InterpSpeed = FMath::Abs(Health - MaxHealth) * 5.1f;
+		float HealthDifference = FMath::Abs(Health - MaxHealth) * 5.1f;
+		float InterpSpeed = FMath::Clamp(HealthDifference, 5.0f, 50.0f);
 		Health = FMath::FInterpConstantTo(Health, MaxHealth, DeltaTime, InterpSpeed);
-		///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("InterpSpeed: %f"), InterpSpeed));
 
 		//// Player killed fx
 		//if ((KilledFX != nullptr)
@@ -773,7 +777,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 			FVector Actor1Velocity = Actor1->GetVelocity();
 			float SafeVelocitySize = FMath::Clamp(Actor1Velocity.Size() * 0.005f, 0.01f, 10.0f);
 			VelocityCameraSpeed = CameraMoveSpeed * SafeVelocitySize * FMath::Sqrt(1.0f / GlobalTimeScale);
-			VelocityCameraSpeed = FMath::Clamp(VelocityCameraSpeed, 1.0f, CameraMaxSpeed * 0.1f);
+			VelocityCameraSpeed = FMath::Clamp(VelocityCameraSpeed, 2.1f, CameraMaxSpeed * 0.1f);
 
 			FVector LocalPos = Actor1->GetActorLocation() + (Actor1Velocity * DeltaTime * CameraVelocityChase);
 			PositionOne = FMath::VInterpTo(PositionOne, LocalPos, DeltaTime, VelocityCameraSpeed);
@@ -1014,6 +1018,7 @@ void ATachyonCharacter::GetLifetimeReplicatedProps(TArray <FLifetimeProperty> & 
 	DOREPLIFETIME(ATachyonCharacter, DiminishingJumpValue);
 	DOREPLIFETIME(ATachyonCharacter, ActiveApparel);
 	DOREPLIFETIME(ATachyonCharacter, iApparelIndex);
+	DOREPLIFETIME(ATachyonCharacter, Opponent);
 }
 
 
