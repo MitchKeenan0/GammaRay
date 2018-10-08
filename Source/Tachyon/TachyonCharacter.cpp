@@ -138,53 +138,31 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 // MOVEMENT
 void ATachyonCharacter::MoveRight(float Value)
 {
+	AddMovementInput(FVector(1.0f, 0.0f, 0.0f), Value);
 	SetX(Value);
-	
-	float MoveByDot = 0.0f;
-	FVector MoveInput = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
-	FVector CurrentV = GetMovementComponent()->Velocity;
-	FVector VNorm = CurrentV.GetSafeNormal();
 
-	// Move by dot product for skating effect
-	if ((MoveInput != FVector::ZeroVector)
-		&& (Controller != nullptr))
-	{
-
-		float DotToInput = (FVector::DotProduct(MoveInput, VNorm));
-		float AngleToInput = FMath::Acos(DotToInput);
-		AngleToInput = FMath::Clamp(AngleToInput, 1.0f, 1000.0f);
-
-		// Effect Move
-		float TurnScalar = MoveSpeed + FMath::Square(TurnSpeed * AngleToInput);
-		float DeltaTime = GetWorld()->DeltaTimeSeconds;
-		MoveByDot = MoveSpeed * TurnScalar;
-		AddMovementInput(FVector(1.0f, 0.0f, 0.0f), InputX * DeltaTime * MoveByDot);
-	}
+	// Skating effect - unused, currently just diminishes stale input
+	//float MoveByDot = 0.0f;
+	//FVector MoveInput = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
+	//FVector CurrentV = GetMovementComponent()->Velocity;
+	//FVector VNorm = CurrentV.GetSafeNormal();
+	//// Move by dot product for skating effect
+	//if ((MoveInput != FVector::ZeroVector)
+	//	&& (Controller != nullptr))
+	//{
+	//	float DotToInput = FVector::DotProduct(MoveInput, VNorm);
+	//	float AngleToInput = FMath::Acos(DotToInput);
+	//	float TurnScalar = FMath::Square(TurnSpeed * AngleToInput);
+	//	float DeltaTime = GetWorld()->DeltaTimeSeconds;
+	//	MoveByDot = MoveSpeed * TurnScalar;
+	//	AddMovementInput(FVector(1.0f, 0.0f, 0.0f), InputX * DeltaTime * MoveByDot);
+	//}
 }
 
 void ATachyonCharacter::MoveUp(float Value)
 {
+	AddMovementInput(FVector(0.0f, 0.0f, 1.0f), Value);
 	SetZ(Value);
-
-	float MoveByDot = 0.0f;
-	FVector MoveInput = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
-	FVector CurrentV = GetMovementComponent()->Velocity;
-	FVector VNorm = CurrentV.GetSafeNormal();
-
-	// Move by dot product for skating effect
-	if ((MoveInput != FVector::ZeroVector)
-		&& (Controller != nullptr))
-	{
-		float DotToInput = (FVector::DotProduct(MoveInput, VNorm));
-		float AngleToInput = FMath::Acos(DotToInput);
-		AngleToInput = FMath::Clamp(AngleToInput, 1.0f, 1000.0f);
-
-		// Effect Move
-		float TurnScalar = MoveSpeed + FMath::Square(TurnSpeed * AngleToInput);
-		float DeltaTime = GetWorld()->DeltaTimeSeconds;
-		MoveByDot = MoveSpeed * TurnScalar;
-		AddMovementInput(FVector(0.0f, 0.0f, 1.0f), InputZ * DeltaTime * MoveByDot);
-	}
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -198,6 +176,7 @@ void ATachyonCharacter::EngageJump()
 	else if (!bJumping)
 	{
 		bJumping = true;
+		FlushNetDormancy();
 	}
 }
 void ATachyonCharacter::ServerEngageJump_Implementation()
@@ -229,6 +208,8 @@ void ATachyonCharacter::DisengageJump()
 			ActiveBoost->SetLifeSpan(0.5f);
 			ActiveBoost = nullptr;
 		}
+
+		FlushNetDormancy();
 	}
 }
 void ATachyonCharacter::ServerDisengageJump_Implementation()
@@ -248,6 +229,8 @@ void ATachyonCharacter::UpdateJump(float DeltaTime)
 	}
 	else
 	{
+		
+		// Auto-forward if no input to do so
 		FVector MoveInputVector = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
 		if (MoveInputVector.X == 0.0f)
 		{
