@@ -63,6 +63,8 @@ void ATachyonAttack::BeginPlay()
 	{
 		AttackRadial->SetWorldLocation(GetActorLocation());
 	}
+
+	FlushNetDormancy();
 }
 
 void ATachyonAttack::SpawnBurst()
@@ -86,12 +88,9 @@ void ATachyonAttack::SpawnBurst()
 
 void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 {
-	
 	OwningShooter = Shooter;
-	if ((OwningShooter != nullptr)
-		&& (Role == ROLE_Authority))
+	if (OwningShooter != nullptr)
 	{
-
 		AttackMagnitude = FMath::Clamp(Magnitude, 0.1f, 1.0f);
 		AttackDirection = YScale;
 		AttackDamage = (15.0f * AttackMagnitude);
@@ -120,6 +119,9 @@ void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 		DynamicLifetime = (DeliveryTime + LethalTime + DurationTime);
 
 		bInitialized = true;
+
+		ForceNetUpdate();
+		FlushNetDormancy();
 	}
 }
 
@@ -153,7 +155,11 @@ void ATachyonAttack::Lethalize()
 		ModifiedScale.Y *= ParticleSize;
 		AttackParticles->SetRelativeScale3D(ModifiedScale);
 		AttackParticles->Activate();
+		AttackParticles->ActivateSystem();
 	}
+
+	ForceNetUpdate();
+	FlushNetDormancy();
 }
 
 void ATachyonAttack::SetInitVelocities()
@@ -242,6 +248,12 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 				RaycastForHit(GetActorForwardVector());
 				HitTimer = 0.0f;
 			}
+		}
+
+		if (!AttackParticles->IsActive())
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, TEXT("c a u g h t PARTICLES INACTIVE"));
+			AttackParticles->Activate();
 		}
 	}
 

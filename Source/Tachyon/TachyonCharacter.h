@@ -246,17 +246,17 @@ protected:
 	// ARMAMENT ///////////////////////////////////////////////////////////////
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<ATachyonAttack> AttackClass;
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, Replicated)
 	class ATachyonAttack* ActiveAttack = nullptr;
 
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<AActor> AttackWindupClass;
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, Replicated)
 	class AActor* ActiveWindup = nullptr;
 
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<AActor> BoostClass;
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, Replicated)
 	class AActor* ActiveBoost = nullptr;
 
 	UPROPERTY(EditDefaultsOnly)
