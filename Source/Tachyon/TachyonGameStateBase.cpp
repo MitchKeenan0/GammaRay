@@ -11,6 +11,7 @@ ATachyonGameStateBase::ATachyonGameStateBase()
 	bReplicates = true;
 }
 
+
 void ATachyonGameStateBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -20,6 +21,7 @@ void ATachyonGameStateBase::Tick(float DeltaTime)
 		UpdateGlobalTimescale(DeltaTime);
 	}
 }
+
 
 void ATachyonGameStateBase::SetGlobalTimescale(float TargetTimescale)
 {
@@ -38,6 +40,7 @@ void ATachyonGameStateBase::SetGlobalTimescale(float TargetTimescale)
 	ForceNetUpdate();
 }
 
+
 void ATachyonGameStateBase::UpdateGlobalTimescale(float DeltaTime)
 {
 	float CurrentTime = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
@@ -49,5 +52,35 @@ void ATachyonGameStateBase::UpdateGlobalTimescale(float DeltaTime)
 	
 	float InterpTime = FMath::FInterpConstantTo(CurrentTime, 1.0f, DeltaTime, 11.0f);
 	SetGlobalTimescale(InterpTime);
+}
+
+
+void ATachyonGameStateBase::SpawnBot(FVector SpawnLocation)
+{
+	FActorSpawnParameters SpawnParams;
+	FRotator Rotation = FRotator::ZeroRotator;
+	TSubclassOf<ATachyonCharacter> TachyonSpawning = Tachyons[0];
+	TSubclassOf<ATachyonAIController> AISpawning = Controllers[0];
+	
+	// Spawn the body
+	ATachyonCharacter* NewTachyon = 
+		Cast<ATachyonCharacter>
+			(GetWorld()->SpawnActor<AActor>
+				(TachyonSpawning, SpawnLocation, Rotation, SpawnParams));
+	
+	// Possess with AI controller
+	if (NewTachyon != nullptr)
+	{
+		ATachyonAIController* NewController =
+			Cast<ATachyonAIController>
+				(GetWorld()->SpawnActor<AActor>
+					(AISpawning, SpawnLocation, Rotation, SpawnParams));
+
+		if (NewController != nullptr)
+		{
+			NewTachyon->Controller = NewController;
+			NewController->Possess(NewTachyon);
+		}
+	}
 }
 

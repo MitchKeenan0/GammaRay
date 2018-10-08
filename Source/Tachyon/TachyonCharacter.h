@@ -63,6 +63,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void DonApparel();
 
+	UFUNCTION(BlueprintCallable)
+	void RequestBots();
+
 
 	// ATTRIBUTES ///////////////////////////////////////////////////////////////
 	UPROPERTY(EditDefaultsOnly)

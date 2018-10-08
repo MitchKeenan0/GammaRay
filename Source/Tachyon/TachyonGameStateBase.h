@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Tachyon.h"
+#include "TachyonAIController.h"
 #include "GameFramework/GameStateBase.h"
 #include "TachyonGameStateBase.generated.h"
 
@@ -21,6 +21,14 @@ public:
 
 	virtual void Tick(float DeltaTime) override;
 
+	UPROPERTY(EditDefaultsOnly)
+	TArray<TSubclassOf<ATachyonCharacter>> Tachyons;
+
+	UPROPERTY(EditDefaultsOnly)
+	TArray<TSubclassOf<ATachyonAIController>> Controllers;
+
+	UFUNCTION(BlueprintCallable)
+	void SpawnBot(FVector SpawnLocation);
 
 	UFUNCTION()
 	void SetGlobalTimescale(float TargetTimescale);

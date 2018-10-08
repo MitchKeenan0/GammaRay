@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "TachyonCharacter.h"
+#include "TachyonGameStateBase.h"
 
 
 // Sets default values
@@ -127,6 +128,7 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 	PlayerInputComponent->BindAction("Attack", IE_Released, this, &ATachyonCharacter::ReleaseAttack);
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ATachyonCharacter::EngageJump);
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ATachyonCharacter::DisengageJump);
+	PlayerInputComponent->BindAction("SummonBot", IE_Pressed, this, &ATachyonCharacter::RequestBots);
 
 	// Axes
 	PlayerInputComponent->BindAxis("MoveRight", this, &ATachyonCharacter::MoveRight);
@@ -139,7 +141,10 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 void ATachyonCharacter::MoveRight(float Value)
 {
 	AddMovementInput(FVector(1.0f, 0.0f, 0.0f), Value);
-	SetX(Value);
+	if (!ActorHasTag("Bot"))
+	{
+		SetX(Value);
+	}
 
 	// Skating effect - unused, currently just diminishes stale input
 	//float MoveByDot = 0.0f;
@@ -162,7 +167,10 @@ void ATachyonCharacter::MoveRight(float Value)
 void ATachyonCharacter::MoveUp(float Value)
 {
 	AddMovementInput(FVector(0.0f, 0.0f, 1.0f), Value);
-	SetZ(Value);
+	if (!ActorHasTag("Bot"))
+	{
+		SetZ(Value);
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -297,7 +305,12 @@ bool ATachyonCharacter::ServerUpdateJump_Validate(float DeltaTime)
 // NET AIM
 void ATachyonCharacter::SetX(float Value)
 {
-	InputX = Value; /// FMath::FInterpConstantTo(InputX, Value, GetWorld()->DeltaTimeSeconds, 100.0f);
+	InputX = Value;
+
+	if (ActorHasTag("Bot"))
+	{
+		MoveRight(Value);
+	}
 	
 	if (Role < ROLE_Authority)
 	{
@@ -315,7 +328,12 @@ bool ATachyonCharacter::ServerSetX_Validate(float Value)
 
 void ATachyonCharacter::SetZ(float Value)
 {
-	InputZ = Value; /// FMath::FInterpConstantTo(InputZ, Value, GetWorld()->DeltaTimeSeconds, 100.0f);
+	InputZ = Value;
+
+	if (ActorHasTag("Bot"))
+	{
+		MoveUp(Value);
+	}
 
 	if (Role < ROLE_Authority)
 	{
@@ -456,11 +474,9 @@ void ATachyonCharacter::FireAttack()
 
 						// Recoil
 						FVector RecoilVector = FireRotation.Vector().GetSafeNormal();
-						GetCharacterMovement()->AddImpulse(
-							RecoilVector
-							* -AttackRecoil
-							* FMath::Square(1.0f + AttackStrength) 
-							* 30.0f);
+						GetCharacterMovement()->AddImpulse(RecoilVector * -AttackRecoil
+																		* FMath::Square(1.0f + AttackStrength) 
+																		* 30.0f);
 
 						// Refire timing
 						AttackTimer = (AttackFireRate * FMath::Sqrt(AttackStrength));
@@ -606,7 +622,7 @@ void ATachyonCharacter::UpdateHealth(float DeltaTime)
 
 void ATachyonCharacter::UpdateBody(float DeltaTime)
 {
-	if (Controller != nullptr)
+	if ((Controller != nullptr) || (ActorHasTag("Bot")))
 	{
 		// Set rotation so character faces direction of travel
 		float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
@@ -614,29 +630,32 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 		float Roll = FMath::Clamp(InputZ, -1.0f, 1.0f) * 15.0f;
 		float RotatoeSpeed = 15.0f;
 
+		///////////////////////////////////////////////////////////////
+		// Important - Get something else to rotate, maybe using controller isn't the best option...
 		if (TravelDirection < 0.0f)
 		{
-			FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, Roll), DeltaTime, RotatoeSpeed);
-			Controller->SetControlRotation(Fint);
+			FRotator Fint = FMath::RInterpTo(GetController()->GetControlRotation(), FRotator(ClimbDirection, 180.0f, Roll), DeltaTime, RotatoeSpeed);
+			GetController()->SetControlRotation(Fint);
+			
 		}
 		else if (TravelDirection > 0.0f)
 		{
-			FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, -Roll), DeltaTime, RotatoeSpeed);
-			Controller->SetControlRotation(Fint);
+			FRotator Fint = FMath::RInterpTo(GetController()->GetControlRotation(), FRotator(ClimbDirection, 0.0f, -Roll), DeltaTime, RotatoeSpeed);
+			GetController()->SetControlRotation(Fint);
 		}
 
 		// No lateral Input - finish rotation
 		else
 		{
-			if (FMath::Abs(Controller->GetControlRotation().Yaw) > 90.0f)
+			if (FMath::Abs(GetController()->GetControlRotation().Yaw) > 90.0f)
 			{
 				FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, -Roll), DeltaTime, RotatoeSpeed);
-				Controller->SetControlRotation(Fint);
+				GetController()->SetControlRotation(Fint);
 			}
-			else if (FMath::Abs(Controller->GetControlRotation().Yaw) < 90.0f)
+			else if (FMath::Abs(GetController()->GetControlRotation().Yaw) < 90.0f)
 			{
 				FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, Roll), DeltaTime, RotatoeSpeed);
-				Controller->SetControlRotation(Fint);
+				GetController()->SetControlRotation(Fint);
 			}
 		}
 
@@ -983,6 +1002,15 @@ bool ATachyonCharacter::ServerSetApparel_Validate(int ApparelIndex)
 	return true;
 }
 
+void ATachyonCharacter::RequestBots()
+{
+	ATachyonGameStateBase* TachyonGame = Cast<ATachyonGameStateBase>(GetWorld()->GetGameState());
+	if (TachyonGame != nullptr)
+	{
+		FVector IntendedLocation = GetActorForwardVector() * 1000.0f;
+		TachyonGame->SpawnBot(IntendedLocation);
+	}
+}
 
 ////////////////////////////////////////////////////////////////////////
 // NETWORK REPLICATION
