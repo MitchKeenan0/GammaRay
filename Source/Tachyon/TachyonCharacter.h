@@ -201,9 +201,6 @@ protected:
 	// MOVEMENT ///////////////////////////////////////////////////////////////
 	void MoveRight(float Value);
 	void MoveUp(float Value);
-	void MoveJump(float DeltaTime);
-	void BeginJump();
-	void EndJump();
 
 	// HEALTH & CAMERA ///////////////////////////////////////////////////////////////
 	void UpdateHealth(float DeltaTime);
@@ -211,6 +208,9 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly)
 	class USceneComponent* AttackScene = nullptr;
+
+	UPROPERTY(EditDefaultsOnly)
+	class UParticleSystemComponent* AmbientParticles = nullptr;
 
 
 

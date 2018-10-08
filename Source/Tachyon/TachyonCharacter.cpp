@@ -28,6 +28,7 @@ ATachyonCharacter::ATachyonCharacter()
 	GetCharacterMovement()->SetNetAddressable();
 	GetCharacterMovement()->SetIsReplicated(true);
 	GetCharacterMovement()->NetworkMaxSmoothUpdateDistance = 500.0f;
+	GetCharacterMovement()->NetworkSmoothingMode = ENetworkSmoothingMode::Linear;
 	GetCharacterMovement()->NetworkMinTimeBetweenClientAckGoodMoves = 0.0f;
 	GetCharacterMovement()->NetworkMinTimeBetweenClientAdjustments = 0.0f;
 	GetCharacterMovement()->NetworkMinTimeBetweenClientAdjustmentsLargeCorrection = 0.0f;
@@ -57,10 +58,16 @@ ATachyonCharacter::ATachyonCharacter()
 
 	AttackScene = CreateDefaultSubobject<USceneComponent>(TEXT("AttackScene"));
 	AttackScene->SetupAttachment(RootComponent);
+
+	AmbientParticles = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("AmbientParticles"));
+	AmbientParticles->SetupAttachment(RootComponent);
+	AmbientParticles->bAbsoluteRotation = true;
 	
 	bReplicates = true;
 	bReplicateMovement = true;
+	ReplicatedMovement.LocationQuantizationLevel = EVectorQuantization::RoundTwoDecimals;
 	ReplicatedMovement.VelocityQuantizationLevel = EVectorQuantization::RoundTwoDecimals;
+	
 }
 
 
@@ -87,7 +94,6 @@ void ATachyonCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	
 	// Local stuff
 	if (Controller != nullptr)
 	{
@@ -145,23 +151,6 @@ void ATachyonCharacter::MoveRight(float Value)
 	{
 		SetX(Value);
 	}
-
-	// Skating effect - unused, currently just diminishes stale input
-	//float MoveByDot = 0.0f;
-	//FVector MoveInput = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
-	//FVector CurrentV = GetMovementComponent()->Velocity;
-	//FVector VNorm = CurrentV.GetSafeNormal();
-	//// Move by dot product for skating effect
-	//if ((MoveInput != FVector::ZeroVector)
-	//	&& (Controller != nullptr))
-	//{
-	//	float DotToInput = FVector::DotProduct(MoveInput, VNorm);
-	//	float AngleToInput = FMath::Acos(DotToInput);
-	//	float TurnScalar = FMath::Square(TurnSpeed * AngleToInput);
-	//	float DeltaTime = GetWorld()->DeltaTimeSeconds;
-	//	MoveByDot = MoveSpeed * TurnScalar;
-	//	AddMovementInput(FVector(1.0f, 0.0f, 0.0f), InputX * DeltaTime * MoveByDot);
-	//}
 }
 
 void ATachyonCharacter::MoveUp(float Value)
@@ -181,10 +170,14 @@ void ATachyonCharacter::EngageJump()
 	{
 		ServerEngageJump();
 	}
-	else if (!bJumping)
+	else
 	{
-		bJumping = true;
-		FlushNetDormancy();
+		float GlobalTimescale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+		if (!bJumping && (GlobalTimescale > 0.1f))
+		{
+			bJumping = true;
+			FlushNetDormancy();
+		}
 	}
 }
 void ATachyonCharacter::ServerEngageJump_Implementation()
@@ -237,59 +230,62 @@ void ATachyonCharacter::UpdateJump(float DeltaTime)
 	}
 	else
 	{
-		
-		// Auto-forward if no input to do so
-		FVector MoveInputVector = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
-		if (MoveInputVector.X == 0.0f)
+		float GlobalTimescale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+		if (GlobalTimescale > 0.1f)
 		{
-			MoveInputVector.X = GetActorForwardVector().X;
-			MoveInputVector = MoveInputVector.GetSafeNormal();
-		}
-		
-		// First-timer does initial kick and visuals
-		if ((ActiveBoost == nullptr) && (BoostClass != nullptr))
-		{
-			if (GetCharacterMovement() != nullptr)
+			// Auto-forward if no input to do so
+			FVector MoveInputVector = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
+			if (MoveInputVector.X == 0.0f)
 			{
-				FVector InitialJump = MoveInputVector * BoostSpeed;
-				GetCharacterMovement()->AddImpulse(InitialJump, true);
+				MoveInputVector.X = GetActorForwardVector().X;
+				MoveInputVector = MoveInputVector.GetSafeNormal();
 			}
 
-			// Spawning jump FX
-			if (HasAuthority())
+			// First-timer does initial kick and visuals
+			if ((ActiveBoost == nullptr) && (BoostClass != nullptr))
 			{
-				FActorSpawnParameters SpawnParams;
-				FRotator InputRotation = MoveInputVector.Rotation();
-				FVector SpawnLocation = GetActorLocation() + (FVector::UpVector * 10.0f);
-				
-				ActiveBoost = GetWorld()->SpawnActor<AActor>(BoostClass, SpawnLocation, InputRotation, SpawnParams);
-				if (ActiveBoost != nullptr)
+				if (GetCharacterMovement() != nullptr)
 				{
-					ActiveBoost->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
+					FVector InitialJump = MoveInputVector * BoostSpeed;
+					GetCharacterMovement()->AddImpulse(InitialJump, true);
 				}
-			}
-		}
-		else
-		{
-			// Diminishing propulsion
-			if (ActiveBoost != nullptr)
-			{
-				BoostTimeAlive = ActiveBoost->GetGameTimeSinceCreation();
-				if (BoostTimeAlive > 0.1f)
-				{
-					float InverseTimeAlive = (1.0f / BoostTimeAlive) * BoostSustain;
-					DiminishingJumpValue = FMath::Clamp(InverseTimeAlive, 0.1f, 100.0f);
-					FVector SustainedJump = MoveInputVector * BoostSpeed * DiminishingJumpValue * DeltaTime;
 
-					if (GetCharacterMovement() != nullptr)
+				// Spawning jump FX
+				if (HasAuthority())
+				{
+					FActorSpawnParameters SpawnParams;
+					FRotator InputRotation = MoveInputVector.Rotation();
+					FVector SpawnLocation = GetActorLocation() + (FVector::UpVector * 10.0f);
+
+					ActiveBoost = GetWorld()->SpawnActor<AActor>(BoostClass, SpawnLocation, InputRotation, SpawnParams);
+					if (ActiveBoost != nullptr)
 					{
-						GetCharacterMovement()->AddImpulse(SustainedJump, true);
+						ActiveBoost->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
 					}
 				}
 			}
-		}
+			else
+			{
+				// Diminishing propulsion
+				if (ActiveBoost != nullptr)
+				{
+					BoostTimeAlive = ActiveBoost->GetGameTimeSinceCreation();
+					if (BoostTimeAlive > 0.1f)
+					{
+						float InverseTimeAlive = (1.0f / BoostTimeAlive) * BoostSustain;
+						DiminishingJumpValue = FMath::Clamp(InverseTimeAlive, 0.1f, 100.0f);
+						FVector SustainedJump = MoveInputVector * BoostSpeed * DiminishingJumpValue * DeltaTime;
 
-		FlushNetDormancy();
+						if (GetCharacterMovement() != nullptr)
+						{
+							GetCharacterMovement()->AddImpulse(SustainedJump, true);
+						}
+					}
+				}
+			}
+
+			FlushNetDormancy();
+		}
 	}
 }
 void ATachyonCharacter::ServerUpdateJump_Implementation(float DeltaTime)
@@ -354,8 +350,12 @@ bool ATachyonCharacter::ServerSetZ_Validate(float Value)
 // ATTACKING
 void ATachyonCharacter::ArmAttack()
 {
-	bShooting = true;
-
+	float GlobalTimescale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+	if (GlobalTimescale > 0.1f)
+	{
+		bShooting = true;
+	}
+	
 	if (Role < ROLE_Authority)
 	{
 		ServerArmAttack();
@@ -373,16 +373,20 @@ bool ATachyonCharacter::ServerArmAttack_Validate()
 
 void ATachyonCharacter::ReleaseAttack()
 {
-	bShooting = false;
-
-	if ((WindupTimer > 0.0f)
-		&& (AttackTimer <= 0.0f)
-		&& HasAuthority())
+	float GlobalTimescale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+	if (GlobalTimescale > 0.1f)
 	{
-		FireAttack();
-		WindupTimer = 0.0f;
-		ActiveWindup->Destroy();
-		ActiveWindup = nullptr;
+		bShooting = false;
+
+		if ((WindupTimer > 0.0f)
+			&& (AttackTimer <= 0.0f)
+			&& HasAuthority())
+		{
+			FireAttack();
+			WindupTimer = 0.0f;
+			ActiveWindup->Destroy();
+			ActiveWindup = nullptr;
+		}
 	}
 	
 	if (Role < ROLE_Authority)
@@ -560,7 +564,7 @@ void ATachyonCharacter::ModifyHealth(float Value)
 		MaxHealth = FMath::Clamp(Health + Value, -1.0f, 100.0f);
 	}
 
-	if (Role < ROLE_Authority)
+	if ((Controller != nullptr) && (Role < ROLE_Authority))
 	{
 		ServerModifyHealth(Value);
 	}
@@ -622,50 +626,44 @@ void ATachyonCharacter::UpdateHealth(float DeltaTime)
 
 void ATachyonCharacter::UpdateBody(float DeltaTime)
 {
-	if ((Controller != nullptr) || (ActorHasTag("Bot")))
+	// Set rotation so character faces direction of travel
+	float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
+	float ClimbDirection = FMath::Clamp(InputZ, -1.0f, 1.0f) * 5.0f;
+	float Roll = FMath::Clamp(InputZ, -1.0f, 1.0f) * 15.0f;
+	float RotatoeSpeed = 15.0f;
+
+	if (TravelDirection < 0.0f)
 	{
-		// Set rotation so character faces direction of travel
-		float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
-		float ClimbDirection = FMath::Clamp(InputZ, -1.0f, 1.0f) * 5.0f;
-		float Roll = FMath::Clamp(InputZ, -1.0f, 1.0f) * 15.0f;
-		float RotatoeSpeed = 15.0f;
-
-		///////////////////////////////////////////////////////////////
-		// Important - Get something else to rotate, maybe using controller isn't the best option...
-		if (TravelDirection < 0.0f)
-		{
-			FRotator Fint = FMath::RInterpTo(GetController()->GetControlRotation(), FRotator(ClimbDirection, 180.0f, Roll), DeltaTime, RotatoeSpeed);
-			GetController()->SetControlRotation(Fint);
-			
-		}
-		else if (TravelDirection > 0.0f)
-		{
-			FRotator Fint = FMath::RInterpTo(GetController()->GetControlRotation(), FRotator(ClimbDirection, 0.0f, -Roll), DeltaTime, RotatoeSpeed);
-			GetController()->SetControlRotation(Fint);
-		}
-
-		// No lateral Input - finish rotation
-		else
-		{
-			if (FMath::Abs(GetController()->GetControlRotation().Yaw) > 90.0f)
-			{
-				FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, -Roll), DeltaTime, RotatoeSpeed);
-				GetController()->SetControlRotation(Fint);
-			}
-			else if (FMath::Abs(GetController()->GetControlRotation().Yaw) < 90.0f)
-			{
-				FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, Roll), DeltaTime, RotatoeSpeed);
-				GetController()->SetControlRotation(Fint);
-			}
-		}
-
-		// Stretch & Squash on moving
-		float Lateral = 1.0f + FMath::Abs(InputX * 0.1f);
-		float Vertical = 1.0f + (InputZ * 0.1f);
-		FVector BodyVector = FVector(Lateral, 1.1f, Vertical) * 2.2f; // Hard-Code!!
-		GetMesh()->SetWorldScale3D(BodyVector);
-		FlushNetDormancy();
+		FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, Roll), DeltaTime, RotatoeSpeed);
+		Controller->SetControlRotation(Fint);
 	}
+	else if (TravelDirection > 0.0f)
+	{
+		FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, -Roll), DeltaTime, RotatoeSpeed);
+		Controller->SetControlRotation(Fint);
+	}
+
+	// No lateral Input - finish rotation
+	else
+	{
+		if (FMath::Abs(Controller->GetControlRotation().Yaw) > 90.0f)
+		{
+			FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, -Roll), DeltaTime, RotatoeSpeed);
+			Controller->SetControlRotation(Fint);
+		}
+		else if (FMath::Abs(Controller->GetControlRotation().Yaw) < 90.0f)
+		{
+			FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, Roll), DeltaTime, RotatoeSpeed);
+			Controller->SetControlRotation(Fint);
+		}
+	}
+
+	// Stretch & Squash on moving
+	//float Lateral = 1.0f + FMath::Abs(InputX * 0.1f);
+	//float Vertical = 1.0f + (InputZ * 0.1f);
+	//FVector BodyVector = FVector(Lateral, 1.1f, Vertical) * 2.2f; // Hard-Code!!
+	//GetMesh()->SetWorldScale3D(BodyVector);
+	//FlushNetDormancy();
 
 
 	if (Role < ROLE_Authority)

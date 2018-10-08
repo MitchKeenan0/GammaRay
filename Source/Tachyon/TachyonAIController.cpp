@@ -71,6 +71,7 @@ void ATachyonAIController::Tick(float DeltaTime)
 			else if (LocationTarget != FVector::ZeroVector)
 			{
 				NavigateTo(LocationTarget);
+				TravelTimer += DeltaTime;
 			}
 		}
 		else
