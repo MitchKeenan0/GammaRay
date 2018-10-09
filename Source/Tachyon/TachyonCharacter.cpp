@@ -28,7 +28,6 @@ ATachyonCharacter::ATachyonCharacter()
 	GetCharacterMovement()->SetNetAddressable();
 	GetCharacterMovement()->SetIsReplicated(true);
 	GetCharacterMovement()->NetworkMaxSmoothUpdateDistance = 500.0f;
-	GetCharacterMovement()->NetworkSmoothingMode = ENetworkSmoothingMode::Linear;
 	GetCharacterMovement()->NetworkMinTimeBetweenClientAckGoodMoves = 0.0f;
 	GetCharacterMovement()->NetworkMinTimeBetweenClientAdjustments = 0.0f;
 	GetCharacterMovement()->NetworkMinTimeBetweenClientAdjustmentsLargeCorrection = 0.0f;
@@ -146,7 +145,9 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 // MOVEMENT
 void ATachyonCharacter::MoveRight(float Value)
 {
-	AddMovementInput(FVector(1.0f, 0.0f, 0.0f), Value);
+	float MoveValue = Value * MoveSpeed * GetWorld()->DeltaTimeSeconds;
+	AddMovementInput(FVector(1.0f, 0.0f, 0.0f), MoveValue);
+
 	if (!ActorHasTag("Bot"))
 	{
 		SetX(Value);
@@ -155,7 +156,9 @@ void ATachyonCharacter::MoveRight(float Value)
 
 void ATachyonCharacter::MoveUp(float Value)
 {
-	AddMovementInput(FVector(0.0f, 0.0f, 1.0f), Value);
+	float MoveValue = Value * MoveSpeed * GetWorld()->DeltaTimeSeconds;
+	AddMovementInput(FVector(0.0f, 0.0f, 1.0f), MoveValue);
+
 	if (!ActorHasTag("Bot"))
 	{
 		SetZ(Value);
@@ -167,24 +170,21 @@ void ATachyonCharacter::MoveUp(float Value)
 void ATachyonCharacter::EngageJump()
 {
 	bJumping = true;
-	
+
+	// Auto-forward if no input to do so
+	JumpMoveVector = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
+	if (JumpMoveVector.X == 0.0f)
+	{
+		JumpMoveVector.X = GetActorForwardVector().X;
+		JumpMoveVector = JumpMoveVector.GetSafeNormal();
+	}
 	
 	if (Role < ROLE_Authority)
 	{
 		ServerEngageJump();
 	}
 
-	FlushNetDormancy();
-	
-	/*else
-	{
-		float GlobalTimescale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
-		if (!bJumping && (GlobalTimescale > 0.1f))
-		{
-			bJumping = true;
-			FlushNetDormancy();
-		}
-	}*/
+	ForceNetUpdate();
 }
 void ATachyonCharacter::ServerEngageJump_Implementation()
 {
@@ -206,6 +206,7 @@ void ATachyonCharacter::DisengageJump()
 		bJumping = false;
 		DiminishingJumpValue = 0.0f;
 		BoostTimeAlive = 0.0f;
+		///JumpMoveVector = FVector::ZeroVector;
 
 		if (ActiveBoost != nullptr)
 		{
@@ -216,7 +217,7 @@ void ATachyonCharacter::DisengageJump()
 			ActiveBoost = nullptr;
 		}
 
-		FlushNetDormancy();
+		ForceNetUpdate();
 	}
 }
 void ATachyonCharacter::ServerDisengageJump_Implementation()
@@ -236,35 +237,18 @@ void ATachyonCharacter::UpdateJump(float DeltaTime)
 	}
 	else
 	{
-		// Auto-forward if no input to do so
-		FVector MoveInputVector = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
-		if (MoveInputVector.X == 0.0f)
-		{
-			MoveInputVector.X = GetActorForwardVector().X;
-			MoveInputVector = MoveInputVector.GetSafeNormal();
-		}
-
-		// First-timer does initial kick and visuals
+		// First-timer spawns visuals
 		if ((ActiveBoost == nullptr) && (BoostClass != nullptr))
 		{
-			if (GetCharacterMovement() != nullptr)
-			{
-				FVector InitialJump = MoveInputVector * BoostSpeed;
-				GetCharacterMovement()->AddImpulse(InitialJump, true);
-			}
-
 			// Spawning jump FX
-			if (HasAuthority())
-			{
-				FActorSpawnParameters SpawnParams;
-				FRotator InputRotation = MoveInputVector.Rotation();
-				FVector SpawnLocation = GetActorLocation() + (FVector::UpVector * 10.0f);
+			FActorSpawnParameters SpawnParams;
+			FRotator InputRotation = JumpMoveVector.GetSafeNormal().Rotation();
+			FVector SpawnLocation = GetActorLocation() + (FVector::UpVector * 10.0f);
 
-				ActiveBoost = GetWorld()->SpawnActor<AActor>(BoostClass, SpawnLocation, InputRotation, SpawnParams);
-				if (ActiveBoost != nullptr)
-				{
-					ActiveBoost->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
-				}
+			ActiveBoost = GetWorld()->SpawnActor<AActor>(BoostClass, SpawnLocation, InputRotation, SpawnParams);
+			if (ActiveBoost != nullptr)
+			{
+				ActiveBoost->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
 			}
 		}
 		else
@@ -273,22 +257,21 @@ void ATachyonCharacter::UpdateJump(float DeltaTime)
 			if (ActiveBoost != nullptr)
 			{
 				BoostTimeAlive = ActiveBoost->GetGameTimeSinceCreation();
-				if (BoostTimeAlive > 0.1f)
+				if (BoostTimeAlive > 0.01f)
 				{
 					float InverseTimeAlive = (1.0f / BoostTimeAlive) * BoostSustain;
 					DiminishingJumpValue = FMath::Clamp(InverseTimeAlive, 0.1f, 100.0f);
-					FVector SustainedJump = MoveInputVector * BoostSpeed * DiminishingJumpValue * DeltaTime;
+					FVector SustainedJump = JumpMoveVector * BoostSpeed * DiminishingJumpValue;
 
-					if (GetCharacterMovement() != nullptr)
-					{
-						GetCharacterMovement()->AddImpulse(SustainedJump, true);
-					}
+					FVector JumpLocation = GetActorLocation() + SustainedJump;
+					FVector UpdatedJumpLocation = FMath::VInterpConstantTo(GetActorLocation(), JumpLocation, DeltaTime, InverseTimeAlive);
+					SetActorLocation(UpdatedJumpLocation);
+
+					ForceNetUpdate();
 				}
 			}
 		}
 	}
-
-	FlushNetDormancy();
 }
 void ATachyonCharacter::ServerUpdateJump_Implementation(float DeltaTime)
 {

@@ -134,6 +134,9 @@ void ATachyonAttack::Lethalize()
 	bLethal = true;
 	bDoneLethal = true;
 
+	ActivateSound();
+	ActivateParticles();
+
 	// Shooter Recoil
 	FVector RecoilVector = GetActorRotation().Vector().GetSafeNormal();
 	ACharacter* CharacterShooter = Cast<ACharacter>(OwningShooter);
@@ -144,13 +147,23 @@ void ATachyonAttack::Lethalize()
 		CharacterShooter->GetCharacterMovement()->Velocity = (ShooterVelocity + RecoilVector);
 	}
 
+	ForceNetUpdate();
+	///FlushNetDormancy();
+}
+
+
+void ATachyonAttack::ActivateSound()
+{
 	if (AttackSound != nullptr)
 	{
 		float ModifiedPitch = AttackSound->PitchMultiplier * (AttackMagnitude);
 		AttackSound->SetPitchMultiplier(ModifiedPitch);
 		AttackSound->Activate();
 	}
+}
 
+void ATachyonAttack::ActivateParticles()
+{
 	if (AttackParticles != nullptr)
 	{
 		float ParticleSize = FMath::Clamp((AttackMagnitude * 2.0f), 0.5f, 1.5f);
@@ -161,9 +174,6 @@ void ATachyonAttack::Lethalize()
 		AttackParticles->Activate();
 		AttackParticles->ActivateSystem();
 	}
-
-	ForceNetUpdate();
-	FlushNetDormancy();
 }
 
 
@@ -246,6 +256,7 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 
 	if (bLethal)
 	{
+		// Hits Per Second
 		float TimeProofDelta = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
 		if (TimeProofDelta > 0.01f)
 		{
@@ -257,11 +268,12 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 			}
 		}
 
+		// Catch unactivated visuals and sound
 		if (!AttackParticles->IsActive())
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, TEXT("c a u g h t PARTICLES INACTIVE"));
-			AttackParticles->Activate();
-		}
+			ActivateParticles();
+		
+		if ((!AttackSound->IsActive()) || !AttackSound->IsPlaying())
+			ActivateSound();
 	}
 
 	if ((LifeTimer >= DeliveryTime)

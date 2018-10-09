@@ -28,6 +28,12 @@ public:
 	void InitAttack(AActor* Shooter, float Magnitude, float YScale);
 
 	UFUNCTION()
+	void ActivateSound();
+
+	UFUNCTION()
+	void ActivateParticles();
+
+	UFUNCTION()
 	bool IsInitialized() { return bInitialized; }
 	UFUNCTION()
 	bool IsLockedEmitPoint() { return LockedEmitPoint; }

@@ -232,6 +232,8 @@ protected:
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
 	bool bJumping = false;
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
+	FVector JumpMoveVector = FVector::ZeroVector;
+	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
 	float DiminishingJumpValue = 0.0f;
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
 	float BoostTimeAlive = 0.0f;
