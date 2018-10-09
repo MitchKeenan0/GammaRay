@@ -41,6 +41,7 @@ ATachyonAttack::ATachyonAttack()
 	bReplicateMovement = true;
 }
 
+
 // Called when the game starts or when spawned
 void ATachyonAttack::BeginPlay()
 {
@@ -67,6 +68,7 @@ void ATachyonAttack::BeginPlay()
 	FlushNetDormancy();
 }
 
+
 void ATachyonAttack::SpawnBurst()
 {
 	if (BurstClass != nullptr)
@@ -85,6 +87,7 @@ void ATachyonAttack::SpawnBurst()
 		}
 	}
 }
+
 
 void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 {
@@ -125,6 +128,7 @@ void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 	}
 }
 
+
 void ATachyonAttack::Lethalize()
 {
 	bLethal = true;
@@ -162,6 +166,7 @@ void ATachyonAttack::Lethalize()
 	FlushNetDormancy();
 }
 
+
 void ATachyonAttack::SetInitVelocities()
 {
 	FVector ShooterVelocity = OwningShooter->GetVelocity();
@@ -189,6 +194,7 @@ void ATachyonAttack::SetInitVelocities()
 	}
 }
 
+
 void ATachyonAttack::RedirectAttack()
 {
 	// Location Update
@@ -214,6 +220,7 @@ void ATachyonAttack::RedirectAttack()
 	FireRotation.Yaw = Yaw;
 	SetActorRotation(FireRotation);
 }
+
 
 // Called every frame
 void ATachyonAttack::Tick(float DeltaTime)
@@ -348,12 +355,14 @@ void ATachyonAttack::RaycastForHit(FVector RaycastVector)
 	}
 }
 
+
 void ATachyonAttack::SpawnHit(AActor* HitActor, FVector HitLocation)
 {
 	FActorSpawnParameters SpawnParams;
 	FVector ToHitLocation = (HitLocation - GetActorLocation()).GetSafeNormal();
 	AActor* HitSpawning = GetWorld()->SpawnActor<AActor>(DamageClass, HitLocation, ToHitLocation.Rotation(), SpawnParams);
 }
+
 
 void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, float HitScalar)
 {
@@ -375,6 +384,7 @@ void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, floa
 	}
 }
 
+
 void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 {
 	// Bail out if we hit our own attack type
@@ -394,6 +404,7 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 	// Update GameState
 	ReportHitToMatch(OwningShooter, HitActor);
 }
+
 
 void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 {
