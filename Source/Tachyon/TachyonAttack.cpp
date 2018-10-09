@@ -266,14 +266,20 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 				RaycastForHit(GetActorForwardVector());
 				HitTimer = 0.0f;
 			}
-		}
 
-		// Catch unactivated visuals and sound
-		if (!AttackParticles->IsActive())
-			ActivateParticles();
-		
-		if ((!AttackSound->IsActive()) || !AttackSound->IsPlaying())
-			ActivateSound();
+			// Catch unactivated visuals and sound
+			if (!AttackParticles->IsActive())
+			{
+				ActivateParticles();
+				RedirectAttack();
+			}
+
+			if ((!AttackSound->IsActive()) || !AttackSound->IsPlaying())
+			{
+				ActivateSound();
+				RedirectAttack();
+			}
+		}
 	}
 
 	if ((LifeTimer >= DeliveryTime)
@@ -383,16 +389,14 @@ void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, floa
 	KnockVector.Y = 0.0f;
 
 	// Character case
-	ATachyonCharacter* Chara = Cast<ATachyonCharacter>(HitActor);
+	ACharacter* Chara = Cast<ACharacter>(HitActor);
 	if (Chara != nullptr)
 	{
 		FVector CharaVelocity = Chara->GetVelocity();
 		FVector KnockbackVector = CharaVelocity + KnockVector;
 
-		Chara->GetCharacterMovement()->Velocity = KnockbackVector;
-		Chara->GetMovementComponent()->UpdateComponentVelocity();
-		///Chara->GetCharacterMovement()->AddImpulse(KnockVector, true);
-		///Chara->FlushNetDormancy();
+		Chara->GetCharacterMovement()->AddImpulse(KnockVector, true);
+		ForceNetUpdate();
 	}
 }
 

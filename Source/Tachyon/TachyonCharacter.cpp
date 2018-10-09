@@ -184,7 +184,7 @@ void ATachyonCharacter::EngageJump()
 		ServerEngageJump();
 	}
 
-	ForceNetUpdate();
+	///ForceNetUpdate();
 }
 void ATachyonCharacter::ServerEngageJump_Implementation()
 {
@@ -197,28 +197,30 @@ bool ATachyonCharacter::ServerEngageJump_Validate()
 
 void ATachyonCharacter::DisengageJump()
 {
+	bJumping = false;
+	DiminishingJumpValue = 0.0f;
+	BoostTimeAlive = 0.0f;
+	///JumpMoveVector = FVector::ZeroVector;
+
+	if (ActiveBoost != nullptr)
+	{
+		ActiveBoost->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+		ActiveBoost->SetActorLocation(GetActorLocation());
+		ActiveBoost->ForceNetUpdate();
+		ActiveBoost->SetLifeSpan(0.5f);
+		ActiveBoost = nullptr;
+	}
+	
 	if (Role < ROLE_Authority)
 	{
 		ServerDisengageJump();
 	}
 	else if (bJumping)
 	{
-		bJumping = false;
-		DiminishingJumpValue = 0.0f;
-		BoostTimeAlive = 0.0f;
-		///JumpMoveVector = FVector::ZeroVector;
-
-		if (ActiveBoost != nullptr)
-		{
-			ActiveBoost->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-			ActiveBoost->SetActorLocation(GetActorLocation());
-			ActiveBoost->ForceNetUpdate();
-			ActiveBoost->SetLifeSpan(0.5f);
-			ActiveBoost = nullptr;
-		}
-
-		ForceNetUpdate();
+		
 	}
+
+	///ForceNetUpdate();
 }
 void ATachyonCharacter::ServerDisengageJump_Implementation()
 {
@@ -251,27 +253,36 @@ void ATachyonCharacter::UpdateJump(float DeltaTime)
 				ActiveBoost->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
 			}
 		}
-		else
+
+		// Diminishing propulsion
+		if (ActiveBoost != nullptr)
 		{
-			// Diminishing propulsion
-			if (ActiveBoost != nullptr)
+			BoostTimeAlive = ActiveBoost->GetGameTimeSinceCreation();
+			if (BoostTimeAlive > 0.001f)
 			{
-				BoostTimeAlive = ActiveBoost->GetGameTimeSinceCreation();
-				if (BoostTimeAlive > 0.01f)
+				float InverseTimeAlive = (1.0f / BoostTimeAlive) * BoostSustain;
+				DiminishingJumpValue = FMath::Clamp(InverseTimeAlive, 0.0f, 21.0f);
+				GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("DiminishingJumpValue: %f"), DiminishingJumpValue));
+
+				if (DiminishingJumpValue > 0.5f)
 				{
-					float InverseTimeAlive = (1.0f / BoostTimeAlive) * BoostSustain;
-					DiminishingJumpValue = FMath::Clamp(InverseTimeAlive, 0.1f, 100.0f);
-					FVector SustainedJump = JumpMoveVector * BoostSpeed * DiminishingJumpValue;
-
+					FVector SustainedJump = JumpMoveVector * BoostSpeed * DiminishingJumpValue * 1000.0f;
 					FVector JumpLocation = GetActorLocation() + SustainedJump;
-					FVector UpdatedJumpLocation = FMath::VInterpConstantTo(GetActorLocation(), JumpLocation, DeltaTime, InverseTimeAlive);
+					float JumpSize = SustainedJump.Size();
+					FVector UpdatedJumpLocation = FMath::VInterpConstantTo(GetActorLocation(), JumpLocation, DeltaTime, JumpSize);
 					SetActorLocation(UpdatedJumpLocation);
-
-					ForceNetUpdate();
+				}
+				else
+				{
+					GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, TEXT("Cutting Jump -----"));
+					DisengageJump();
+					return;
 				}
 			}
 		}
 	}
+
+	///ForceNetUpdate();
 }
 void ATachyonCharacter::ServerUpdateJump_Implementation(float DeltaTime)
 {
