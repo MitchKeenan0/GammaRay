@@ -23,6 +23,9 @@ class TACHYON_API ATachyonAIController : public AAIController
 	void FindOneself();
 
 public:
+	UPROPERTY(EditDefaultsOnly)
+	float MoveRange = 100.0f;
+
 	UFUNCTION(BlueprintCallable)
 	void SetPlayer(ATachyonCharacter* NewPlayer) { Player = NewPlayer; }
 

@@ -453,29 +453,32 @@ void ATachyonCharacter::FireAttack()
 			FireRotation += FRotator((AttackAngle * InputZ), 0.0f, 0.0f);
 			FActorSpawnParameters SpawnParams;
 
-			ActiveAttack = Cast<ATachyonAttack>(GetWorld()->SpawnActor<ATachyonAttack>(AttackClass, FirePosition, FireRotation, SpawnParams));
-			if (ActiveAttack != nullptr)
+			if (HasAuthority())
 			{
-				// The attack is born
+				ActiveAttack = Cast<ATachyonAttack>(GetWorld()->SpawnActor<ATachyonAttack>(AttackClass, FirePosition, FireRotation, SpawnParams));
 				if (ActiveAttack != nullptr)
 				{
-					float AttackStrength = FMath::Clamp(WindupTimer, 0.1f, 1.0f);
-					ActiveAttack->InitAttack(this, AttackStrength, InputZ); /// PrefireVal, AimClampedInputZ);
-
-																			// Position lock, or naw
-					if (ActiveAttack->IsLockedEmitPoint())
+					// The attack is born
+					if (ActiveAttack != nullptr)
 					{
-						ActiveAttack->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
+						float AttackStrength = FMath::Clamp(WindupTimer, 0.1f, 1.0f);
+						ActiveAttack->InitAttack(this, AttackStrength, InputZ); /// PrefireVal, AimClampedInputZ);
+
+																				// Position lock, or naw
+						if (ActiveAttack->IsLockedEmitPoint())
+						{
+							ActiveAttack->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
+						}
+
+						// Recoil
+						FVector RecoilVector = FireRotation.Vector().GetSafeNormal();
+						GetCharacterMovement()->AddImpulse(RecoilVector * -AttackRecoil
+							* FMath::Square(1.0f + AttackStrength)
+							* 30.0f);
+
+						// Refire timing
+						AttackTimer = (AttackFireRate * FMath::Sqrt(AttackStrength));
 					}
-
-					// Recoil
-					FVector RecoilVector = FireRotation.Vector().GetSafeNormal();
-					GetCharacterMovement()->AddImpulse(RecoilVector * -AttackRecoil
-						* FMath::Square(1.0f + AttackStrength)
-						* 30.0f);
-
-					// Refire timing
-					AttackTimer = (AttackFireRate * FMath::Sqrt(AttackStrength));
 				}
 			}
 		}

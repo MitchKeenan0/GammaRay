@@ -95,7 +95,12 @@ FVector ATachyonAIController::GetNewLocationTarget()
 		FVector PlayerLocation = Player->GetActorLocation();
 		FVector PlayerVelocity = Player->GetCharacterMovement()->Velocity;
 		FVector MyVelocity = MyTachyonCharacter->GetCharacterMovement()->Velocity;
-		float VelocityScalar = FMath::Clamp((1.0f / (1.0f / MyVelocity.Size())), 1.0f, 100.0f);
+		float VelocityScalar = 
+			MoveRange 
+			+ FMath::Clamp(
+				(1.0f / (1.0f / MyVelocity.Size() + 1.0f)),
+				1.0f, 
+				100.0f);
 		
 		if (PlayerVelocity.Size() > 100.0f)
 		{
