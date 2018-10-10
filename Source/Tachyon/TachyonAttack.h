@@ -93,16 +93,16 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	bool LockedEmitPoint = true;
 
-	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	float DeliveryTime = 0.1f;
 
-	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	float DurationTime = 0.3f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	float MagnitudeTimeScalar = 1.0f;
 
-	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	float HitsPerSecond = 100.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
@@ -114,7 +114,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	float ShootingAngle = 21.0f;
 
-	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	float ProjectileSpeed = 0.0f;
 
 	UPROPERTY(EditDefaultsOnly)
@@ -147,10 +147,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	bool bRaycastOnMesh = false;
 
-	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	float KineticForce = 100.0f;
 
-	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadWrite)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	float RecoilForce = 1000.0f;
 
 
@@ -200,9 +200,9 @@ protected:
 	// Replicated Variables
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	bool bInitialized = false;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated)
+	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	class AActor* OwningShooter = nullptr;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated)
+	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	class AActor* HitActor = nullptr;
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	float DynamicLifetime = 0.0f;

@@ -9,6 +9,7 @@ ATachyonGameStateBase::ATachyonGameStateBase()
 	PrimaryActorTick.bCanEverTick = true;
 
 	bReplicates = true;
+	NetDormancy = ENetDormancy::DORM_Never;
 }
 
 
@@ -51,7 +52,7 @@ void ATachyonGameStateBase::UpdateGlobalTimescale(float DeltaTime)
 	}
 	else
 	{
-		float InterpTime = FMath::FInterpConstantTo(CurrentTime, 1.0f, DeltaTime, 5.0f);
+		float InterpTime = FMath::FInterpConstantTo(CurrentTime, 1.0f, DeltaTime, 10.0f);
 		SetGlobalTimescale(InterpTime);
 	}
 }

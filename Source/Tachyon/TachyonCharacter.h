@@ -65,9 +65,6 @@ public:
 	void SetOpponent(ATachyonCharacter* NewTarget) { Opponent = NewTarget; }
 
 	UFUNCTION(BlueprintCallable)
-	void ReceiveKnockback(FVector Knockback, bool bOverrideVelocity);
-
-	UFUNCTION(BlueprintCallable)
 	void DonApparel();
 
 	UFUNCTION(BlueprintCallable)
@@ -185,6 +182,10 @@ public:
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
 	void ServerUpdateJump(float DeltaTime);
 
+	UFUNCTION(BlueprintCallable)
+	void ReceiveKnockback(FVector Knockback, bool bOverrideVelocity);
+	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
+	void ServerReceiveKnockback(FVector Knockback, bool bOverrideVelocity);
 
 	UFUNCTION(BlueprintCallable)
 	void ModifyHealth(float Value);

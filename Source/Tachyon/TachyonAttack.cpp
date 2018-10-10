@@ -127,9 +127,9 @@ void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 
 		ForceNetUpdate();
 
-		GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackMagnitude: %f"), AttackMagnitude));
-		GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("HitsPerSecond: %f"), HitsPerSecond));
-		GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackDamage: %f"), AttackDamage));
+		///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackMagnitude: %f"), AttackMagnitude));
+		///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("HitsPerSecond:   %f"), HitsPerSecond));
+		///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackDamage:    %f"), AttackDamage));
 	}
 }
 
@@ -144,12 +144,13 @@ void ATachyonAttack::Lethalize()
 
 	// Shooter Recoil
 	FVector RecoilVector = GetActorRotation().Vector().GetSafeNormal();
-	ACharacter* CharacterShooter = Cast<ACharacter>(OwningShooter);
+	ATachyonCharacter* CharacterShooter = Cast<ATachyonCharacter>(OwningShooter);
 	if (CharacterShooter != nullptr)
 	{
 		FVector ShooterVelocity = CharacterShooter->GetCharacterMovement()->Velocity;
 		RecoilVector *= (RecoilForce * -AttackMagnitude);
-		CharacterShooter->GetCharacterMovement()->Velocity = (ShooterVelocity + RecoilVector);
+		//CharacterShooter->GetCharacterMovement()->Velocity = (ShooterVelocity + RecoilVector);
+		CharacterShooter->ReceiveKnockback(RecoilVector, true);
 
 		// Disable shooter input for attack duration
 		//SetShooterInputEnabled(false);
@@ -300,13 +301,13 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 		&& bLethal)
 	{
 		bLethal = false;
-		//SetShooterInputEnabled(true);
+		///SetShooterInputEnabled(true);
 	}
 
 	if (LifeTimer >= DynamicLifetime)
 	{
-		//SetShooterInputEnabled(true);
-		GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("NumHits: %i"), NumHits));
+		///SetShooterInputEnabled(true);
+		///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("NumHits: %i"), NumHits));
 		Destroy();
 	}
 }
@@ -431,7 +432,11 @@ void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, floa
 		FVector CharaVelocity = Chara->GetMovementComponent()->Velocity;
 		FVector KnockbackVector = CharaVelocity + KnockVector;
 
-		Chara->ReceiveKnockback(KnockVector, true);
+		if (HasAuthority())
+		{
+			Chara->ReceiveKnockback(KnockVector, true);
+		}
+
 		ForceNetUpdate();
 	}
 }
@@ -473,7 +478,10 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		float TachyonHealth = HitTachyon->GetHealth();
 		if (TachyonHealth > 0.0f)
 		{
-			HitTachyon->ModifyHealth(-AttackDamage);
+			if (HasAuthority())
+			{
+				HitTachyon->ModifyHealth(-AttackDamage);
+			}
 		}
 		else
 		{
@@ -559,8 +567,4 @@ void ATachyonAttack::GetLifetimeReplicatedProps(TArray <FLifetimeProperty> & Out
 	DOREPLIFETIME(ATachyonAttack, bLethal);
 	DOREPLIFETIME(ATachyonAttack, bDoneLethal);
 	DOREPLIFETIME(ATachyonAttack, bFirstHitReported);
-	DOREPLIFETIME(ATachyonAttack, DeliveryTime);
-	DOREPLIFETIME(ATachyonAttack, HitsPerSecond);
-	DOREPLIFETIME(ATachyonAttack, KineticForce);
-	DOREPLIFETIME(ATachyonAttack, RecoilForce);
 }
