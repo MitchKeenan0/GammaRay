@@ -40,10 +40,14 @@ class TACHYON_API ATachyonCharacter : public ACharacter
 	FVector Midpoint = FVector::ZeroVector;
 	UPROPERTY()
 	FVector PrevMoveInput = FVector::ZeroVector;
+	UPROPERTY()
+	AActor* Actor1 = nullptr;
+	UPROPERTY()
+	AActor* Actor2 = nullptr;
 
 public:
 	// Sets default values for this character's properties
-	ATachyonCharacter();
+	ATachyonCharacter(const FObjectInitializer& ObjectInitializer);
 
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -59,6 +63,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void SetOpponent(ATachyonCharacter* NewTarget) { Opponent = NewTarget; }
+
+	UFUNCTION(BlueprintCallable)
+	void ReceiveKnockback(FVector Knockback, bool bOverrideVelocity);
 
 	UFUNCTION(BlueprintCallable)
 	void DonApparel();
@@ -95,7 +102,7 @@ public:
 	UPROPERTY(EditDefaultsOnly)
 	float WindupTime = 0.1f;
 
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, Replicated)
 	float MaxHealth = 100.0f;
 
 	UPROPERTY(EditDefaultsOnly)
@@ -123,7 +130,7 @@ public:
 	float GetHealth() { return Health; }
 
 	UFUNCTION(BlueprintCallable)
-	float GetHealthDelta() { return FMath::Clamp(FMath::Abs(Health - MaxHealth), 1.0f, 50.0f); }
+	float GetHealthDelta() { return FMath::Clamp(FMath::Abs(Health - MaxHealth), 0.1f, 50.0f); }
 
 	UFUNCTION(BlueprintCallable)
 	ATachyonCharacter* GetOpponent() { return Opponent; }

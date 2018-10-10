@@ -34,7 +34,11 @@ public:
 	void ActivateParticles();
 
 	UFUNCTION()
+	void SetShooterInputEnabled(bool bEnabled);
+
+	UFUNCTION()
 	bool IsInitialized() { return bInitialized; }
+
 	UFUNCTION()
 	bool IsLockedEmitPoint() { return LockedEmitPoint; }
 
@@ -217,7 +221,7 @@ protected:
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	float AttackDirection = 0.0f;
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
-	float AttackDamage = 1.0f;
+	float AttackDamage = 10.0f;
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	bool bLethal = false;
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)

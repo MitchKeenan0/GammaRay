@@ -39,6 +39,7 @@ ATachyonAttack::ATachyonAttack()
 
 	bReplicates = true;
 	bReplicateMovement = true;
+	NetDormancy = ENetDormancy::DORM_Never;
 }
 
 
@@ -50,6 +51,7 @@ void ATachyonAttack::BeginPlay()
 	// Tactical setup
 	bLethal = false;
 	HitTimer = (1.0f / HitsPerSecond);
+	AttackDamage = 10.0f;
 	
 	// PreInit Component setup
 	if (AttackParticles != nullptr)
@@ -65,7 +67,7 @@ void ATachyonAttack::BeginPlay()
 		AttackRadial->SetWorldLocation(GetActorLocation());
 	}
 
-	FlushNetDormancy();
+	ForceNetUpdate();
 }
 
 
@@ -124,7 +126,10 @@ void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 		bInitialized = true;
 
 		ForceNetUpdate();
-		FlushNetDormancy();
+
+		GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackMagnitude: %f"), AttackMagnitude));
+		GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("HitsPerSecond: %f"), HitsPerSecond));
+		GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackDamage: %f"), AttackDamage));
 	}
 }
 
@@ -145,6 +150,9 @@ void ATachyonAttack::Lethalize()
 		FVector ShooterVelocity = CharacterShooter->GetCharacterMovement()->Velocity;
 		RecoilVector *= (RecoilForce * -AttackMagnitude);
 		CharacterShooter->GetCharacterMovement()->Velocity = (ShooterVelocity + RecoilVector);
+
+		// Disable shooter input for attack duration
+		//SetShooterInputEnabled(false);
 	}
 
 	ForceNetUpdate();
@@ -292,11 +300,39 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 		&& bLethal)
 	{
 		bLethal = false;
+		//SetShooterInputEnabled(true);
 	}
 
 	if (LifeTimer >= DynamicLifetime)
 	{
+		//SetShooterInputEnabled(true);
+		GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("NumHits: %i"), NumHits));
 		Destroy();
+	}
+}
+
+
+// Shooter Input Enabling
+void ATachyonAttack::SetShooterInputEnabled(bool bEnabled)
+{
+	// Re-enable Shooter's Input
+	ACharacter* CharacterShooter = Cast<ACharacter>(OwningShooter);
+	if (CharacterShooter != nullptr)
+	{
+		APlayerController* TachyonController = Cast<APlayerController>(CharacterShooter->GetController());
+		if (TachyonController != nullptr)
+		{
+			if (bEnabled)
+			{
+				CharacterShooter->EnableInput(TachyonController);
+			}
+			else
+			{
+				CharacterShooter->DisableInput(TachyonController);
+			}
+			
+			ForceNetUpdate();
+		}
 	}
 }
 
@@ -389,13 +425,13 @@ void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, floa
 	KnockVector.Y = 0.0f;
 
 	// Character case
-	ACharacter* Chara = Cast<ACharacter>(HitActor);
+	ATachyonCharacter* Chara = Cast<ATachyonCharacter>(HitActor);
 	if (Chara != nullptr)
 	{
-		FVector CharaVelocity = Chara->GetVelocity();
+		FVector CharaVelocity = Chara->GetMovementComponent()->Velocity;
 		FVector KnockbackVector = CharaVelocity + KnockVector;
 
-		Chara->GetCharacterMovement()->AddImpulse(KnockVector, true);
+		Chara->ReceiveKnockback(KnockVector, true);
 		ForceNetUpdate();
 	}
 }
@@ -413,9 +449,12 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 		}
 	}
 
-	// Smashy fx
-	SpawnHit(HitActor, HitLocation);
-	ApplyKnockForce(HitActor, HitLocation, 1.0f);
+	if (HasAuthority())
+	{
+		// Smashy fx
+		SpawnHit(HitActor, HitLocation);
+		ApplyKnockForce(HitActor, HitLocation, 1.0f);
+	}
 
 	// Update GameState
 	ReportHitToMatch(OwningShooter, HitActor);
@@ -427,6 +466,8 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 	ATachyonCharacter* HitTachyon = Cast<ATachyonCharacter>(Mark);
 	if (HitTachyon != nullptr)
 	{
+		NumHits += 1;
+
 		// Modify Health of Mark
 		bool bMarkKilled = false;
 		float TachyonHealth = HitTachyon->GetHealth();
@@ -456,20 +497,19 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 			if (GState != nullptr)
 			{
 				float TargetTimescale = 1.0f;
-				if (!bMarkKilled)
+				if (bMarkKilled)
+				{
+					GState->SetGlobalTimescale(0.01f); /// 0.01 is Terminal timescale
+				}
+				else
 				{
 					float ImpactScalar = AttackMagnitude * 1.5f;
 					float HitTimescale = FMath::Clamp((1.0f - ImpactScalar), 0.05f, 0.1f);
 					GState->SetGlobalTimescale(HitTimescale);
 				}
-				else
-				{
-					GState->SetGlobalTimescale(0.01f);
-				}
 				
-				GState->FlushNetDormancy();
+				GState->ForceNetUpdate();
 				bFirstHitReported = true;
-				NumHits += 1;
 			}
 		}
 	}

@@ -1,11 +1,14 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "TachyonCharacter.h"
+#include "TachyonJump.h"
+#include "TachyonMovementComponent.h"
 #include "TachyonGameStateBase.h"
 
 
 // Sets default values
-ATachyonCharacter::ATachyonCharacter()
+ATachyonCharacter::ATachyonCharacter(const FObjectInitializer& ObjectInitializer)
+	:Super(ObjectInitializer.SetDefaultSubobjectClass<UTachyonMovementComponent>(ACharacter::CharacterMovementComponentName))
 {
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
@@ -17,20 +20,6 @@ ATachyonCharacter::ATachyonCharacter()
 
 	///GetMesh()->SetIsReplicated(true);
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-
-	GetCharacterMovement()->GravityScale = 0.0f;
-	GetCharacterMovement()->AirControl = 1.0f;
-	GetCharacterMovement()->MaxFlySpeed = 1000.0f;
-	GetCharacterMovement()->MovementMode = MOVE_Flying;
-	GetCharacterMovement()->DefaultLandMovementMode = MOVE_Flying;
-	GetCharacterMovement()->bConstrainToPlane = true;
-	GetCharacterMovement()->SetPlaneConstraintNormal(FVector(0.0f, -1.0f, 0.0f));
-	GetCharacterMovement()->SetNetAddressable();
-	GetCharacterMovement()->SetIsReplicated(true);
-	GetCharacterMovement()->NetworkMaxSmoothUpdateDistance = 500.0f;
-	GetCharacterMovement()->NetworkMinTimeBetweenClientAckGoodMoves = 0.0f;
-	GetCharacterMovement()->NetworkMinTimeBetweenClientAdjustments = 0.0f;
-	GetCharacterMovement()->NetworkMinTimeBetweenClientAdjustmentsLargeCorrection = 0.0f;
 
 	// Create a camera boom attached to the root (capsule)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
@@ -66,7 +55,7 @@ ATachyonCharacter::ATachyonCharacter()
 	bReplicateMovement = true;
 	ReplicatedMovement.LocationQuantizationLevel = EVectorQuantization::RoundTwoDecimals;
 	ReplicatedMovement.VelocityQuantizationLevel = EVectorQuantization::RoundTwoDecimals;
-	
+	NetDormancy = ENetDormancy::DORM_Never;
 }
 
 
@@ -99,6 +88,11 @@ void ATachyonCharacter::Tick(float DeltaTime)
 		UpdateHealth(DeltaTime);
 		UpdateBody(DeltaTime);
 		UpdateCamera(DeltaTime);
+
+		if (bJumping)
+		{
+			UpdateJump(DeltaTime);
+		}
 	}
 
 	// Net stuff
@@ -107,11 +101,6 @@ void ATachyonCharacter::Tick(float DeltaTime)
 		if (AttackTimer != 0.0f)
 		{
 			UpdateAttack(DeltaTime);
-		}
-
-		if (bJumping)
-		{
-			UpdateJump(DeltaTime);
 		}
 
 		if (bShooting)
@@ -148,9 +137,13 @@ void ATachyonCharacter::MoveRight(float Value)
 	float MoveValue = Value * MoveSpeed * GetWorld()->DeltaTimeSeconds;
 	AddMovementInput(FVector(1.0f, 0.0f, 0.0f), MoveValue);
 
+	// Update net aim
 	if (!ActorHasTag("Bot"))
 	{
-		SetX(Value);
+		if (InputX != Value)
+		{
+			SetX(Value);
+		}
 	}
 }
 
@@ -159,9 +152,13 @@ void ATachyonCharacter::MoveUp(float Value)
 	float MoveValue = Value * MoveSpeed * GetWorld()->DeltaTimeSeconds;
 	AddMovementInput(FVector(0.0f, 0.0f, 1.0f), MoveValue);
 
+	// Update net aim
 	if (!ActorHasTag("Bot"))
 	{
-		SetZ(Value);
+		if (InputZ != Value)
+		{
+			SetZ(Value);
+		}
 	}
 }
 
@@ -178,13 +175,39 @@ void ATachyonCharacter::EngageJump()
 		JumpMoveVector.X = GetActorForwardVector().X;
 		JumpMoveVector = JumpMoveVector.GetSafeNormal();
 	}
+
+	GetCharacterMovement()->AddImpulse(JumpMoveVector * BoostSpeed * 5000.0f, true);
 	
 	if (Role < ROLE_Authority)
 	{
 		ServerEngageJump();
 	}
+	else
+	{
+		// First-timer spawns visuals
+		if ((ActiveBoost == nullptr) && (BoostClass != nullptr))
+		{
+			// Spawning jump FX
+			FActorSpawnParameters SpawnParams;
+			FRotator InputRotation = JumpMoveVector.GetSafeNormal().Rotation();
+			FVector SpawnLocation = GetActorLocation() + (FVector::UpVector * 10.0f);
 
-	///ForceNetUpdate();
+			ActiveBoost = GetWorld()->SpawnActor<AActor>(BoostClass, SpawnLocation, InputRotation, SpawnParams);
+			if (ActiveBoost != nullptr)
+			{
+				ActiveBoost->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
+
+				// Special Jump-type objects
+				ATachyonJump* Jumpy = Cast<ATachyonJump>(ActiveBoost);
+				if (Jumpy != nullptr)
+				{
+					Jumpy->InitJump(JumpMoveVector, this);
+				}
+			}
+		}
+	}
+
+	ForceNetUpdate();
 }
 void ATachyonCharacter::ServerEngageJump_Implementation()
 {
@@ -198,6 +221,8 @@ bool ATachyonCharacter::ServerEngageJump_Validate()
 void ATachyonCharacter::DisengageJump()
 {
 	bJumping = false;
+	///GetCharacterMovement()->MaxAcceleration = 5000.0f;
+
 	DiminishingJumpValue = 0.0f;
 	BoostTimeAlive = 0.0f;
 	///JumpMoveVector = FVector::ZeroVector;
@@ -215,10 +240,6 @@ void ATachyonCharacter::DisengageJump()
 	{
 		ServerDisengageJump();
 	}
-	else if (bJumping)
-	{
-		
-	}
 
 	///ForceNetUpdate();
 }
@@ -233,6 +254,40 @@ bool ATachyonCharacter::ServerDisengageJump_Validate()
 
 void ATachyonCharacter::UpdateJump(float DeltaTime)
 {
+	// Diminishing propulsion
+	//if (ActiveBoost != nullptr)
+	//{
+	//	BoostTimeAlive = ActiveBoost->GetGameTimeSinceCreation();
+	//	if (BoostTimeAlive > 0.001f)
+	//	{
+	//		float InverseTimeAlive = (1.0f / BoostTimeAlive) * BoostSustain;
+	//		DiminishingJumpValue = FMath::Clamp(InverseTimeAlive, 0.0f, 21.0f);
+	//		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("DiminishingJumpValue: %f"), DiminishingJumpValue));
+
+	//		if (DiminishingJumpValue > 0.5f)
+	//		{
+	//			FVector SustainedJump = JumpMoveVector * BoostSpeed * DiminishingJumpValue * 10000.0f;
+	//			FVector JumpLocation = GetActorLocation() + SustainedJump;
+	//			float JumpSize = SustainedJump.Size();
+	//			//FVector UpdatedJumpLocation = FMath::VInterpConstantTo(GetActorLocation(), JumpLocation, DeltaTime, JumpSize);
+	//			//SetActorLocation(UpdatedJumpLocation);
+
+	//			GetCharacterMovement()->MaxAcceleration = 100000.0f * DiminishingJumpValue;
+	//			
+	//			//AddMovementInput(SustainedJump, JumpSize);
+	//			GetCharacterMovement()->AddInputVector(SustainedJump * JumpSize, true);
+	//			GetCharacterMovement()->ForceReplicationUpdate();
+	//			ForceNetUpdate();
+	//		}
+	//		else
+	//		{
+	//			GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, TEXT("Cutting Jump -----"));
+	//			DisengageJump();
+	//			return;
+	//		}
+	//	}
+	//}
+
 	if (Role < ROLE_Authority)
 	{
 		ServerUpdateJump(DeltaTime);
@@ -247,42 +302,31 @@ void ATachyonCharacter::UpdateJump(float DeltaTime)
 			FRotator InputRotation = JumpMoveVector.GetSafeNormal().Rotation();
 			FVector SpawnLocation = GetActorLocation() + (FVector::UpVector * 10.0f);
 
-			ActiveBoost = GetWorld()->SpawnActor<AActor>(BoostClass, SpawnLocation, InputRotation, SpawnParams);
-			if (ActiveBoost != nullptr)
+			if (HasAuthority())
 			{
-				ActiveBoost->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
+				ActiveBoost = GetWorld()->SpawnActor<AActor>(BoostClass, SpawnLocation, InputRotation, SpawnParams);
+				if (ActiveBoost != nullptr)
+				{
+					ActiveBoost->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
+
+					// Special Jump-type objects
+					ATachyonJump* Jumpy = Cast<ATachyonJump>(ActiveBoost);
+					if (Jumpy != nullptr)
+					{
+						Jumpy->InitJump(JumpMoveVector, this);
+					}
+				}
 			}
 		}
-
-		// Diminishing propulsion
-		if (ActiveBoost != nullptr)
+		else
 		{
 			BoostTimeAlive = ActiveBoost->GetGameTimeSinceCreation();
-			if (BoostTimeAlive > 0.001f)
+			if (BoostTimeAlive > 1.0f)
 			{
-				float InverseTimeAlive = (1.0f / BoostTimeAlive) * BoostSustain;
-				DiminishingJumpValue = FMath::Clamp(InverseTimeAlive, 0.0f, 21.0f);
-				GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("DiminishingJumpValue: %f"), DiminishingJumpValue));
-
-				if (DiminishingJumpValue > 0.5f)
-				{
-					FVector SustainedJump = JumpMoveVector * BoostSpeed * DiminishingJumpValue * 1000.0f;
-					FVector JumpLocation = GetActorLocation() + SustainedJump;
-					float JumpSize = SustainedJump.Size();
-					FVector UpdatedJumpLocation = FMath::VInterpConstantTo(GetActorLocation(), JumpLocation, DeltaTime, JumpSize);
-					SetActorLocation(UpdatedJumpLocation);
-				}
-				else
-				{
-					GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, TEXT("Cutting Jump -----"));
-					DisengageJump();
-					return;
-				}
+				DisengageJump();
 			}
 		}
 	}
-
-	///ForceNetUpdate();
 }
 void ATachyonCharacter::ServerUpdateJump_Implementation(float DeltaTime)
 {
@@ -346,12 +390,12 @@ bool ATachyonCharacter::ServerSetZ_Validate(float Value)
 // ATTACKING
 void ATachyonCharacter::ArmAttack()
 {
-	bShooting = true;
-	
 	if (Role < ROLE_Authority)
 	{
 		ServerArmAttack();
 	}
+
+	bShooting = true;
 }
 void ATachyonCharacter::ServerArmAttack_Implementation()
 {
@@ -365,8 +409,6 @@ bool ATachyonCharacter::ServerArmAttack_Validate()
 
 void ATachyonCharacter::ReleaseAttack()
 {
-	bShooting = false;
-	
 	if (Role < ROLE_Authority)
 	{
 		ServerReleaseAttack();
@@ -386,6 +428,8 @@ void ATachyonCharacter::ReleaseAttack()
 			ActiveWindup = nullptr;
 		}
 	}
+
+	bShooting = false;
 }
 void ATachyonCharacter::ServerReleaseAttack_Implementation()
 {
@@ -399,12 +443,15 @@ bool ATachyonCharacter::ServerReleaseAttack_Validate()
 
 void ATachyonCharacter::WindupAttack(float DeltaTime)
 {
-	if (Role < ROLE_Authority)
+	if (Role == ROLE_Authority)
 	{
-		ServerWindupAttack(DeltaTime);
-	}
-	else
-	{
+		WindupTimer += DeltaTime;
+
+		if (WindupTimer > 1.0f)
+		{
+			ReleaseAttack();
+		}
+
 		if (ActiveWindup == nullptr)
 		{
 			FVector FirePosition = GetActorLocation(); ///AttackScene->GetComponentLocation();
@@ -418,10 +465,23 @@ void ATachyonCharacter::WindupAttack(float DeltaTime)
 				ActiveWindup->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
 			}
 		}
-		else
+	}
+	else
+	{
+		ServerWindupAttack(DeltaTime);
+	}
+
+	if (ActiveWindup == nullptr)
+	{
+		FVector FirePosition = GetActorLocation(); ///AttackScene->GetComponentLocation();
+		FVector LocalForward = GetActorForwardVector(); /// AttackScene->GetForwardVector();
+		LocalForward.Y = 0.0f;
+		FRotator FireRotation = LocalForward.GetSafeNormal().Rotation();
+		FActorSpawnParameters SpawnParams;
+		ActiveWindup = GetWorld()->SpawnActor<AActor>(AttackWindupClass, FirePosition, FireRotation, SpawnParams);
+		if (ActiveWindup != nullptr)
 		{
-			WindupTimer += DeltaTime;
-			///GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Black, FString::Printf(TEXT("WindupTimer: %f"), WindupTimer));
+			ActiveWindup->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
 		}
 	}
 }
@@ -477,7 +537,7 @@ void ATachyonCharacter::FireAttack()
 							* 30.0f);
 
 						// Refire timing
-						AttackTimer = (AttackFireRate * FMath::Sqrt(AttackStrength));
+						AttackTimer = (AttackFireRate * FMath::Sqrt(AttackStrength + 0.1f));
 					}
 				}
 			}
@@ -496,21 +556,19 @@ bool ATachyonCharacter::ServerFireAttack_Validate()
 
 void ATachyonCharacter::UpdateAttack(float DeltaTime)
 {
-	if (Role < ROLE_Authority)
+	// Attack Refire Timing
+	if (AttackTimer > 0.0f)
 	{
-		ServerUpdateAttack(DeltaTime);
+		AttackTimer -= DeltaTime;
 	}
 	else
 	{
-		// Attack Refire Timing
-		if (AttackTimer > 0.0f)
-		{
-			AttackTimer -= DeltaTime;
-		}
-		else
-		{
-			AttackTimer = 0.0f;
-		}
+		AttackTimer = 0.0f;
+	}
+
+	if (Role < ROLE_Authority)
+	{
+		ServerUpdateAttack(DeltaTime);
 	}
 }
 void ATachyonCharacter::ServerUpdateAttack_Implementation(float DeltaTime)
@@ -537,7 +595,7 @@ void ATachyonCharacter::ModifyHealth(float Value)
 		MaxHealth = FMath::Clamp(Health + Value, -1.0f, 100.0f);
 	}
 
-	if ((Controller != nullptr) && (Role < ROLE_Authority))
+	if (Role < ROLE_Authority)
 	{
 		ServerModifyHealth(Value);
 	}
@@ -559,42 +617,21 @@ void ATachyonCharacter::UpdateHealth(float DeltaTime)
 	///GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Blue, FString::Printf(TEXT("Health: %f"), Health));
 
 	// Update smooth health value
-	if (MaxHealth < Health)
+	if (HasAuthority())
 	{
-		float HealthDifference = FMath::Abs(Health - MaxHealth) * 5.1f;
-		float InterpSpeed = FMath::Clamp(HealthDifference, 5.0f, 50.0f);
-		Health = FMath::FInterpConstantTo(Health, MaxHealth, DeltaTime, InterpSpeed);
-
-		//// Player killed fx
-		//if ((KilledFX != nullptr)
-		//	&& (ActiveKilledFX == nullptr)
-		//	&& (Health <= 5.0f))
-		//{
-		//	FActorSpawnParameters SpawnParams;
-		//	ActiveKilledFX = GetWorld()->SpawnActor<AActor>(KilledFX, GetActorLocation(), GetActorRotation(), SpawnParams);
-		//	if (ActiveKilledFX != nullptr)
-		//	{
-		//		ActiveKilledFX->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
-		//	}
-
-		//	// Particle coloring (for later)
-		//	/*if (ActiveKilledFX != nullptr)
-		//	{
-		//	TArray<UParticleSystemComponent*> ParticleComps;
-		//	ActiveKilledFX->GetComponents<UParticleSystemComponent>(ParticleComps);
-		//	float NumParticles = ParticleComps.Num();
-		//	if (NumParticles > 0)
-		//	{
-		//	UParticleSystemComponent* Parti = ParticleComps[0];
-		//	if (Parti != nullptr)
-		//	{
-		//	FLinearColor PlayerColor = GetCharacterColor().ReinterpretAsLinear();
-		//	Parti->SetColorParameter(FName("InitialColor"), PlayerColor);
-		//	}
-		//	}
-		//	}*/
-		//}
+		if (MaxHealth < Health)
+		{
+			float HealthDifference = FMath::Abs(Health - MaxHealth) * 5.1f;
+			float InterpSpeed = FMath::Clamp(HealthDifference, 5.0f, 50.0f);
+			Health = FMath::FInterpConstantTo(Health, MaxHealth, DeltaTime, InterpSpeed);
+		}
 	}
+}
+
+void ATachyonCharacter::ReceiveKnockback(FVector Knockback, bool bOverrideVelocity)
+{
+	GetCharacterMovement()->AddImpulse(Knockback, bOverrideVelocity);
+	ForceNetUpdate();
 }
 
 void ATachyonCharacter::UpdateBody(float DeltaTime)
@@ -660,16 +697,13 @@ bool ATachyonCharacter::ServerUpdateBody_Validate(float DeltaTime)
 
 void ATachyonCharacter::UpdateCamera(float DeltaTime)
 {
-	// Start by checking valid actor
-	AActor* Actor1 = nullptr;
-	AActor* Actor2 = nullptr;
-
 	float GlobalTimeScale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
 
 	// Poll for framing actors
-	UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("FramingActor"), FramingActors);
-	///GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("FramingActors Num:  %i"), FramingActors.Num()));
-	/// TODO - add defense on running get?
+	if ((Actor1 == nullptr) || (Actor2 == nullptr))
+	{
+		UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("FramingActor"), FramingActors);
+	}
 
 	// Spectator ez life
 	if (!this->ActorHasTag("Spectator"))
@@ -749,7 +783,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 			FVector Actor1Velocity = Actor1->GetVelocity();
 			float SafeVelocitySize = FMath::Clamp(Actor1Velocity.Size() * 0.005f, 0.01f, 10.0f);
 			VelocityCameraSpeed = CameraMoveSpeed * SafeVelocitySize * FMath::Sqrt(1.0f / GlobalTimeScale);
-			VelocityCameraSpeed = FMath::Clamp(VelocityCameraSpeed, 2.1f, CameraMaxSpeed * 0.1f);
+			VelocityCameraSpeed = FMath::Clamp(VelocityCameraSpeed, 1.0f, CameraMaxSpeed * 0.1f);
 
 			FVector LocalPos = Actor1->GetActorLocation() + (Actor1Velocity * DeltaTime * CameraVelocityChase);
 			PositionOne = FMath::VInterpTo(PositionOne, LocalPos, DeltaTime, VelocityCameraSpeed);
@@ -918,7 +952,6 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 	}
 }
 
-
 ////////////////////////////////////////////////////////////////////////
 // COSMETICS
 void ATachyonCharacter::DonApparel()
@@ -995,10 +1028,12 @@ void ATachyonCharacter::GetLifetimeReplicatedProps(TArray <FLifetimeProperty> & 
 	DOREPLIFETIME(ATachyonCharacter, InputZ);
 	DOREPLIFETIME(ATachyonCharacter, Charge);
 	DOREPLIFETIME(ATachyonCharacter, Health);
+	DOREPLIFETIME(ATachyonCharacter, MaxHealth);
 	DOREPLIFETIME(ATachyonCharacter, AttackTimer);
 	DOREPLIFETIME(ATachyonCharacter, bShooting);
 	DOREPLIFETIME(ATachyonCharacter, WindupTimer);
 	DOREPLIFETIME(ATachyonCharacter, bJumping);
+	DOREPLIFETIME(ATachyonCharacter, BoostTimeAlive);
 	DOREPLIFETIME(ATachyonCharacter, DiminishingJumpValue);
 	DOREPLIFETIME(ATachyonCharacter, ActiveApparel);
 	DOREPLIFETIME(ATachyonCharacter, iApparelIndex);
