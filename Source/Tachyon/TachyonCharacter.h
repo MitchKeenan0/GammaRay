@@ -197,6 +197,10 @@ public:
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
 	void ServerSetApparel(int ApparelIndex);
 
+	void RestartGame();
+	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
+	void ServerRestartGame();
+
 	
 
 protected:

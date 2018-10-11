@@ -498,28 +498,32 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 			}
 		}
 
+
+
 		// Call it in
-		if (!bFirstHitReported)
+		ATachyonGameStateBase* GState = Cast<ATachyonGameStateBase>(GetWorld()->GetGameState());
+		if (GState != nullptr)
 		{
-			ATachyonGameStateBase* GState = Cast<ATachyonGameStateBase>(GetWorld()->GetGameState());
-			if (GState != nullptr)
+			float TargetTimescale = 1.0f;
+			if (bMarkKilled)
 			{
-				float TargetTimescale = 1.0f;
-				if (bMarkKilled)
-				{
-					GState->SetGlobalTimescale(0.01f); /// 0.01 is Terminal timescale
-				}
-				else
+				GState->SetGlobalTimescale(0.01f); /// 0.01 is Terminal timescale
+			}
+			else
+			{
+				if (!bFirstHitReported)
 				{
 					float ImpactScalar = AttackMagnitude * 1.5f;
 					float HitTimescale = FMath::Clamp((1.0f - ImpactScalar), 0.05f, 0.1f);
 					GState->SetGlobalTimescale(HitTimescale);
 				}
-				
-				GState->ForceNetUpdate();
-				bFirstHitReported = true;
 			}
+
+			GState->ForceNetUpdate();
+			bFirstHitReported = true;
 		}
+
+		ForceNetUpdate();
 	}
 }
 

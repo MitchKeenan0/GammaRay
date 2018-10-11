@@ -2,6 +2,7 @@
 
 #include "TachyonCharacter.h"
 #include "TachyonJump.h"
+#include "TachyonGameStateBase.h"
 #include "TachyonMovementComponent.h"
 #include "TachyonGameStateBase.h"
 
@@ -123,6 +124,7 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ATachyonCharacter::EngageJump);
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ATachyonCharacter::DisengageJump);
 	PlayerInputComponent->BindAction("SummonBot", IE_Pressed, this, &ATachyonCharacter::RequestBots);
+	PlayerInputComponent->BindAction("Restart", IE_Pressed, this, &ATachyonCharacter::RestartGame);
 
 	// Axes
 	PlayerInputComponent->BindAxis("MoveRight", this, &ATachyonCharacter::MoveRight);
@@ -1025,6 +1027,8 @@ bool ATachyonCharacter::ServerSetApparel_Validate(int ApparelIndex)
 	return true;
 }
 
+////////////////////////////////////////////////////////////////////////
+// GAME FLOW
 void ATachyonCharacter::RequestBots()
 {
 	if (Role == ROLE_Authority)
@@ -1036,6 +1040,33 @@ void ATachyonCharacter::RequestBots()
 			TachyonGame->SpawnBot(IntendedLocation);
 		}
 	}
+}
+
+void ATachyonCharacter::RestartGame()
+{
+	if (Role < ROLE_Authority)
+	{
+		ServerRestartGame();
+	}
+	else
+	{
+		ATachyonGameStateBase* GState = Cast<ATachyonGameStateBase>(GetWorld()->GetGameState());
+		if (GState != nullptr)
+		{
+			GState->SetGlobalTimescale(1.0f);
+			GState->ForceNetUpdate();
+		}
+	}
+
+	ForceNetUpdate();
+}
+void ATachyonCharacter::ServerRestartGame_Implementation()
+{
+	RestartGame();
+}
+bool ATachyonCharacter::ServerRestartGame_Validate()
+{
+	return true;
 }
 
 ////////////////////////////////////////////////////////////////////////
