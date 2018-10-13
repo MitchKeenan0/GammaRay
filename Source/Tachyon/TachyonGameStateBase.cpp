@@ -16,7 +16,7 @@ ATachyonGameStateBase::ATachyonGameStateBase()
 void ATachyonGameStateBase::BeginPlay()
 {
 	Super::BeginPlay();
-	bRecoverTimescale = false;
+	bRecoverTimescale = true;
 	bGG = false;
 	SetGlobalTimescale(1.0f);
 }
@@ -26,31 +26,23 @@ void ATachyonGameStateBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (bRecoverTimescale)
-	{
-		UpdateGlobalTimescale(DeltaTime);
-	}
+	UpdateGlobalTimescale(DeltaTime);
 }
 
 
 void ATachyonGameStateBase::SetGlobalTimescale(float TargetTimescale)
 {
-	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), TargetTimescale);
+	DesiredTimescale = TargetTimescale;
 	
 	// End-game vs recovery
-	if (TargetTimescale == 0.01f)
+	if (DesiredTimescale == 0.01f)
 	{
 		bRecoverTimescale = false;
 		bGG = true;
 	}
-	else if (TargetTimescale < 1.0f)
+	else if (DesiredTimescale <= 1.0f)
 	{
 		bRecoverTimescale = true;
-		bGG = false;
-	}
-	else /// Target is >= 1
-	{
-		bRecoverTimescale = false;
 		bGG = false;
 	}
 
@@ -111,15 +103,20 @@ void ATachyonGameStateBase::RestartGame()
 void ATachyonGameStateBase::UpdateGlobalTimescale(float DeltaTime)
 {
 	float CurrentTime = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
-	if (CurrentTime > 1.0f)
+	if ((CurrentTime == DesiredTimescale)
+		&& (CurrentTime != 0.01f))
 	{
-		SetGlobalTimescale(1.0f);
+		DesiredTimescale = 1.0f;
+		return;
 	}
-	else
-	{
-		float InterpTime = FMath::FInterpConstantTo(CurrentTime, 1.0f, DeltaTime, 10.0f);
-		SetGlobalTimescale(InterpTime);
-	}
+
+	float FactoredTimescale = DesiredTimescale * 10.0f;
+	float InterpSpeed = 10.0f + (1.0f / FactoredTimescale);
+	float InterpTime = FMath::FInterpConstantTo(CurrentTime, DesiredTimescale, DeltaTime, InterpSpeed);
+
+	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), InterpTime);
+
+	ForceNetUpdate();
 }
 
 
@@ -164,6 +161,7 @@ void ATachyonGameStateBase::GetLifetimeReplicatedProps(TArray <FLifetimeProperty
 
 	DOREPLIFETIME(ATachyonGameStateBase, bGG);
 	DOREPLIFETIME(ATachyonGameStateBase, bRecoverTimescale);
+	DOREPLIFETIME(ATachyonGameStateBase, DesiredTimescale);
 	
 }
 

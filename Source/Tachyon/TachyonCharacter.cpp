@@ -392,18 +392,14 @@ bool ATachyonCharacter::ServerSetZ_Validate(float Value)
 // ATTACKING
 void ATachyonCharacter::ArmAttack()
 {
-	if (Role < ROLE_Authority)
+	if ((AttackTimer <= 0.0f) && (!bShooting))
 	{
 		ServerArmAttack();
-	}
-	else if (AttackTimer <= 0.0f)
-	{
-		bShooting = true;
 	}
 }
 void ATachyonCharacter::ServerArmAttack_Implementation()
 {
-	ArmAttack();
+	bShooting = true;
 }
 bool ATachyonCharacter::ServerArmAttack_Validate()
 {
@@ -413,35 +409,39 @@ bool ATachyonCharacter::ServerArmAttack_Validate()
 
 void ATachyonCharacter::ReleaseAttack()
 {
-	if (Role < ROLE_Authority)
+	ServerReleaseAttack();
+
+	/*if (Role < ROLE_Authority)
 	{
-		ServerReleaseAttack();
+		
 	}
 	else
 	{
-		if ((WindupTimer > 0.0f)
-			&& (AttackTimer <= 0.0f)) /// && HasAuthority()
-		{
-			FireAttack();
-			
-			// Refire timing
-			WindupTimer = 0.0f;
-			AttackTimer = AttackFireRate;
-			bShooting = false;
+		
+	}*/
 
-			if (ActiveWindup != nullptr)
-			{
-				ActiveWindup->Destroy();
-				ActiveWindup = nullptr;
-			}
+	
+}
+void ATachyonCharacter::ServerReleaseAttack_Implementation()
+{
+	//ReleaseAttack();
+	if ((WindupTimer > 0.0f)
+		&& (AttackTimer <= 0.0f)) /// && HasAuthority()
+	{
+		FireAttack();
+
+		// Refire timing
+		WindupTimer = 0.0f;
+		AttackTimer = AttackFireRate;
+
+		if (ActiveWindup != nullptr)
+		{
+			ActiveWindup->Destroy();
+			ActiveWindup = nullptr;
 		}
 	}
 
 	bShooting = false;
-}
-void ATachyonCharacter::ServerReleaseAttack_Implementation()
-{
-	ReleaseAttack();
 }
 bool ATachyonCharacter::ServerReleaseAttack_Validate()
 {
@@ -451,34 +451,16 @@ bool ATachyonCharacter::ServerReleaseAttack_Validate()
 
 void ATachyonCharacter::WindupAttack(float DeltaTime)
 {
-	if (Role == ROLE_Authority)
+	ServerWindupAttack(DeltaTime);
+
+	/*if (Role == ROLE_Authority)
 	{
-		WindupTimer += DeltaTime;
-
-		if (WindupTimer > 1.2f)
-		{
-			ReleaseAttack();
-		}
-
-		// Spawning windup FX
-		if ((ActiveWindup == nullptr) && (AttackTimer == 0.0f))
-		{
-			FVector FirePosition = GetActorLocation(); ///AttackScene->GetComponentLocation();
-			FVector LocalForward = GetActorForwardVector(); /// AttackScene->GetForwardVector();
-			LocalForward.Y = 0.0f;
-			FRotator FireRotation = LocalForward.GetSafeNormal().Rotation();
-			FActorSpawnParameters SpawnParams;
-			ActiveWindup = GetWorld()->SpawnActor<AActor>(AttackWindupClass, FirePosition, FireRotation, SpawnParams);
-			if (ActiveWindup != nullptr)
-			{
-				ActiveWindup->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
-			}
-		}
+		
 	}
 	else
 	{
-		ServerWindupAttack(DeltaTime);
-	}
+		
+	}*/
 
 	/*if (ActiveWindup == nullptr)
 	{
@@ -496,7 +478,28 @@ void ATachyonCharacter::WindupAttack(float DeltaTime)
 }
 void ATachyonCharacter::ServerWindupAttack_Implementation(float DeltaTime)
 {
-	WindupAttack(DeltaTime);
+	//WindupAttack(DeltaTime);
+	WindupTimer += DeltaTime;
+
+	if (WindupTimer > 1.2f)
+	{
+		ReleaseAttack();
+	}
+
+	// Spawning windup FX
+	if ((ActiveWindup == nullptr) && (AttackTimer == 0.0f))
+	{
+		FVector FirePosition = GetActorLocation(); ///AttackScene->GetComponentLocation();
+		FVector LocalForward = GetActorForwardVector(); /// AttackScene->GetForwardVector();
+		LocalForward.Y = 0.0f;
+		FRotator FireRotation = LocalForward.GetSafeNormal().Rotation();
+		FActorSpawnParameters SpawnParams;
+		ActiveWindup = GetWorld()->SpawnActor<AActor>(AttackWindupClass, FirePosition, FireRotation, SpawnParams);
+		if (ActiveWindup != nullptr)
+		{
+			ActiveWindup->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+		}
+	}
 }
 bool ATachyonCharacter::ServerWindupAttack_Validate(float DeltaTime)
 {
@@ -506,53 +509,53 @@ bool ATachyonCharacter::ServerWindupAttack_Validate(float DeltaTime)
 
 void ATachyonCharacter::FireAttack()
 {
-	if (Role < ROLE_Authority)
+	ServerFireAttack();
+
+	/*if (Role < ROLE_Authority)
 	{
-		ServerFireAttack();
+		
 	}
 	else
 	{
-		if ((AttackTimer <= 0.0f) && (AttackClass != nullptr))/// || bMultipleAttacks)
-		{
-			// Spawning
-			FVector FirePosition = AttackScene->GetComponentLocation();
-			FVector LocalForward = AttackScene->GetForwardVector();
-			LocalForward.Y = 0.0f;
-			FRotator FireRotation = LocalForward.GetSafeNormal().Rotation();
-			FireRotation += FRotator((AttackAngle * InputZ), 0.0f, 0.0f);
-			FActorSpawnParameters SpawnParams;
-
-			if (HasAuthority())
-			{
-				ActiveAttack = Cast<ATachyonAttack>(GetWorld()->SpawnActor<ATachyonAttack>(AttackClass, FirePosition, FireRotation, SpawnParams));
-				if (ActiveAttack != nullptr)
-				{
-					// The attack is born
-					if (ActiveAttack != nullptr)
-					{
-						float AttackStrength = FMath::Clamp(WindupTimer, 0.1f, 1.0f);
-						ActiveAttack->InitAttack(this, AttackStrength, InputZ); /// PrefireVal, AimClampedInputZ);
-
-																				// Position lock, or naw
-						if (ActiveAttack->IsLockedEmitPoint())
-						{
-							ActiveAttack->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
-						}
-
-						// Recoil
-						FVector RecoilVector = FireRotation.Vector().GetSafeNormal();
-						GetCharacterMovement()->AddImpulse(RecoilVector * -AttackRecoil
-							* FMath::Square(1.0f + AttackStrength)
-							* 30.0f);
-					}
-				}
-			}
-		}
-	}
+		
+	}*/
 }
 void ATachyonCharacter::ServerFireAttack_Implementation()
 {
-	FireAttack();
+	//FireAttack();
+	if ((AttackTimer <= 0.0f) && (AttackClass != nullptr))/// || bMultipleAttacks)
+	{
+		// Spawning
+		FVector FirePosition = AttackScene->GetComponentLocation();
+		FVector LocalForward = AttackScene->GetForwardVector();
+		LocalForward.Y = 0.0f;
+		FRotator FireRotation = LocalForward.GetSafeNormal().Rotation();
+		FireRotation += FRotator((AttackAngle * InputZ), 0.0f, 0.0f);
+		FActorSpawnParameters SpawnParams;
+
+		ActiveAttack = Cast<ATachyonAttack>(GetWorld()->SpawnActor<ATachyonAttack>(AttackClass, FirePosition, FireRotation, SpawnParams));
+		if (ActiveAttack != nullptr)
+		{
+			// The attack is born
+			if (ActiveAttack != nullptr)
+			{
+				float AttackStrength = FMath::Clamp(WindupTimer, 0.1f, 1.0f);
+				ActiveAttack->InitAttack(this, AttackStrength, InputZ); /// PrefireVal, AimClampedInputZ);
+
+																		// Position lock, or naw
+				if (ActiveAttack->IsLockedEmitPoint())
+				{
+					ActiveAttack->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
+				}
+
+				// Recoil
+				FVector RecoilVector = FireRotation.Vector().GetSafeNormal();
+				GetCharacterMovement()->AddImpulse(RecoilVector * -AttackRecoil
+					* FMath::Square(1.0f + AttackStrength)
+					* 30.0f);
+			}
+		}
+	}
 }
 bool ATachyonCharacter::ServerFireAttack_Validate()
 {
@@ -563,25 +566,28 @@ bool ATachyonCharacter::ServerFireAttack_Validate()
 void ATachyonCharacter::UpdateAttack(float DeltaTime)
 {
 	// Attack Refire Timing
-	if (Role < ROLE_Authority)
+	ServerUpdateAttack(DeltaTime);
+	
+	/*if (Role < ROLE_Authority)
 	{
-		ServerUpdateAttack(DeltaTime);
+		
 	}
 	else
 	{
-		if (AttackTimer > 0.0f)
-		{
-			AttackTimer -= DeltaTime;
-		}
-		else
-		{
-			AttackTimer = 0.0f;
-		}
-	}
+		
+	}*/
 }
 void ATachyonCharacter::ServerUpdateAttack_Implementation(float DeltaTime)
 {
-	UpdateAttack(DeltaTime);
+	//UpdateAttack(DeltaTime);
+	if (AttackTimer > 0.0f)
+	{
+		AttackTimer -= DeltaTime;
+	}
+	else
+	{
+		AttackTimer = 0.0f;
+	}
 }
 bool ATachyonCharacter::ServerUpdateAttack_Validate(float DeltaTime)
 {
@@ -593,26 +599,28 @@ bool ATachyonCharacter::ServerUpdateAttack_Validate(float DeltaTime)
 // HEALTH
 void ATachyonCharacter::ModifyHealth(float Value)
 {
-	if (Role < ROLE_Authority)
+	ServerModifyHealth(Value);
+	/*if (Role < ROLE_Authority)
 	{
 		ServerModifyHealth(Value);
 	}
 	else
 	{
-		if (Value >= 100.0f)
-		{
-			Health = 100.0f;
-			MaxHealth = 100.0f;
-		}
-		else
-		{
-			MaxHealth = FMath::Clamp(Health + Value, -1.0f, 100.0f);
-		}
-	}
+		
+	}*/
 }
 void ATachyonCharacter::ServerModifyHealth_Implementation(float Value)
 {
-	ModifyHealth(Value);
+	//ModifyHealth(Value);
+	if (Value >= 100.0f)
+	{
+		Health = 100.0f;
+		MaxHealth = 100.0f;
+	}
+	else
+	{
+		MaxHealth = FMath::Clamp(Health + Value, -1.0f, 100.0f);
+	}
 }
 bool ATachyonCharacter::ServerModifyHealth_Validate(float Value)
 {

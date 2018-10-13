@@ -312,8 +312,8 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 		///SetShooterInputEnabled(true);
 	}
 
-	if ((LifeTimer >= DynamicLifetime)
-		&& HasAuthority())
+	if ((LifeTimer >= DynamicLifetime))
+		//&& HasAuthority())
 	{
 		///SetShooterInputEnabled(true);
 		///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("NumHits: %i"), NumHits));
@@ -442,17 +442,20 @@ void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, floa
 		FVector CharaVelocity = Chara->GetMovementComponent()->Velocity;
 		FVector KnockbackVector = CharaVelocity + KnockVector;
 
-		if (HasAuthority())
-		{
+		//if (HasAuthority())
+		//{
 			Chara->ReceiveKnockback(KnockVector, true);
-		}
+		//}
 
 		ForceNetUpdate();
 	}
 }
 
-
 void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
+{
+	ServerMainHit(HitActor, HitLocation);
+}
+void ATachyonAttack::ServerMainHit_Implementation(AActor* HitActor, FVector HitLocation)
 {
 	// Bail out if we hit our own attack type
 	ATachyonAttack* PotentialAttack = Cast<ATachyonAttack>(HitActor);
@@ -464,15 +467,16 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 		}
 	}
 
-	if (HasAuthority())
-	{
-		// Smashy fx
-		SpawnHit(HitActor, HitLocation);
-		ApplyKnockForce(HitActor, HitLocation, 1.0f);
-	}
+	// Smashy fx
+	SpawnHit(HitActor, HitLocation);
+	ApplyKnockForce(HitActor, HitLocation, 1.0f);
 
 	// Update GameState
 	ReportHitToMatch(OwningShooter, HitActor);
+}
+bool ATachyonAttack::ServerMainHit_Validate(AActor* HitActor, FVector HitLocation)
+{
+	return true;
 }
 
 
@@ -494,10 +498,7 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		}
 
 		// Modify Health of Mark
-		if (HasAuthority())
-		{
-			HitTachyon->ModifyHealth(-AttackDamage);
-		}
+		HitTachyon->ModifyHealth(-AttackDamage);
 
 		// Call it in
 		float TachyonHealth = HitTachyon->GetHealth();
@@ -530,28 +531,27 @@ void ATachyonAttack::CallForTimescale(float NewTimescale)
 		TGState->SetGlobalTimescale(NewTimescale);
 		TGState->ForceNetUpdate();
 	}
+
+	ForceNetUpdate();
 }
 
 
 // COLLISION BEGIN
 void ATachyonAttack::OnAttackBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (HasAuthority())
+	bool bTime = (HitTimer >= (1 / HitsPerSecond));
+	bool bActors = (OwningShooter != nullptr) && (OtherActor != nullptr);
+	float TimeSc = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+	if (bTime && bActors && bLethal && (OtherActor != OwningShooter) && (TimeSc > 0.5f))
 	{
-		bool bTime = (HitTimer >= (1 / HitsPerSecond));
-		bool bActors = (OwningShooter != nullptr) && (OtherActor != nullptr);
-		float TimeSc = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
-		if (bTime && bActors && bLethal && (OtherActor != OwningShooter) && (TimeSc > 0.5f))
+		FVector DamageLocation = GetActorLocation() + (OwningShooter->GetActorForwardVector() * RaycastHitRange);
+		if (ActorHasTag("Obstacle"))
 		{
-			FVector DamageLocation = GetActorLocation() + (OwningShooter->GetActorForwardVector() * RaycastHitRange);
-			if (ActorHasTag("Obstacle"))
-			{
-				DamageLocation = GetActorLocation() + SweepResult.ImpactPoint;
-			}
-
-			// Got'em
-			//HitEffects(OtherActor, DamageLocation);
+			DamageLocation = GetActorLocation() + SweepResult.ImpactPoint;
 		}
+
+		// Got'em
+		//HitEffects(OtherActor, DamageLocation);
 	}
 }
 

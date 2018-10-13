@@ -81,8 +81,9 @@ protected:
 	UFUNCTION()
 	void SetInitVelocities();
 
-	UFUNCTION()
 	void MainHit(AActor* HitActor, FVector HitLocation);
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerMainHit(AActor* HitActor, FVector HitLocation);
 
 	UFUNCTION()
 	void ReportHitToMatch(AActor* Shooter, AActor* Mark);

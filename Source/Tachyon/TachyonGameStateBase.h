@@ -48,5 +48,7 @@ protected:
 	UPROPERTY(Replicated)
 	bool bGG = false;
 	
+	UPROPERTY(Replicated)
+	float DesiredTimescale = 1.0f;
 	
 };
