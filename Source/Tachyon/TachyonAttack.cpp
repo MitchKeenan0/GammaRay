@@ -129,7 +129,7 @@ void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 		ForceNetUpdate();
 
 		///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackMagnitude: %f"), AttackMagnitude));
-		GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("HitsPerSecond:   %f"), HitsPerSecond));
+		///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("HitsPerSecond:   %f"), HitsPerSecond));
 		///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackDamage:    %f"), AttackDamage));
 	}
 }
@@ -316,7 +316,7 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 		&& HasAuthority())
 	{
 		///SetShooterInputEnabled(true);
-		GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("NumHits: %i"), NumHits));
+		///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("NumHits: %i"), NumHits));
 		Neutralize();
 		Destroy();
 	}

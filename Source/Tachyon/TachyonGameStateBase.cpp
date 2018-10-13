@@ -68,13 +68,40 @@ void ATachyonGameStateBase::RestartGame()
 		int NumWeapons = Weapons.Num();
 		for (int i = 0; i < NumWeapons; ++i)
 		{
-			ATachyonAttack* Attack = Cast<ATachyonAttack>(Weapons[i]);
-			if (Attack != nullptr)
+			AActor* AttackActor = Weapons[i];
+			if (AttackActor != nullptr)
 			{
-				Attack->Neutralize();
+				ATachyonAttack* Attack = Cast<ATachyonAttack>(AttackActor);
+				if (Attack != nullptr)
+				{
+					Attack->Neutralize();
+				}
 			}
 		}
 	}
+
+	// Reset player lifepoints
+	TArray<AActor*> Players;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ATachyonCharacter::StaticClass(), Players);
+	if (Players.Num() > 0)
+	{
+		int NumPlayers = Players.Num();
+		for (int i = 0; i < NumPlayers; ++i)
+		{
+			AActor* PlayerActor = Players[i];
+			if (PlayerActor != nullptr)
+			{
+				ATachyonCharacter* Player = Cast<ATachyonCharacter>(PlayerActor);
+				if (Player != nullptr)
+				{
+					Player->ModifyHealth(100.0f);
+					Player->ForceNetUpdate();
+				}
+			}
+		}
+	}
+
+	// To-do... Place the players a reasonable distance apart
 
 	// Reset timescale
 	SetGlobalTimescale(1.0f);

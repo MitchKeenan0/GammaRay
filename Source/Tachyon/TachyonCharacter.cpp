@@ -637,11 +637,11 @@ void ATachyonCharacter::UpdateHealth(float DeltaTime)
 
 void ATachyonCharacter::ReceiveKnockback(FVector Knockback, bool bOverrideVelocity)
 {
-	if (Role < ROLE_Authority)
+	if (Role == ROLE_AutonomousProxy)
 	{
 		ServerReceiveKnockback(Knockback, bOverrideVelocity);
 	}
-	else
+	if (Controller != nullptr)
 	{
 		GetCharacterMovement()->AddImpulse(Knockback, bOverrideVelocity);
 		ForceNetUpdate();
@@ -1039,13 +1039,21 @@ void ATachyonCharacter::RequestBots()
 	}
 }
 
+// Restart Game
 void ATachyonCharacter::RestartGame()
 {
-	if (Role < ROLE_Authority)
-	{
-		ServerRestartGame();
-	}
-
+	ServerRestartGame();
+}
+void ATachyonCharacter::ServerRestartGame_Implementation()
+{
+	MulticastRestartGame();
+}
+bool ATachyonCharacter::ServerRestartGame_Validate()
+{
+	return true;
+}
+void ATachyonCharacter::MulticastRestartGame_Implementation()
+{
 	ATachyonGameStateBase* GState = Cast<ATachyonGameStateBase>(GetWorld()->GetGameState());
 	if (GState != nullptr)
 	{
@@ -1053,14 +1061,6 @@ void ATachyonCharacter::RestartGame()
 	}
 
 	ForceNetUpdate();
-}
-void ATachyonCharacter::ServerRestartGame_Implementation()
-{
-	RestartGame();
-}
-bool ATachyonCharacter::ServerRestartGame_Validate()
-{
-	return true;
 }
 
 ////////////////////////////////////////////////////////////////////////

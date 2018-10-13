@@ -201,6 +201,9 @@ public:
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
 	void ServerRestartGame();
 
+	UFUNCTION(NetMulticast, BlueprintCallable, reliable)
+	void MulticastRestartGame();
+
 	
 
 protected:
