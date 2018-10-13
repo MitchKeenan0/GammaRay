@@ -13,6 +13,15 @@ ATachyonGameStateBase::ATachyonGameStateBase()
 }
 
 
+void ATachyonGameStateBase::BeginPlay()
+{
+	Super::BeginPlay();
+	bRecoverTimescale = false;
+	bGG = false;
+	SetGlobalTimescale(1.0f);
+}
+
+
 void ATachyonGameStateBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -27,18 +36,48 @@ void ATachyonGameStateBase::Tick(float DeltaTime)
 void ATachyonGameStateBase::SetGlobalTimescale(float TargetTimescale)
 {
 	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), TargetTimescale);
-
+	
 	// End-game vs recovery
-	if (TargetTimescale <= 0.01f)
+	if (TargetTimescale == 0.01f)
 	{
 		bRecoverTimescale = false;
+		bGG = true;
 	}
-	else
+	else if (TargetTimescale < 1.0f)
 	{
 		bRecoverTimescale = true;
+		bGG = false;
+	}
+	else /// Target is >= 1
+	{
+		bRecoverTimescale = false;
+		bGG = false;
 	}
 
 	ForceNetUpdate();
+}
+
+
+void ATachyonGameStateBase::RestartGame()
+{
+	// Neutralize all weapons
+	TArray<AActor*> Weapons;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ATachyonAttack::StaticClass(), Weapons);
+	if (Weapons.Num() > 0)
+	{
+		int NumWeapons = Weapons.Num();
+		for (int i = 0; i < NumWeapons; ++i)
+		{
+			ATachyonAttack* Attack = Cast<ATachyonAttack>(Weapons[i]);
+			if (Attack != nullptr)
+			{
+				Attack->Neutralize();
+			}
+		}
+	}
+
+	// Reset timescale
+	SetGlobalTimescale(1.0f);
 }
 
 
@@ -47,7 +86,6 @@ void ATachyonGameStateBase::UpdateGlobalTimescale(float DeltaTime)
 	float CurrentTime = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
 	if (CurrentTime > 1.0f)
 	{
-		bRecoverTimescale = false;
 		SetGlobalTimescale(1.0f);
 	}
 	else
@@ -60,30 +98,45 @@ void ATachyonGameStateBase::UpdateGlobalTimescale(float DeltaTime)
 
 void ATachyonGameStateBase::SpawnBot(FVector SpawnLocation)
 {
-	FActorSpawnParameters SpawnParams;
-	FRotator Rotation = FRotator::ZeroRotator;
-	TSubclassOf<ATachyonCharacter> TachyonSpawning = Tachyons[0];
-	TSubclassOf<ATachyonAIController> AISpawning = Controllers[0];
-	
-	// Spawn the body
-	ATachyonCharacter* NewTachyon = 
-		Cast<ATachyonCharacter>
-			(GetWorld()->SpawnActor<AActor>
-				(TachyonSpawning, SpawnLocation, Rotation, SpawnParams));
-	
-	// Possess with AI controller
-	if (NewTachyon != nullptr)
+	if (HasAuthority())
 	{
-		ATachyonAIController* NewController =
-			Cast<ATachyonAIController>
-				(GetWorld()->SpawnActor<AActor>
-					(AISpawning, SpawnLocation, Rotation, SpawnParams));
+		FActorSpawnParameters SpawnParams;
+		FRotator Rotation = FRotator::ZeroRotator;
+		TSubclassOf<ATachyonCharacter> TachyonSpawning = Tachyons[0];
+		TSubclassOf<ATachyonAIController> AISpawning = Controllers[0];
 
-		if (NewController != nullptr)
+		// Spawn the body
+		ATachyonCharacter* NewTachyon =
+			Cast<ATachyonCharacter>
+			(GetWorld()->SpawnActor<AActor>
+			(TachyonSpawning, SpawnLocation, Rotation, SpawnParams));
+
+		// Possess with AI controller
+		if (NewTachyon != nullptr)
 		{
-			NewTachyon->Controller = NewController;
-			NewController->Possess(NewTachyon);
+			ATachyonAIController* NewController =
+				Cast<ATachyonAIController>
+				(GetWorld()->SpawnActor<AActor>
+				(AISpawning, SpawnLocation, Rotation, SpawnParams));
+
+			if (NewController != nullptr)
+			{
+				NewTachyon->Controller = NewController;
+				NewController->Possess(NewTachyon);
+			}
 		}
 	}
+}
+
+
+////////////////////////////////////////////////////////////////////////
+// NETWORK REPLICATION
+void ATachyonGameStateBase::GetLifetimeReplicatedProps(TArray <FLifetimeProperty> & OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ATachyonGameStateBase, bGG);
+	DOREPLIFETIME(ATachyonGameStateBase, bRecoverTimescale);
+	
 }
 

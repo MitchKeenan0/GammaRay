@@ -16,6 +16,12 @@ class TACHYON_API ATachyonAttack : public AActor
 	void UpdateLifeTime(float DeltaT);
 	void SpawnBurst();
 
+	UPROPERTY()
+	bool bGameEnder = false;
+
+	UPROPERTY()
+	bool bNeutralized = false;
+
 	
 public:	
 	// Sets default values for this actor's properties
@@ -41,6 +47,12 @@ public:
 
 	UFUNCTION()
 	bool IsLockedEmitPoint() { return LockedEmitPoint; }
+
+	UFUNCTION()
+	void CallForTimescale(float NewTimescale);
+
+	UFUNCTION()
+	void Neutralize() { bNeutralized = true; }
 
 
 protected:

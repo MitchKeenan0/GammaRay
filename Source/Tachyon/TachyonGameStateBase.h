@@ -15,7 +15,6 @@ class TACHYON_API ATachyonGameStateBase : public AGameStateBase
 	GENERATED_BODY()
 
 	
-	
 public:
 	ATachyonGameStateBase();
 
@@ -34,10 +33,20 @@ public:
 	void SetGlobalTimescale(float TargetTimescale);
 
 	UFUNCTION()
+	void RestartGame();
+
+	UFUNCTION()
 	void UpdateGlobalTimescale(float DeltaTime);
 
-	UPROPERTY()
-	bool bRecoverTimescale = true;
+protected:
+	// Called when the game starts or when spawned
+	virtual void BeginPlay() override;
+
+	UPROPERTY(Replicated)
+	bool bRecoverTimescale = false;
+
+	UPROPERTY(Replicated)
+	bool bGG = false;
 	
 	
 };

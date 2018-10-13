@@ -98,7 +98,7 @@ void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 	{
 		AttackMagnitude = FMath::Clamp(Magnitude, 0.1f, 1.0f);
 		AttackDirection = YScale;
-		AttackDamage = (15.0f * AttackMagnitude);
+		AttackDamage = (50.0f * AttackMagnitude);
 
 		// Attack magnitude characteristics
 		float MagnitudeDelivery = (DeliveryTime * AttackMagnitude) * 0.5555f;
@@ -122,13 +122,14 @@ void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 
 		// Lifetime
 		DynamicLifetime = (DeliveryTime + LethalTime + DurationTime);
+		SetLifeSpan(DynamicLifetime * 1.15f);
 
 		bInitialized = true;
 
 		ForceNetUpdate();
 
 		///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackMagnitude: %f"), AttackMagnitude));
-		///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("HitsPerSecond:   %f"), HitsPerSecond));
+		GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("HitsPerSecond:   %f"), HitsPerSecond));
 		///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackDamage:    %f"), AttackDamage));
 	}
 }
@@ -246,7 +247,7 @@ void ATachyonAttack::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (bInitialized)
+	if (bInitialized && !bNeutralized)
 	{
 		UpdateLifeTime(DeltaTime);
 	}
@@ -258,9 +259,16 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 {
 	LifeTimer += DeltaT;
 
-	if (LifeTimer < DeliveryTime)
+	// Short window for redirection
+	if (LifeTimer < (DeliveryTime * 1.11f))
 	{
 		RedirectAttack();
+	}
+
+	// Catch lost game ender
+	if (bGameEnder && (UGameplayStatics::GetGlobalTimeDilation(GetWorld()) != 0.01f))
+	{
+		CallForTimescale(0.01f);
 	}
 
 	if (bLethal)
@@ -304,10 +312,12 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 		///SetShooterInputEnabled(true);
 	}
 
-	if (LifeTimer >= DynamicLifetime)
+	if ((LifeTimer >= DynamicLifetime)
+		&& HasAuthority())
 	{
 		///SetShooterInputEnabled(true);
-		///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("NumHits: %i"), NumHits));
+		GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("NumHits: %i"), NumHits));
+		Neutralize();
 		Destroy();
 	}
 }
@@ -473,21 +483,6 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 	{
 		NumHits += 1;
 
-		// Modify Health of Mark
-		bool bMarkKilled = false;
-		float TachyonHealth = HitTachyon->GetHealth();
-		if (TachyonHealth > 0.0f)
-		{
-			if (HasAuthority())
-			{
-				HitTachyon->ModifyHealth(-AttackDamage);
-			}
-		}
-		else
-		{
-			bMarkKilled = true;
-		}
-
 		// Update Shooter's Opponent reference
 		ATachyonCharacter* OwningTachyon = Cast<ATachyonCharacter>(OwningShooter);
 		if (OwningTachyon != nullptr)
@@ -498,32 +493,42 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 			}
 		}
 
-
+		// Modify Health of Mark
+		if (HasAuthority())
+		{
+			HitTachyon->ModifyHealth(-AttackDamage);
+		}
 
 		// Call it in
-		ATachyonGameStateBase* GState = Cast<ATachyonGameStateBase>(GetWorld()->GetGameState());
-		if (GState != nullptr)
+		float TachyonHealth = HitTachyon->GetHealth();
+		if (TachyonHealth <= 0.0f)
 		{
-			float TargetTimescale = 1.0f;
-			if (bMarkKilled)
+			CallForTimescale(0.01f); /// 0.01 is Terminal timescale
+			bGameEnder = true;
+		}
+		else
+		{
+			if (!bFirstHitReported)
 			{
-				GState->SetGlobalTimescale(0.01f); /// 0.01 is Terminal timescale
+				float ImpactScalar = AttackMagnitude * 1.5f;
+				float HitTimescale = FMath::Clamp((1.0f - ImpactScalar), 0.05f, 0.15f);
+				CallForTimescale(HitTimescale);
+				bFirstHitReported = true;
 			}
-			else
-			{
-				if (!bFirstHitReported)
-				{
-					float ImpactScalar = AttackMagnitude * 1.5f;
-					float HitTimescale = FMath::Clamp((1.0f - ImpactScalar), 0.05f, 0.1f);
-					GState->SetGlobalTimescale(HitTimescale);
-				}
-			}
-
-			GState->ForceNetUpdate();
-			bFirstHitReported = true;
 		}
 
 		ForceNetUpdate();
+	}
+}
+
+
+void ATachyonAttack::CallForTimescale(float NewTimescale)
+{
+	ATachyonGameStateBase* TGState = Cast<ATachyonGameStateBase>(GetWorld()->GetGameState());
+	if (TGState != nullptr)
+	{
+		TGState->SetGlobalTimescale(NewTimescale);
+		TGState->ForceNetUpdate();
 	}
 }
 

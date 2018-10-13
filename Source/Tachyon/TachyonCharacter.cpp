@@ -1031,14 +1031,11 @@ bool ATachyonCharacter::ServerSetApparel_Validate(int ApparelIndex)
 // GAME FLOW
 void ATachyonCharacter::RequestBots()
 {
-	if (Role == ROLE_Authority)
+	ATachyonGameStateBase* TachyonGame = Cast<ATachyonGameStateBase>(GetWorld()->GetGameState());
+	if (TachyonGame != nullptr)
 	{
-		ATachyonGameStateBase* TachyonGame = Cast<ATachyonGameStateBase>(GetWorld()->GetGameState());
-		if (TachyonGame != nullptr)
-		{
-			FVector IntendedLocation = GetActorForwardVector() * 1000.0f;
-			TachyonGame->SpawnBot(IntendedLocation);
-		}
+		FVector IntendedLocation = GetActorForwardVector() * 1000.0f;
+		TachyonGame->SpawnBot(IntendedLocation);
 	}
 }
 
@@ -1048,14 +1045,11 @@ void ATachyonCharacter::RestartGame()
 	{
 		ServerRestartGame();
 	}
-	else
+
+	ATachyonGameStateBase* GState = Cast<ATachyonGameStateBase>(GetWorld()->GetGameState());
+	if (GState != nullptr)
 	{
-		ATachyonGameStateBase* GState = Cast<ATachyonGameStateBase>(GetWorld()->GetGameState());
-		if (GState != nullptr)
-		{
-			GState->SetGlobalTimescale(1.0f);
-			GState->ForceNetUpdate();
-		}
+		GState->RestartGame();
 	}
 
 	ForceNetUpdate();
