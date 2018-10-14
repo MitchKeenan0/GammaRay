@@ -291,7 +291,8 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 				RedirectAttack();
 			}
 
-			if ((!AttackSound->IsActive()) || !AttackSound->IsPlaying())
+			if ((!AttackSound->IsActive()) || !AttackSound->IsPlaying()
+				&& (!bFirstHitReported))
 			{
 				ActivateSound();
 				RedirectAttack();
@@ -472,8 +473,11 @@ void ATachyonAttack::ServerMainHit_Implementation(AActor* HitActor, FVector HitL
 	}
 
 	// Smashy fx
-	SpawnHit(HitActor, HitLocation);
-	ApplyKnockForce(HitActor, HitLocation, 1.0f);
+	if (!bGameEnder)
+	{
+		SpawnHit(HitActor, HitLocation);
+		ApplyKnockForce(HitActor, HitLocation, 1.0f);
+	}
 
 	// Update GameState
 	ReportHitToMatch(OwningShooter, HitActor);

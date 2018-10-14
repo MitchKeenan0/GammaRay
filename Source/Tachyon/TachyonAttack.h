@@ -187,6 +187,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	class URadialForceComponent* AttackRadial = nullptr;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	class UAudioComponent* AttackSound = nullptr;
+
 	/////////////////////////////////////////////////////////////////////////
 	// Spawned Resources
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
@@ -197,9 +200,6 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<UCameraShake> FireShake = nullptr;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	class UAudioComponent* AttackSound = nullptr;
 
 	/*
 

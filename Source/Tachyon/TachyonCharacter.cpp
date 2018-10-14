@@ -94,6 +94,20 @@ void ATachyonCharacter::Tick(float DeltaTime)
 		{
 			UpdateJump(DeltaTime);
 		}
+		else if (ActiveBoost != nullptr)
+		{
+			DisengageJump();
+		}
+
+		float CurrentTimescale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+		if (CurrentTimescale <= 0.01f)
+		{
+			GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_None);
+		}
+		else
+		{
+			GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Flying);
+		}
 	}
 
 	// Net stuff
@@ -216,32 +230,20 @@ bool ATachyonCharacter::ServerEngageJump_Validate()
 
 void ATachyonCharacter::DisengageJump()
 {
-	bJumping = false;
-	///GetCharacterMovement()->MaxAcceleration = 5000.0f;
-
-	DiminishingJumpValue = 0.0f;
-	BoostTimeAlive = 0.0f;
-	///JumpMoveVector = FVector::ZeroVector;
-
-	if (ActiveBoost != nullptr)
-	{
-		ActiveBoost->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-		ActiveBoost->SetActorLocation(GetActorLocation());
-		ActiveBoost->ForceNetUpdate();
-		ActiveBoost->SetLifeSpan(0.5f);
-		ActiveBoost = nullptr;
-	}
-	
-	if (Role < ROLE_Authority)
-	{
-		ServerDisengageJump();
-	}
-
-	///ForceNetUpdate();
+	ServerDisengageJump();
 }
 void ATachyonCharacter::ServerDisengageJump_Implementation()
 {
-	DisengageJump();
+	bJumping = false;
+
+	DiminishingJumpValue = 0.0f;
+	BoostTimeAlive = 0.0f;
+
+	if (ActiveBoost != nullptr)
+	{
+		ActiveBoost->Destroy();
+		ActiveBoost = nullptr;
+	}
 }
 bool ATachyonCharacter::ServerDisengageJump_Validate()
 {
@@ -284,49 +286,49 @@ void ATachyonCharacter::UpdateJump(float DeltaTime)
 	//	}
 	//}
 
-	if (Role < ROLE_Authority)
+	ServerUpdateJump(DeltaTime);
+
+	/*if (Role < ROLE_Authority)
 	{
-		ServerUpdateJump(DeltaTime);
+		
 	}
 	else
 	{
-		// First-timer spawns visuals
-		if ((ActiveBoost == nullptr) && (BoostClass != nullptr))
-		{
-			// Spawning jump FX
-			FActorSpawnParameters SpawnParams;
-			FRotator InputRotation = JumpMoveVector.GetSafeNormal().Rotation();
-			FVector SpawnLocation = GetActorLocation() + (FVector::UpVector * 10.0f);
-
-			if (HasAuthority())
-			{
-				ActiveBoost = GetWorld()->SpawnActor<AActor>(BoostClass, SpawnLocation, InputRotation, SpawnParams);
-				if (ActiveBoost != nullptr)
-				{
-					ActiveBoost->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
-
-					// Special Jump-type objects
-					ATachyonJump* Jumpy = Cast<ATachyonJump>(ActiveBoost);
-					if (Jumpy != nullptr)
-					{
-						Jumpy->InitJump(JumpMoveVector, this);
-					}
-				}
-			}
-		}
-		else
-		{
-			BoostTimeAlive = ActiveBoost->GetGameTimeSinceCreation();
-			if (BoostTimeAlive > 1.0f)
-			{
-				DisengageJump();
-			}
-		}
-	}
+		
+	}*/
 }
 void ATachyonCharacter::ServerUpdateJump_Implementation(float DeltaTime)
 {
-	UpdateJump(DeltaTime);
+	//UpdateJump(DeltaTime);
+	// First-timer spawns visuals
+	if ((ActiveBoost == nullptr) && (BoostClass != nullptr))
+	{
+		// Spawning jump FX
+		FActorSpawnParameters SpawnParams;
+		FRotator InputRotation = JumpMoveVector.GetSafeNormal().Rotation();
+		FVector SpawnLocation = GetActorLocation() + (FVector::UpVector * 10.0f);
+
+		ActiveBoost = GetWorld()->SpawnActor<AActor>(BoostClass, SpawnLocation, InputRotation, SpawnParams);
+		if (ActiveBoost != nullptr)
+		{
+			ActiveBoost->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
+
+			// Special Jump-type objects
+			ATachyonJump* Jumpy = Cast<ATachyonJump>(ActiveBoost);
+			if (Jumpy != nullptr)
+			{
+				Jumpy->InitJump(JumpMoveVector, this);
+			}
+		}
+	}
+	else
+	{
+		BoostTimeAlive = ActiveBoost->GetGameTimeSinceCreation();
+		if (BoostTimeAlive > 1.0f)
+		{
+			DisengageJump();
+		}
+	}
 }
 bool ATachyonCharacter::ServerUpdateJump_Validate(float DeltaTime)
 {
@@ -339,15 +341,9 @@ void ATachyonCharacter::SetX(float Value)
 {
 	ServerSetX(Value);
 	InputX = Value;
-	
-	/*if (Role < ROLE_Authority)
-	{
-		
-	}*/
 }
 void ATachyonCharacter::ServerSetX_Implementation(float Value)
 {
-	//SetX(Value);
 	InputX = Value;
 
 	if (ActorHasTag("Bot"))
@@ -364,15 +360,9 @@ void ATachyonCharacter::SetZ(float Value)
 {
 	ServerSetZ(Value);
 	InputZ = Value;
-
-	/*if (Role < ROLE_Authority)
-	{
-		
-	}*/
 }
 void ATachyonCharacter::ServerSetZ_Implementation(float Value)
 {
-	//SetZ(Value);
 	InputZ = Value;
 
 	if (ActorHasTag("Bot"))

@@ -50,5 +50,9 @@ protected:
 	
 	UPROPERTY(Replicated)
 	float DesiredTimescale = 1.0f;
+
+	// Components
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	class UAudioComponent* GameSound = nullptr;
 	
 };

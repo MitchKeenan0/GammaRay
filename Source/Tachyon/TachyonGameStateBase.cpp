@@ -8,6 +8,8 @@ ATachyonGameStateBase::ATachyonGameStateBase()
 	PrimaryActorTick.bStartWithTickEnabled = true;
 	PrimaryActorTick.bCanEverTick = true;
 
+	GameSound = CreateDefaultSubobject<UAudioComponent>(TEXT("GameSound"));
+
 	bReplicates = true;
 	NetDormancy = ENetDormancy::DORM_Never;
 }
@@ -16,8 +18,7 @@ ATachyonGameStateBase::ATachyonGameStateBase()
 void ATachyonGameStateBase::BeginPlay()
 {
 	Super::BeginPlay();
-	bRecoverTimescale = true;
-	bGG = false;
+	
 	SetGlobalTimescale(1.0f);
 }
 
@@ -27,6 +28,12 @@ void ATachyonGameStateBase::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	UpdateGlobalTimescale(DeltaTime);
+
+	if (!bGG && (DesiredTimescale == 0.01f) && !GameSound->IsPlaying())
+	{
+		GameSound->Play();
+		bGG = true;
+	}
 }
 
 
@@ -38,12 +45,10 @@ void ATachyonGameStateBase::SetGlobalTimescale(float TargetTimescale)
 	if (DesiredTimescale == 0.01f)
 	{
 		bRecoverTimescale = false;
-		bGG = true;
 	}
 	else if (DesiredTimescale <= 1.0f)
 	{
 		bRecoverTimescale = true;
-		bGG = false;
 	}
 
 	ForceNetUpdate();
@@ -97,6 +102,7 @@ void ATachyonGameStateBase::RestartGame()
 
 	// Reset timescale
 	SetGlobalTimescale(1.0f);
+	bGG = false;
 }
 
 
@@ -110,12 +116,15 @@ void ATachyonGameStateBase::UpdateGlobalTimescale(float DeltaTime)
 		return;
 	}
 
+	// Interpolating to desired timescale
 	float FactoredTimescale = DesiredTimescale * 10.0f;
 	float InterpSpeed = 10.0f + (1.0f / FactoredTimescale);
+	if (DesiredTimescale == 0.01f)
+	{
+		InterpSpeed *= 0.5555f;
+	}
 	float InterpTime = FMath::FInterpConstantTo(CurrentTime, DesiredTimescale, DeltaTime, InterpSpeed);
-
 	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), InterpTime);
-
 	ForceNetUpdate();
 }
 
