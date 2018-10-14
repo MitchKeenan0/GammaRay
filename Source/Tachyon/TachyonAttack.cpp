@@ -200,7 +200,7 @@ void ATachyonAttack::SetInitVelocities()
 		if (VelSize != 0.0f)
 		{
 			FVector ScalarVelocity = ShooterVelocity.GetSafeNormal() * FMath::Sqrt(VelSize) * ProjectileSpeed;
-			ScalarVelocity.Z *= 0.315f;
+			ScalarVelocity.Z *= 0.21f;
 			ProjectileComponent->Velocity += ScalarVelocity;
 		}
 	}
@@ -284,18 +284,21 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 				HitTimer = 0.0f;
 			}
 
-			// Catch unactivated visuals and sound
-			if (!AttackParticles->IsActive())
+			if (!bFirstHitReported)
 			{
-				ActivateParticles();
-				RedirectAttack();
-			}
+				// Catch unactivated visuals and sound
+				if (!AttackParticles->IsActive())
+				{
+					ActivateParticles();
+					RedirectAttack();
+				}
 
-			if ((!AttackSound->IsActive()) || !AttackSound->IsPlaying()
-				&& (!bFirstHitReported))
-			{
-				ActivateSound();
-				RedirectAttack();
+				if ((!AttackSound->IsActive()) || !AttackSound->IsPlaying()
+					&& (!bFirstHitReported))
+				{
+					ActivateSound();
+					RedirectAttack();
+				}
 			}
 		}
 	}
