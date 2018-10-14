@@ -426,6 +426,10 @@ void ATachyonAttack::SpawnHit(AActor* HitActor, FVector HitLocation)
 	FActorSpawnParameters SpawnParams;
 	FVector ToHitLocation = (HitLocation - GetActorLocation()).GetSafeNormal();
 	AActor* HitSpawning = GetWorld()->SpawnActor<AActor>(DamageClass, HitLocation, ToHitLocation.Rotation(), SpawnParams);
+	if (HitSpawning != nullptr)
+	{
+		HitSpawning->AttachToActor(HitActor, FAttachmentTransformRules::KeepWorldTransform);
+	}
 }
 
 
@@ -442,10 +446,7 @@ void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, floa
 		FVector CharaVelocity = Chara->GetMovementComponent()->Velocity;
 		FVector KnockbackVector = CharaVelocity + KnockVector;
 
-		//if (HasAuthority())
-		//{
-			Chara->ReceiveKnockback(KnockVector, true);
-		//}
+		Chara->ReceiveKnockback(KnockVector, true);
 
 		ForceNetUpdate();
 	}
@@ -453,7 +454,10 @@ void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, floa
 
 void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 {
-	ServerMainHit(HitActor, HitLocation);
+	if (Role == ROLE_Authority)
+	{
+		ServerMainHit(HitActor, HitLocation);
+	}
 }
 void ATachyonAttack::ServerMainHit_Implementation(AActor* HitActor, FVector HitLocation)
 {
@@ -511,8 +515,8 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		{
 			if (!bFirstHitReported)
 			{
-				float ImpactScalar = AttackMagnitude * 1.5f;
-				float HitTimescale = FMath::Clamp((1.0f - ImpactScalar), 0.05f, 0.15f);
+				float ImpactScalar = AttackMagnitude * 1.15f;
+				float HitTimescale = FMath::Clamp((1.0f - ImpactScalar), 0.05f, 0.9f);
 				CallForTimescale(HitTimescale);
 				bFirstHitReported = true;
 			}

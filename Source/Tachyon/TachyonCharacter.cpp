@@ -168,6 +168,11 @@ void ATachyonCharacter::MoveUp(float Value)
 // JUMP
 void ATachyonCharacter::EngageJump()
 {
+	ServerEngageJump();
+}
+void ATachyonCharacter::ServerEngageJump_Implementation()
+{
+	//EngageJump();
 	bJumping = true;
 
 	// Auto-forward if no input to do so
@@ -179,41 +184,30 @@ void ATachyonCharacter::EngageJump()
 	}
 
 	GetCharacterMovement()->AddImpulse(JumpMoveVector * BoostSpeed * 5000.0f, true);
-	
-	if (Role < ROLE_Authority)
+
+	// First-timer spawns visuals
+	if ((ActiveBoost == nullptr) && (BoostClass != nullptr))
 	{
-		ServerEngageJump();
-	}
-	else
-	{
-		// First-timer spawns visuals
-		if ((ActiveBoost == nullptr) && (BoostClass != nullptr))
+		// Spawning jump FX
+		FActorSpawnParameters SpawnParams;
+		FRotator InputRotation = JumpMoveVector.GetSafeNormal().Rotation();
+		FVector SpawnLocation = GetActorLocation() + (FVector::UpVector * 10.0f);
+
+		ActiveBoost = GetWorld()->SpawnActor<AActor>(BoostClass, SpawnLocation, InputRotation, SpawnParams);
+		if (ActiveBoost != nullptr)
 		{
-			// Spawning jump FX
-			FActorSpawnParameters SpawnParams;
-			FRotator InputRotation = JumpMoveVector.GetSafeNormal().Rotation();
-			FVector SpawnLocation = GetActorLocation() + (FVector::UpVector * 10.0f);
+			ActiveBoost->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
 
-			ActiveBoost = GetWorld()->SpawnActor<AActor>(BoostClass, SpawnLocation, InputRotation, SpawnParams);
-			if (ActiveBoost != nullptr)
+			// Special Jump-type objects
+			ATachyonJump* Jumpy = Cast<ATachyonJump>(ActiveBoost);
+			if (Jumpy != nullptr)
 			{
-				ActiveBoost->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
-
-				// Special Jump-type objects
-				ATachyonJump* Jumpy = Cast<ATachyonJump>(ActiveBoost);
-				if (Jumpy != nullptr)
-				{
-					Jumpy->InitJump(JumpMoveVector, this);
-				}
+				Jumpy->InitJump(JumpMoveVector, this);
 			}
 		}
 	}
 
 	ForceNetUpdate();
-}
-void ATachyonCharacter::ServerEngageJump_Implementation()
-{
-	EngageJump();
 }
 bool ATachyonCharacter::ServerEngageJump_Validate()
 {
@@ -343,21 +337,23 @@ bool ATachyonCharacter::ServerUpdateJump_Validate(float DeltaTime)
 // NET AIM
 void ATachyonCharacter::SetX(float Value)
 {
+	ServerSetX(Value);
+	InputX = Value;
+	
+	/*if (Role < ROLE_Authority)
+	{
+		
+	}*/
+}
+void ATachyonCharacter::ServerSetX_Implementation(float Value)
+{
+	//SetX(Value);
 	InputX = Value;
 
 	if (ActorHasTag("Bot"))
 	{
 		MoveRight(Value);
 	}
-	
-	if (Role < ROLE_Authority)
-	{
-		ServerSetX(Value);
-	}
-}
-void ATachyonCharacter::ServerSetX_Implementation(float Value)
-{
-	SetX(Value);
 }
 bool ATachyonCharacter::ServerSetX_Validate(float Value)
 {
@@ -366,6 +362,17 @@ bool ATachyonCharacter::ServerSetX_Validate(float Value)
 
 void ATachyonCharacter::SetZ(float Value)
 {
+	ServerSetZ(Value);
+	InputZ = Value;
+
+	/*if (Role < ROLE_Authority)
+	{
+		
+	}*/
+}
+void ATachyonCharacter::ServerSetZ_Implementation(float Value)
+{
+	//SetZ(Value);
 	InputZ = Value;
 
 	if (ActorHasTag("Bot"))
@@ -373,14 +380,6 @@ void ATachyonCharacter::SetZ(float Value)
 		MoveUp(Value);
 	}
 
-	if (Role < ROLE_Authority)
-	{
-		ServerSetZ(Value);
-	}
-}
-void ATachyonCharacter::ServerSetZ_Implementation(float Value)
-{
-	SetZ(Value);
 }
 bool ATachyonCharacter::ServerSetZ_Validate(float Value)
 {
@@ -410,17 +409,6 @@ bool ATachyonCharacter::ServerArmAttack_Validate()
 void ATachyonCharacter::ReleaseAttack()
 {
 	ServerReleaseAttack();
-
-	/*if (Role < ROLE_Authority)
-	{
-		
-	}
-	else
-	{
-		
-	}*/
-
-	
 }
 void ATachyonCharacter::ServerReleaseAttack_Implementation()
 {
@@ -452,29 +440,6 @@ bool ATachyonCharacter::ServerReleaseAttack_Validate()
 void ATachyonCharacter::WindupAttack(float DeltaTime)
 {
 	ServerWindupAttack(DeltaTime);
-
-	/*if (Role == ROLE_Authority)
-	{
-		
-	}
-	else
-	{
-		
-	}*/
-
-	/*if (ActiveWindup == nullptr)
-	{
-		FVector FirePosition = GetActorLocation(); ///AttackScene->GetComponentLocation();
-		FVector LocalForward = GetActorForwardVector(); /// AttackScene->GetForwardVector();
-		LocalForward.Y = 0.0f;
-		FRotator FireRotation = LocalForward.GetSafeNormal().Rotation();
-		FActorSpawnParameters SpawnParams;
-		ActiveWindup = GetWorld()->SpawnActor<AActor>(AttackWindupClass, FirePosition, FireRotation, SpawnParams);
-		if (ActiveWindup != nullptr)
-		{
-			ActiveWindup->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
-		}
-	}*/
 }
 void ATachyonCharacter::ServerWindupAttack_Implementation(float DeltaTime)
 {
@@ -510,15 +475,6 @@ bool ATachyonCharacter::ServerWindupAttack_Validate(float DeltaTime)
 void ATachyonCharacter::FireAttack()
 {
 	ServerFireAttack();
-
-	/*if (Role < ROLE_Authority)
-	{
-		
-	}
-	else
-	{
-		
-	}*/
 }
 void ATachyonCharacter::ServerFireAttack_Implementation()
 {
@@ -567,15 +523,6 @@ void ATachyonCharacter::UpdateAttack(float DeltaTime)
 {
 	// Attack Refire Timing
 	ServerUpdateAttack(DeltaTime);
-	
-	/*if (Role < ROLE_Authority)
-	{
-		
-	}
-	else
-	{
-		
-	}*/
 }
 void ATachyonCharacter::ServerUpdateAttack_Implementation(float DeltaTime)
 {
@@ -599,15 +546,10 @@ bool ATachyonCharacter::ServerUpdateAttack_Validate(float DeltaTime)
 // HEALTH
 void ATachyonCharacter::ModifyHealth(float Value)
 {
-	ServerModifyHealth(Value);
-	/*if (Role < ROLE_Authority)
+	if (Controller != nullptr)
 	{
 		ServerModifyHealth(Value);
 	}
-	else
-	{
-		
-	}*/
 }
 void ATachyonCharacter::ServerModifyHealth_Implementation(float Value)
 {
@@ -635,8 +577,10 @@ void ATachyonCharacter::UpdateHealth(float DeltaTime)
 	// Update smooth health value
 	if (MaxHealth < Health)
 	{
+		float CurrentTimescale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+		float Timescalar = 1.0f / CurrentTimescale;
 		float HealthDifference = FMath::Abs(Health - MaxHealth) * 5.1f;
-		float InterpSpeed = FMath::Clamp(HealthDifference, 5.0f, 50.0f);
+		float InterpSpeed = Timescalar * FMath::Clamp(HealthDifference, 5.0f, 50.0f);
 		Health = FMath::FInterpConstantTo(Health, MaxHealth, DeltaTime, InterpSpeed);
 	}
 
@@ -645,19 +589,15 @@ void ATachyonCharacter::UpdateHealth(float DeltaTime)
 
 void ATachyonCharacter::ReceiveKnockback(FVector Knockback, bool bOverrideVelocity)
 {
-	if (Role == ROLE_AutonomousProxy)
-	{
-		ServerReceiveKnockback(Knockback, bOverrideVelocity);
-	}
 	if (Controller != nullptr)
 	{
-		GetCharacterMovement()->AddImpulse(Knockback, bOverrideVelocity);
-		ForceNetUpdate();
+		ServerReceiveKnockback(Knockback, bOverrideVelocity);
 	}
 }
 void ATachyonCharacter::ServerReceiveKnockback_Implementation(FVector Knockback, bool bOverrideVelocity)
 {
-	ReceiveKnockback(Knockback, bOverrideVelocity);
+	GetCharacterMovement()->AddImpulse(Knockback, bOverrideVelocity);
+	ForceNetUpdate();
 }
 bool ATachyonCharacter::ServerReceiveKnockback_Validate(FVector Knockback, bool bOverrideVelocity)
 {
@@ -666,6 +606,11 @@ bool ATachyonCharacter::ServerReceiveKnockback_Validate(FVector Knockback, bool 
 
 void ATachyonCharacter::UpdateBody(float DeltaTime)
 {
+	if (Role == ROLE_AutonomousProxy)
+	{
+		ServerUpdateBody(DeltaTime);
+	}
+
 	// Set rotation so character faces direction of travel
 	float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
 	float ClimbDirection = FMath::Clamp(InputZ, -1.0f, 1.0f) * 5.0f;
@@ -710,11 +655,6 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 	{
 	LocatorScaling();
 	}*/
-
-	if (Role < ROLE_Authority)
-	{
-		ServerUpdateBody(DeltaTime);
-	}
 }
 void ATachyonCharacter::ServerUpdateBody_Implementation(float DeltaTime)
 {
