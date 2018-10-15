@@ -187,6 +187,9 @@ public:
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
 	void ServerReceiveKnockback(FVector Knockback, bool bOverrideVelocity);
 
+	/*UFUNCTION(NetMulticast, BlueprintCallable, reliable)
+	void MulticastReceiveKnockback(FVector Knockback, bool bOverrideVelocity);*/
+
 	UFUNCTION(BlueprintCallable)
 	void ModifyHealth(float Value);
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)

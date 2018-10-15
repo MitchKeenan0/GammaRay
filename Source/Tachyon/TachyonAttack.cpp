@@ -144,17 +144,20 @@ void ATachyonAttack::Lethalize()
 	ActivateParticles();
 
 	// Shooter Recoil
-	FVector RecoilVector = GetActorRotation().Vector().GetSafeNormal();
-	ATachyonCharacter* CharacterShooter = Cast<ATachyonCharacter>(OwningShooter);
-	if (CharacterShooter != nullptr)
+	if (RecoilForce > 0.0f)
 	{
-		FVector ShooterVelocity = CharacterShooter->GetCharacterMovement()->Velocity;
-		float ClampedMagnitude = FMath::Clamp(AttackMagnitude, 0.5f, 1.0f);
-		RecoilVector *= (RecoilForce * -ClampedMagnitude);
-		CharacterShooter->ReceiveKnockback(RecoilVector, true);
+		FVector RecoilVector = GetActorRotation().Vector().GetSafeNormal();
+		ATachyonCharacter* CharacterShooter = Cast<ATachyonCharacter>(OwningShooter);
+		if (CharacterShooter != nullptr)
+		{
+			FVector ShooterVelocity = CharacterShooter->GetCharacterMovement()->Velocity;
+			float ClampedMagnitude = FMath::Clamp(AttackMagnitude, 0.5f, 1.0f);
+			RecoilVector *= (RecoilForce * -ClampedMagnitude);
+			CharacterShooter->ReceiveKnockback(RecoilVector, true);
 
-		// Disable shooter input for attack duration
-		//SetShooterInputEnabled(false);
+			// Disable shooter input for attack duration
+			//SetShooterInputEnabled(false);
+		}
 	}
 
 	// Custom timescale
@@ -209,12 +212,12 @@ void ATachyonAttack::SetInitVelocities()
 	}
 
 	// Slow shooter
-	FVector PostFireShooterVelocity = (ShooterVelocity * -HitSlow);
+	/*FVector PostFireShooterVelocity = (ShooterVelocity * -HitSlow);
 	ATachyonCharacter* CharacterShooter = Cast<ATachyonCharacter>(OwningShooter);
 	if (CharacterShooter != nullptr)
 	{
 		CharacterShooter->ReceiveKnockback(PostFireShooterVelocity, true);
-	}
+	}*/
 }
 
 
