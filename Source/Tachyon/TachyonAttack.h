@@ -49,10 +49,13 @@ public:
 	bool IsLockedEmitPoint() { return LockedEmitPoint; }
 
 	UFUNCTION()
-	void CallForTimescale(float NewTimescale);
+	void CallForTimescale(AActor* TargetActor, bool bGlobal, float NewTimescale);
 
 	UFUNCTION()
-	void Neutralize() { bNeutralized = true; }
+	void Neutralize();
+
+	UFUNCTION()
+	void ReceiveTimescale(float InTimescale) { CustomTimeDilation = InTimescale; }
 
 
 protected:

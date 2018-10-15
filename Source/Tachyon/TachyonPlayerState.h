@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
 #include "Tachyon.h"
 #include "TApparel.h"
 #include "GameFramework/PlayerState.h"

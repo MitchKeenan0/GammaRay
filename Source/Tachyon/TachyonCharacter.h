@@ -26,10 +26,10 @@ class TACHYON_API ATachyonCharacter : public ACharacter
 	// PRIVATE VARIABLES
 	UPROPERTY()
 	float APM = 0.0f;
-	UPROPERTY()
+	/*UPROPERTY()
 	float X = 0.0f;
 	UPROPERTY()
-	float Z = 0.0f;
+	float Z = 0.0f;*/
 	UPROPERTY()
 	float MoveTimer = 0.0f;
 	UPROPERTY()
@@ -191,6 +191,14 @@ public:
 	void ModifyHealth(float Value);
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
 	void ServerModifyHealth(float Value);
+
+	UFUNCTION(BlueprintCallable)
+	void NewTimescale(float Value);
+	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
+	void ServerNewTimescale(float Value);
+
+	UFUNCTION(NetMulticast, BlueprintCallable, reliable)
+	void MulticastNewTimescale(float Value);
 
 	UFUNCTION(BlueprintCallable)
 	void SetApparel(int ApparelIndex);

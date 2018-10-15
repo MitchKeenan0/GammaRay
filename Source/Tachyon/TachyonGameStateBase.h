@@ -14,6 +14,8 @@ class TACHYON_API ATachyonGameStateBase : public AGameStateBase
 {
 	GENERATED_BODY()
 
+	UPROPERTY()
+	TArray<AActor*> TimescalingPlayers;
 	
 public:
 	ATachyonGameStateBase();
@@ -31,6 +33,9 @@ public:
 
 	UFUNCTION()
 	void SetGlobalTimescale(float TargetTimescale);
+
+	UFUNCTION()
+	void SetActorTimescale(AActor* TargetActor, float TargetTimescale);
 
 	UFUNCTION()
 	void RestartGame();

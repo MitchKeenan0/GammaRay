@@ -83,6 +83,8 @@ void ATachyonCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("CustomTimeDilation: %f"), CustomTimeDilation));
+
 	// Local stuff
 	if (Controller != nullptr)
 	{
@@ -90,38 +92,28 @@ void ATachyonCharacter::Tick(float DeltaTime)
 		UpdateBody(DeltaTime);
 		UpdateCamera(DeltaTime);
 
+		// Jump timing
 		if (bJumping)
-		{
 			UpdateJump(DeltaTime);
-		}
 		else if (ActiveBoost != nullptr)
-		{
 			DisengageJump();
-		}
 
+		// Disable movement during slowtime
 		float CurrentTimescale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
-		if (CurrentTimescale <= 0.01f)
-		{
+		if (CurrentTimescale < 0.05f)
 			GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_None);
-		}
 		else
-		{
 			GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Flying);
-		}
 	}
 
-	// Net stuff
+	// Attack timing
 	if (HasAuthority())
 	{
 		if (AttackTimer != 0.0f)
-		{
 			UpdateAttack(DeltaTime);
-		}
 
 		if (bShooting && (AttackTimer <= 0.0f))
-		{
 			WindupAttack(DeltaTime);
-		}
 	}
 }
 
@@ -162,7 +154,6 @@ void ATachyonCharacter::MoveRight(float Value)
 		}
 	}
 }
-
 void ATachyonCharacter::MoveUp(float Value)
 {
 	float MoveValue = Value * MoveSpeed * GetWorld()->DeltaTimeSeconds;
@@ -177,6 +168,7 @@ void ATachyonCharacter::MoveUp(float Value)
 		}
 	}
 }
+
 
 ////////////////////////////////////////////////////////////////////////
 // JUMP
@@ -252,54 +244,10 @@ bool ATachyonCharacter::ServerDisengageJump_Validate()
 
 void ATachyonCharacter::UpdateJump(float DeltaTime)
 {
-	// Diminishing propulsion
-	//if (ActiveBoost != nullptr)
-	//{
-	//	BoostTimeAlive = ActiveBoost->GetGameTimeSinceCreation();
-	//	if (BoostTimeAlive > 0.001f)
-	//	{
-	//		float InverseTimeAlive = (1.0f / BoostTimeAlive) * BoostSustain;
-	//		DiminishingJumpValue = FMath::Clamp(InverseTimeAlive, 0.0f, 21.0f);
-	//		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("DiminishingJumpValue: %f"), DiminishingJumpValue));
-
-	//		if (DiminishingJumpValue > 0.5f)
-	//		{
-	//			FVector SustainedJump = JumpMoveVector * BoostSpeed * DiminishingJumpValue * 10000.0f;
-	//			FVector JumpLocation = GetActorLocation() + SustainedJump;
-	//			float JumpSize = SustainedJump.Size();
-	//			//FVector UpdatedJumpLocation = FMath::VInterpConstantTo(GetActorLocation(), JumpLocation, DeltaTime, JumpSize);
-	//			//SetActorLocation(UpdatedJumpLocation);
-
-	//			GetCharacterMovement()->MaxAcceleration = 100000.0f * DiminishingJumpValue;
-	//			
-	//			//AddMovementInput(SustainedJump, JumpSize);
-	//			GetCharacterMovement()->AddInputVector(SustainedJump * JumpSize, true);
-	//			GetCharacterMovement()->ForceReplicationUpdate();
-	//			ForceNetUpdate();
-	//		}
-	//		else
-	//		{
-	//			GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, TEXT("Cutting Jump -----"));
-	//			DisengageJump();
-	//			return;
-	//		}
-	//	}
-	//}
-
 	ServerUpdateJump(DeltaTime);
-
-	/*if (Role < ROLE_Authority)
-	{
-		
-	}
-	else
-	{
-		
-	}*/
 }
 void ATachyonCharacter::ServerUpdateJump_Implementation(float DeltaTime)
 {
-	//UpdateJump(DeltaTime);
 	// First-timer spawns visuals
 	if ((ActiveBoost == nullptr) && (BoostClass != nullptr))
 	{
@@ -334,6 +282,7 @@ bool ATachyonCharacter::ServerUpdateJump_Validate(float DeltaTime)
 {
 	return true;
 }
+
 
 ////////////////////////////////////////////////////////////////////////
 // NET AIM
@@ -533,7 +482,7 @@ bool ATachyonCharacter::ServerUpdateAttack_Validate(float DeltaTime)
 
 
 ////////////////////////////////////////////////////////////////////////
-// HEALTH
+// HEALTH & TIME
 void ATachyonCharacter::ModifyHealth(float Value)
 {
 	if (Controller != nullptr)
@@ -557,6 +506,27 @@ void ATachyonCharacter::ServerModifyHealth_Implementation(float Value)
 bool ATachyonCharacter::ServerModifyHealth_Validate(float Value)
 {
 	return true;
+}
+
+void ATachyonCharacter::NewTimescale(float Value)
+{
+	if (Controller != nullptr)
+	{
+		ServerNewTimescale(Value);
+	}
+}
+void ATachyonCharacter::ServerNewTimescale_Implementation(float Value)
+{
+	MulticastNewTimescale(Value);
+}
+bool ATachyonCharacter::ServerNewTimescale_Validate(float Value)
+{
+	return true;
+}
+void ATachyonCharacter::MulticastNewTimescale_Implementation(float Value)
+{
+	CustomTimeDilation = Value;
+	ForceNetUpdate();
 }
 
 
@@ -596,10 +566,14 @@ bool ATachyonCharacter::ServerReceiveKnockback_Validate(FVector Knockback, bool 
 
 void ATachyonCharacter::UpdateBody(float DeltaTime)
 {
-	if (Role == ROLE_AutonomousProxy)
+	// Net part: currently for custom time dilation recovery
+	//ServerUpdateBody(DeltaTime);
+	/*if (CustomTimeDilation < 1.0f)
 	{
-		ServerUpdateBody(DeltaTime);
-	}
+		float RecoverySpeed = 3.0f * (1.0f + CustomTimeDilation);
+		float InterpTime = FMath::FInterpConstantTo(CustomTimeDilation, 1.0f, DeltaTime, RecoverySpeed);
+		NewTimescale(InterpTime);
+	}*/
 
 	// Set rotation so character faces direction of travel
 	float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
@@ -632,23 +606,16 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 			Controller->SetControlRotation(Fint);
 		}
 	}
-
-	// Stretch & Squash on moving
-	//float Lateral = 1.0f + FMath::Abs(InputX * 0.1f);
-	//float Vertical = 1.0f + (InputZ * 0.1f);
-	//FVector BodyVector = FVector(Lateral, 1.1f, Vertical) * 2.2f; // Hard-Code!!
-	//GetMesh()->SetWorldScale3D(BodyVector);
-	//FlushNetDormancy();
-
-	// Locator scaling
-	/*if (UGameplayStatics::GetGlobalTimeDilation(GetWorld()) > 0.01f)
-	{
-	LocatorScaling();
-	}*/
 }
 void ATachyonCharacter::ServerUpdateBody_Implementation(float DeltaTime)
 {
-	UpdateBody(DeltaTime);
+	// Recover personal timescale if down
+	if (CustomTimeDilation < 1.0f)
+	{
+		float RecoverySpeed = 3.0f * (1.0f + CustomTimeDilation);
+		float InterpTime = FMath::FInterpConstantTo(CustomTimeDilation, 1.0f, DeltaTime, RecoverySpeed);
+		NewTimescale(InterpTime);
+	}
 }
 bool ATachyonCharacter::ServerUpdateBody_Validate(float DeltaTime)
 {
@@ -660,10 +627,12 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 	float GlobalTimeScale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
 
 	// Poll for framing actors
-	if ((Actor1 == nullptr) || (Actor2 == nullptr))
+	/*if ((Actor1 == nullptr) || (Actor2 == nullptr))
 	{
 		UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("FramingActor"), FramingActors);
-	}
+	}*/
+
+	UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("FramingActor"), FramingActors);
 
 	// Spectator ez life
 	if (!this->ActorHasTag("Spectator"))
@@ -701,42 +670,38 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 			// Position by another actor
 			bool bAlone = true;
 			// Find closest best candidate for Actor 2
-			if (Actor2 == nullptr)
+			// Find Actor2 by nominating best actor
+			float DistToActor2 = 99999.0f;
+			int LoopCount = FramingActors.Num();
+			AActor* CurrentActor = nullptr;
+			AActor* BestCandidate = nullptr;
+			float BestDistance = 0.0f;
+			for (int i = 0; i < LoopCount; ++i)
 			{
-
-				// Find Actor2 by nominating best actor
-				float DistToActor2 = 99999.0f;
-				int LoopCount = FramingActors.Num();
-				AActor* CurrentActor = nullptr;
-				AActor* BestCandidate = nullptr;
-				float BestDistance = 0.0f;
-				for (int i = 0; i < LoopCount; ++i)
+				CurrentActor = FramingActors[i];
+				if (CurrentActor != nullptr
+					&& CurrentActor != Actor1
+					&& !CurrentActor->ActorHasTag("Spectator")
+					&& !CurrentActor->ActorHasTag("Obstacle"))
 				{
-					CurrentActor = FramingActors[i];
-					if (CurrentActor != nullptr
-						&& CurrentActor != Actor1
-						&& !CurrentActor->ActorHasTag("Spectator")
-						&& !CurrentActor->ActorHasTag("Obstacle"))
+					float DistToTemp = FVector::Dist(CurrentActor->GetActorLocation(), GetActorLocation());
+					if (DistToTemp < DistToActor2)
 					{
-						float DistToTemp = FVector::Dist(CurrentActor->GetActorLocation(), GetActorLocation());
-						if (DistToTemp < DistToActor2)
+						BestCandidate = CurrentActor;
+						DistToActor2 = DistToTemp;
+						// Players get veto importance
+						/*if ((BestCandidate == nullptr)
+							|| (!BestCandidate->ActorHasTag("Player")))
 						{
-
-							// Players get veto importance
-							if ((BestCandidate == nullptr)
-								|| (!BestCandidate->ActorHasTag("Player")))
-							{
-								BestCandidate = CurrentActor;
-								DistToActor2 = DistToTemp;
-							}
-						}
+							BestCandidate = CurrentActor;
+							DistToActor2 = DistToTemp;
+						}*/
 					}
 				}
-
-				// Got your boye
-				Actor2 = BestCandidate;
 			}
 
+			// Got your boye
+			Actor2 = BestCandidate;
 
 
 			// Framing up first actor with their own velocity
@@ -912,6 +877,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 	}
 }
 
+
 ////////////////////////////////////////////////////////////////////////
 // COSMETICS
 void ATachyonCharacter::DonApparel()
@@ -965,6 +931,7 @@ bool ATachyonCharacter::ServerSetApparel_Validate(int ApparelIndex)
 	return true;
 }
 
+
 ////////////////////////////////////////////////////////////////////////
 // GAME FLOW
 void ATachyonCharacter::RequestBots()
@@ -1000,6 +967,7 @@ void ATachyonCharacter::MulticastRestartGame_Implementation()
 
 	ForceNetUpdate();
 }
+
 
 ////////////////////////////////////////////////////////////////////////
 // NETWORK REPLICATION

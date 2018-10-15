@@ -33,6 +33,10 @@ void ATachyonGameStateBase::Tick(float DeltaTime)
 	{
 		GameSound->Play();
 		bGG = true;
+
+		// Auto restart
+		/*FTimerHandle TimerHand;
+		GetWorldTimerManager().SetTimer(TimerHand, this, &ATachyonGameStateBase::RestartGame, 0.15f, false);*/
 	}
 }
 
@@ -52,6 +56,16 @@ void ATachyonGameStateBase::SetGlobalTimescale(float TargetTimescale)
 	}
 
 	ForceNetUpdate();
+}
+
+
+void ATachyonGameStateBase::SetActorTimescale(AActor* TargetActor, float TargetTimescale)
+{
+	ATachyonCharacter* TargetTachyon = Cast<ATachyonCharacter>(TargetActor);
+	if (TargetTachyon != nullptr)
+	{
+		TargetTachyon->NewTimescale(TargetTimescale);
+	}
 }
 
 
@@ -92,6 +106,7 @@ void ATachyonGameStateBase::RestartGame()
 				if (Player != nullptr)
 				{
 					Player->ModifyHealth(100.0f);
+					Player->NewTimescale(1.0f);
 					Player->ForceNetUpdate();
 				}
 			}

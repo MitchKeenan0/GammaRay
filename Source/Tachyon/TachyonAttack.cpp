@@ -149,13 +149,16 @@ void ATachyonAttack::Lethalize()
 	if (CharacterShooter != nullptr)
 	{
 		FVector ShooterVelocity = CharacterShooter->GetCharacterMovement()->Velocity;
-		RecoilVector *= (RecoilForce * -AttackMagnitude);
-		//CharacterShooter->GetCharacterMovement()->Velocity = (ShooterVelocity + RecoilVector);
+		float ClampedMagnitude = FMath::Clamp(AttackMagnitude, 0.5f, 1.0f);
+		RecoilVector *= (RecoilForce * -ClampedMagnitude);
 		CharacterShooter->ReceiveKnockback(RecoilVector, true);
 
 		// Disable shooter input for attack duration
 		//SetShooterInputEnabled(false);
 	}
+
+	// Custom timescale
+	CustomTimeDilation = FMath::Clamp((1.5f - AttackMagnitude), 0.1f, 1.0f);
 
 	ForceNetUpdate();
 	///FlushNetDormancy();
@@ -206,11 +209,11 @@ void ATachyonAttack::SetInitVelocities()
 	}
 
 	// Slow shooter
-	FVector PostFireShooterVelocity = (ShooterVelocity * HitSlow);
-	ACharacter* CharacterShooter = Cast<ACharacter>(OwningShooter);
+	FVector PostFireShooterVelocity = (ShooterVelocity * -HitSlow);
+	ATachyonCharacter* CharacterShooter = Cast<ATachyonCharacter>(OwningShooter);
 	if (CharacterShooter != nullptr)
 	{
-		CharacterShooter->GetCharacterMovement()->Velocity = PostFireShooterVelocity;
+		CharacterShooter->ReceiveKnockback(PostFireShooterVelocity, true);
 	}
 }
 
@@ -237,6 +240,7 @@ void ATachyonAttack::RedirectAttack()
 	if ((ShooterYaw > 50.0f)) {
 		Yaw = 180.0f;
 	}
+
 	FireRotation.Yaw = Yaw;
 	SetActorRotation(FireRotation);
 }
@@ -268,7 +272,7 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 	// Catch lost game ender
 	if (bGameEnder && (UGameplayStatics::GetGlobalTimeDilation(GetWorld()) != 0.01f))
 	{
-		CallForTimescale(0.01f);
+		CallForTimescale(this, true, 0.01f);
 	}
 
 	if (bLethal)
@@ -316,11 +320,8 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 		///SetShooterInputEnabled(true);
 	}
 
-	if ((LifeTimer >= DynamicLifetime))
-		//&& HasAuthority())
+	if (LifeTimer >= DynamicLifetime)
 	{
-		///SetShooterInputEnabled(true);
-		///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("NumHits: %i"), NumHits));
 		Neutralize();
 		Destroy();
 	}
@@ -458,10 +459,30 @@ void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, floa
 
 void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 {
-	if (Role == ROLE_Authority)
+	/*if (Role == ROLE_Authority)
 	{
 		ServerMainHit(HitActor, HitLocation);
+	}*/
+
+	// Bail out if we hit our own attack type
+	ATachyonAttack* PotentialAttack = Cast<ATachyonAttack>(HitActor);
+	if (PotentialAttack != nullptr)
+	{
+		if (PotentialAttack->OwningShooter == this->OwningShooter)
+		{
+			return;
+		}
 	}
+
+	// Smashy fx
+	if (!bGameEnder)
+	{
+		SpawnHit(HitActor, HitLocation);
+		ApplyKnockForce(HitActor, HitLocation, 1.0f);
+	}
+
+	// Update GameState
+	ReportHitToMatch(OwningShooter, HitActor);
 }
 void ATachyonAttack::ServerMainHit_Implementation(AActor* HitActor, FVector HitLocation)
 {
@@ -515,16 +536,18 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		float TachyonHealth = HitTachyon->GetHealth();
 		if (TachyonHealth <= 0.0f)
 		{
-			CallForTimescale(0.01f); /// 0.01 is Terminal timescale
+			// Deadly blow
+			CallForTimescale(Mark, false, 0.01f); /// 0.01 is Terminal timescale
 			bGameEnder = true;
 		}
 		else
 		{
+			// Basic hits
 			if (!bFirstHitReported)
 			{
-				float ImpactScalar = AttackMagnitude * 1.15f;
-				float HitTimescale = FMath::Clamp((1.0f - ImpactScalar), 0.05f, 0.9f);
-				CallForTimescale(HitTimescale);
+				float ImpactScalar = AttackMagnitude;
+				float HitTimescale = FMath::Clamp((1.0f - ImpactScalar), 0.1f, 1.0f);
+				CallForTimescale(Mark, false, HitTimescale);
 				bFirstHitReported = true;
 			}
 		}
@@ -534,16 +557,37 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 }
 
 
-void ATachyonAttack::CallForTimescale(float NewTimescale)
+void ATachyonAttack::CallForTimescale(AActor* TargetActor, bool bGlobal, float NewTimescale)
 {
 	ATachyonGameStateBase* TGState = Cast<ATachyonGameStateBase>(GetWorld()->GetGameState());
 	if (TGState != nullptr)
 	{
-		TGState->SetGlobalTimescale(NewTimescale);
+		if (bGlobal)
+		{
+			TGState->SetGlobalTimescale(NewTimescale);
+		}
+		else
+		{
+			TGState->SetActorTimescale(TargetActor, NewTimescale);
+			TGState->SetActorTimescale(OwningShooter, NewTimescale);
+		}
+		
 		TGState->ForceNetUpdate();
 	}
 
 	ForceNetUpdate();
+}
+
+
+void ATachyonAttack::Neutralize()
+{
+	bNeutralized = true;
+
+	ATachyonCharacter* OwningTachyon = Cast<ATachyonCharacter>(OwningShooter);
+	if (OwningTachyon != nullptr)
+	{
+		OwningTachyon->NullifyAttack();
+	}
 }
 
 

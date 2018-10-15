@@ -8,7 +8,7 @@ void ATachyonAIController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	
+	bSetControlRotationFromPawnOrientation = false;
 }
 
 void ATachyonAIController::FindOneself()
@@ -22,6 +22,7 @@ void ATachyonAIController::FindOneself()
 			if (!MyTachyonCharacter->Tags.Contains("Bot"))
 			{
 				MyTachyonCharacter->Tags.Add("Bot");
+				MyTachyonCharacter->Tags.Add("FramingActor");
 			}
 		}
 	}
@@ -72,6 +73,12 @@ void ATachyonAIController::Tick(float DeltaTime)
 			{
 				NavigateTo(LocationTarget);
 				TravelTimer += DeltaTime;
+			}
+
+			// Combat
+			if (ReactionTimeIsNow(DeltaTime))
+			{
+				Combat(Player);
 			}
 		}
 		else
@@ -137,30 +144,104 @@ void ATachyonAIController::NavigateTo(FVector TargetLocation)
 	}
 	else
 	{
-		float ValueX = 0.0f;
-		float ValueZ = 0.0f;
 		float VerticalDistance = ToTarget.Z;
 		float LateralDistance = ToTarget.X;
 
-		ValueX = FMath::Clamp(LateralDistance, -1.0f, 1.0f);
-		ValueZ = FMath::Clamp(VerticalDistance, -1.0f, 1.0f);
+		MyInputX = FMath::Clamp(LateralDistance, -1.0f, 1.0f);
+		MyInputZ = FMath::Clamp(VerticalDistance, -1.0f, 1.0f);
 
 		if (MyTachyonCharacter != nullptr)
 		{
-			MyTachyonCharacter->SetX(ValueX);
-			MyTachyonCharacter->SetZ(ValueZ);
-
-			// This doesn't work for some reason...
-			float HastyDeltaTime = GetWorld()->DeltaTimeSeconds;
-			MyTachyonCharacter->UpdateBody(HastyDeltaTime);
+			MyTachyonCharacter->SetX(MyInputX);
+			MyTachyonCharacter->SetZ(MyInputZ);
 		}
+
+		float DeltaTime = GetWorld()->DeltaTimeSeconds;
+		MyTachyonCharacter->UpdateBody(DeltaTime);
+
+		//// Set rotation so character faces direction of travel
+		//float DeltaTime = GetWorld()->DeltaTimeSeconds;
+		//float TravelDirection = FMath::Clamp(MyInputX, -1.0f, 1.0f);
+		//float ClimbDirection = FMath::Clamp(MyInputZ, -1.0f, 1.0f) * 5.0f;
+		//float Roll = FMath::Clamp(MyInputZ, -1.0f, 1.0f) * 15.0f;
+		//float RotatoeSpeed = 15.0f;
+
+		//if (TravelDirection < 0.0f)
+		//{
+		//	FRotator Fint = FMath::RInterpTo(GetControlRotation(), FRotator(ClimbDirection, 180.0f, Roll), DeltaTime, RotatoeSpeed);
+		//	SetControlRotation(Fint);
+		//}
+		//else if (TravelDirection > 0.0f)
+		//{
+		//	FRotator Fint = FMath::RInterpTo(GetControlRotation(), FRotator(ClimbDirection, 0.0f, -Roll), DeltaTime, RotatoeSpeed);
+		//	SetControlRotation(Fint);
+		//}
+
+		//// No lateral Input - finish rotation
+		//else
+		//{
+		//	if (FMath::Abs(GetControlRotation().Yaw) > 90.0f)
+		//	{
+		//		FRotator Fint = FMath::RInterpTo(GetControlRotation(), FRotator(ClimbDirection, 180.0f, -Roll), DeltaTime, RotatoeSpeed);
+		//		SetControlRotation(Fint);
+		//	}
+		//	else if (FMath::Abs(GetControlRotation().Yaw) < 90.0f)
+		//	{
+		//		FRotator Fint = FMath::RInterpTo(GetControlRotation(), FRotator(ClimbDirection, 0.0f, Roll), DeltaTime, RotatoeSpeed);
+		//		SetControlRotation(Fint);
+		//	}
+		//}
 	}
 }
 
 
 void ATachyonAIController::Combat(AActor* TargetActor)
 {
+	// Aim - leads to attacks and secondaries
+	FVector LocalForward = MyTachyonCharacter->GetAttackScene()->GetForwardVector();
+	FVector ToTarget = TargetActor->GetActorLocation() - MyTachyonCharacter->GetActorLocation();
+	FVector ForwardNorm = LocalForward.GetSafeNormal();
+	FVector ToPlayerNorm = ToTarget.GetSafeNormal();
+	float VerticalNorm = FMath::FloorToFloat(FMath::Clamp((ToTarget.GetSafeNormal()).Z, -1.0f, 1.0f));
+	float DotToTarget = FVector::DotProduct(ForwardNorm, ToPlayerNorm);
+	float RangeToTarget = ToTarget.Size();
+	//float MyShootingAngle = MyTachyonCharacter
 
+	if (RangeToTarget <= 2000.0f)
+	{
+
+		// Only fire if a) we're on screen & b) angle looks good
+		float AngleToTarget = FMath::RadiansToDegrees(FMath::Acos(DotToTarget));
+
+		if (AngleToTarget <= 21.0f)  // && MyCharacter->WasRecentlyRendered(0.15f)
+		{
+
+
+			// Line up a shot with player Z input
+			if (FMath::Abs(AngleToTarget) <= 0.25f)
+			{
+				MyTachyonCharacter->SetZ(0.0f);
+				MyInputZ = 0.0f;
+			}
+			else
+			{
+				MyTachyonCharacter->SetZ(1.0f);
+				MyInputZ = 1.0f;
+			}
+
+			// Aim input -- seems unnecessary
+			/*float XTarget = FMath::Clamp(ToPlayer.X, -1.0f, 1.0f);
+			MyCharacter->SetX(XTarget, 1.0f);*/
+
+			// Attacking
+			MyTachyonCharacter->ArmAttack();
+
+			/*else
+			{
+				MyTachyonCharacter->ReleaseAttack();
+			}*/
+		}
+	}
 }
 
 
@@ -173,8 +254,29 @@ void ATachyonAIController::AimAtTarget(AActor* TargetActor)
 bool ATachyonAIController::ReactionTimeIsNow(float DeltaTime)
 {
 	bool Result = false;
+	float GlobalTime = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+	float TimeScalar = (1.0f / GlobalTime);
+	ReactionTimer += (DeltaTime * TimeScalar);
+
+	if (ReactionTimer >= ReactionTime)
+	{
+		Result = true;
+		float RandomOffset = FMath::FRandRange(ReactionTime * -0.1f, ReactionTime * 0.9f);
+		ReactionTimer = FMath::Clamp(RandomOffset, -0.1f, (ReactionTime * TimeScalar));
+		//Aggression += FMath::FRandRange(-1.0f, 1.0f);
+		//Aggression = FMath::Clamp(Aggression, -5.0f, 5.0f);
+
+		///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("ReactionTimer  %f"), ReactionTimer));
+		///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("Aggression  %f"), Aggression));
+	}
 
 	return Result;
+}
+
+
+void ATachyonAIController::UpdateCharacterBody(float DeltaTime)
+{
+	
 }
 
 

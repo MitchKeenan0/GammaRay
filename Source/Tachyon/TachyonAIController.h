@@ -22,9 +22,18 @@ class TACHYON_API ATachyonAIController : public AAIController
 	UFUNCTION()
 	void FindOneself();
 
+	UPROPERTY()
+	float MyInputX = 0.0f;
+
+	UPROPERTY()
+	float MyInputZ = 0.0f;
+
 public:
 	UPROPERTY(EditDefaultsOnly)
 	float MoveRange = 100.0f;
+
+	UPROPERTY(EditDefaultsOnly)
+	float ReactionTime = 0.2f;
 
 	UFUNCTION(BlueprintCallable)
 	void SetPlayer(ATachyonCharacter* NewPlayer) { Player = NewPlayer; }
@@ -46,6 +55,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	bool ReactionTimeIsNow(float DeltaTime);
+
+	UFUNCTION(BlueprintCallable)
+	void UpdateCharacterBody(float DeltaTime);
 
 	UFUNCTION(BlueprintCallable)
 	bool HasViewToTarget(AActor* TargetActor, FVector TargetLocation);
