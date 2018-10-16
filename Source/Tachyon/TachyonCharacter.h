@@ -59,9 +59,6 @@ public:
 	USceneComponent* GetAttackScene() { return AttackScene; }
 
 	UFUNCTION(BlueprintCallable)
-	void NullifyAttack() { ActiveAttack = nullptr; }
-
-	UFUNCTION(BlueprintCallable)
 	void SetOpponent(ATachyonCharacter* NewTarget) { Opponent = NewTarget; }
 
 	UFUNCTION(BlueprintCallable)
@@ -157,6 +154,10 @@ public:
 	void UpdateAttack(float DeltaTime);
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
 	void ServerUpdateAttack(float DeltaTime);
+
+	void NullifyAttack();
+	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
+	void ServerNullifyAttack();
 
 	void SetX(float Value);
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)

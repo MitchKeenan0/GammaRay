@@ -122,7 +122,7 @@ void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 
 		// Lifetime
 		DynamicLifetime = (DeliveryTime + LethalTime + DurationTime);
-		SetLifeSpan(DynamicLifetime * 1.15f);
+		///SetLifeSpan(DynamicLifetime * 1.15f);
 
 		bInitialized = true;
 
@@ -161,7 +161,7 @@ void ATachyonAttack::Lethalize()
 	}
 
 	// Custom timescale
-	CustomTimeDilation = FMath::Clamp((1.5f - AttackMagnitude), 0.1f, 1.0f);
+	CustomTimeDilation = FMath::Clamp((1.777f - AttackMagnitude), 0.1f, 1.0f);
 
 	ForceNetUpdate();
 	///FlushNetDormancy();
@@ -264,7 +264,8 @@ void ATachyonAttack::Tick(float DeltaTime)
 // Update life-cycle
 void ATachyonAttack::UpdateLifeTime(float DeltaT)
 {
-	LifeTimer += DeltaT;
+	float CustomDeltaTime = (1.0f / CustomTimeDilation) * DeltaT;
+	LifeTimer += CustomDeltaTime;
 
 	// Short window for redirection
 	if (LifeTimer < (DeliveryTime * 1.11f))
@@ -326,7 +327,6 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 	if (LifeTimer >= DynamicLifetime)
 	{
 		Neutralize();
-		Destroy();
 	}
 }
 
@@ -634,4 +634,5 @@ void ATachyonAttack::GetLifetimeReplicatedProps(TArray <FLifetimeProperty> & Out
 	DOREPLIFETIME(ATachyonAttack, bLethal);
 	DOREPLIFETIME(ATachyonAttack, bDoneLethal);
 	DOREPLIFETIME(ATachyonAttack, bFirstHitReported);
+	DOREPLIFETIME(ATachyonAttack, bNeutralized);
 }

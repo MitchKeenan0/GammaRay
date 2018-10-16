@@ -19,9 +19,6 @@ class TACHYON_API ATachyonAttack : public AActor
 	UPROPERTY()
 	bool bGameEnder = false;
 
-	UPROPERTY()
-	bool bNeutralized = false;
-
 	
 public:	
 	// Sets default values for this actor's properties
@@ -244,6 +241,8 @@ protected:
 	bool bDoneLethal = false;
 	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	bool bFirstHitReported = false;
+	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
+	bool bNeutralized = false;
 
 	/*UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	float NetDeliveryTime = 0.1f;
