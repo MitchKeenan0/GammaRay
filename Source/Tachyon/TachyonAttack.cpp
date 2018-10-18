@@ -14,7 +14,6 @@ ATachyonAttack::ATachyonAttack()
 
 	AttackScene = CreateDefaultSubobject<USceneComponent>(TEXT("AttackScene"));
 	SetRootComponent(AttackScene);
-	AttackScene->SetIsReplicated(true);
 
 	CapsuleComponent = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CapsuleComponent"));
 	CapsuleComponent->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
@@ -29,7 +28,6 @@ ATachyonAttack::ATachyonAttack()
 
 	AttackSound = CreateDefaultSubobject<UAudioComponent>(TEXT("AttackSound"));
 	AttackSound->SetupAttachment(RootComponent);
-	AttackSound->SetIsReplicated(true);
 
 	ProjectileComponent = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileComponent"));
 	ProjectileComponent->ProjectileGravityScale = 0.0f;
@@ -268,7 +266,7 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 	LifeTimer += CustomDeltaTime;
 
 	// Short window for redirection
-	if (LifeTimer < (DeliveryTime * 1.11f))
+	if (LifeTimer < (DeliveryTime * 1.681f))
 	{
 		RedirectAttack();
 	}
@@ -478,7 +476,7 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 	}
 
 	// Smashy fx
-	if (!bGameEnder)
+	if (!bGameEnder && HasAuthority())
 	{
 		SpawnHit(HitActor, HitLocation);
 		ApplyKnockForce(HitActor, HitLocation, 1.0f);

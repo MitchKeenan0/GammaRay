@@ -20,7 +20,6 @@ ATachyonAttackWarmup::ATachyonAttackWarmup()
 
 	bReplicates = true;
 	bReplicateMovement = true;
-	WarmupSound->SetIsReplicated(true);
 }
 
 // Called when the game starts or when spawned

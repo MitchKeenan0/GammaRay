@@ -9,10 +9,12 @@
 #include "GameFramework/Character.h"
 #include "TachyonCharacter.generated.h"
 
+
 UCLASS()
 class TACHYON_API ATachyonCharacter : public ACharacter
 {
 	GENERATED_BODY()
+
 
 	// CAMERA
 	// Side view camera
@@ -131,6 +133,7 @@ public:
 
 
 	// NETWORK FUNCTIONS ////////////////////////////////////////////////////////
+
 	UFUNCTION()
 	void ArmAttack();
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
@@ -188,8 +191,8 @@ public:
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
 	void ServerReceiveKnockback(FVector Knockback, bool bOverrideVelocity);
 
-	/*UFUNCTION(NetMulticast, BlueprintCallable, reliable)
-	void MulticastReceiveKnockback(FVector Knockback, bool bOverrideVelocity);*/
+	UFUNCTION(NetMulticast, BlueprintCallable, reliable)
+	void MulticastReceiveKnockback(FVector Knockback, bool bOverrideVelocity);
 
 	UFUNCTION(BlueprintCallable)
 	void ModifyHealth(float Value);
