@@ -70,11 +70,27 @@ void ATachyonCharacter::BeginPlay()
 	// Helps with networked movement
 	UKismetSystemLibrary::ExecuteConsoleCommand(GetWorld(), TEXT("p.NetEnableMoveCombining 0"));
 	
+	///DonApparel();
+	MaxHealth = 100.0f;
 	Health = MaxHealth;
 	Tags.Add("Player");
 	Tags.Add("FramingActor");
 
-	///DonApparel();
+	GetCharacterMovement()->MaxAcceleration = MoveSpeed;
+
+	// Spawn player's weapon
+	if (Role == ROLE_Authority)
+	{
+		FVector SpawnLoca = AttackScene->GetComponentLocation();
+		FRotator SpawnRota = GetActorForwardVector().Rotation();
+		FActorSpawnParameters SpawnParams;
+		ActiveAttack = GetWorld()->SpawnActor<ATachyonAttack>(AttackClass, SpawnLoca, SpawnRota, SpawnParams);
+		if (ActiveAttack != nullptr)
+		{
+			ActiveAttack->SetOwner(this);
+			ActiveAttack->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+		}
+	}
 }
 
 
@@ -88,8 +104,13 @@ void ATachyonCharacter::Tick(float DeltaTime)
 	// Local stuff
 	if (Controller != nullptr)
 	{
+		/// Interp lifepoints
 		UpdateHealth(DeltaTime);
+
+		/// Interp body rotation
 		UpdateBody(DeltaTime);
+
+		/// Cammmera
 		UpdateCamera(DeltaTime);
 
 		// UNUSED
@@ -107,17 +128,9 @@ void ATachyonCharacter::Tick(float DeltaTime)
 			GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Flying);*/
 	}
 
-	// Attack timing
+	// Personal timescale recovery
 	if (HasAuthority())
 	{
-		// Attack Timing
-		if (AttackTimer != 0.0f)
-			UpdateAttack(DeltaTime);
-
-		if (bShooting && (AttackTimer <= 0.0f))
-			WindupAttack(DeltaTime);
-
-		// Personal timescale recovery
 		if (CustomTimeDilation < 1.0f)
 		{
 			ServerUpdateBody(DeltaTime);
@@ -134,8 +147,8 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
 	// Actions
-	PlayerInputComponent->BindAction("Attack", IE_Pressed, this, &ATachyonCharacter::ArmAttack);
-	PlayerInputComponent->BindAction("Attack", IE_Released, this, &ATachyonCharacter::ReleaseAttack);
+	PlayerInputComponent->BindAction("Attack", IE_Pressed, this, &ATachyonCharacter::StartFire);
+	PlayerInputComponent->BindAction("Attack", IE_Released, this, &ATachyonCharacter::EndFire);
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ATachyonCharacter::EngageJump);
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ATachyonCharacter::DisengageJump);
 	PlayerInputComponent->BindAction("SummonBot", IE_Pressed, this, &ATachyonCharacter::RequestBots);
@@ -152,42 +165,15 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 
 void ATachyonCharacter::MoveRight(float Value)
 {
-	bool bYongeAttack = true; ///
-	if (!bShooting || bYongeAttack)
-	{
-		float MoveValue = Value;
-		if ((Value == 0.0f) && bJumping)
-		{
-			MoveValue = (GetActorForwardVector().ProjectOnToNormal(FVector(1.0f, 0.0f, 0.0f))).GetSafeNormal().X;
-		}
-		AddMovementInput(FVector(1.0f, 0.0f, 0.0f), MoveValue);
-
-		// Update net aim
-		if (!ActorHasTag("Bot"))
-		{
-			if (InputX != MoveValue)
-			{
-				SetX(MoveValue);
-			}
-		}
-	}
+	AddMovementInput(FVector::ForwardVector, Value);
+	
+	InputX = Value;
 }
 void ATachyonCharacter::MoveUp(float Value)
 {
-	bool bYongeAttack = true; ///
-	if (!bShooting || bYongeAttack)
-	{
-		AddMovementInput(FVector(0.0f, 0.0f, 1.0f), Value);
+	AddMovementInput(FVector::UpVector, Value);
 
-		// Update net aim
-		if (!ActorHasTag("Bot"))
-		{
-			if (InputZ != Value)
-			{
-				SetZ(Value);
-			}
-		}
-	}
+	InputZ = Value;
 }
 
 
@@ -250,7 +236,7 @@ bool ATachyonCharacter::ServerEngageJump_Validate()
 
 void ATachyonCharacter::DisengageJump()
 {
-	GetCharacterMovement()->MaxAcceleration = 5000.0f;
+	GetCharacterMovement()->MaxAcceleration = MoveSpeed;
 	GetCharacterMovement()->MaxFlySpeed = 1000.0f;
 	bJumping = false;
 
@@ -260,7 +246,7 @@ void ATachyonCharacter::ServerDisengageJump_Implementation()
 {
 	bJumping = false;
 
-	GetCharacterMovement()->MaxAcceleration = 5000.0f;
+	GetCharacterMovement()->MaxAcceleration = MoveSpeed;
 	GetCharacterMovement()->MaxFlySpeed = 1000.0f;
 
 	GetWorldTimerManager().ClearAllTimersForObject(this);
@@ -303,228 +289,24 @@ bool ATachyonCharacter::ServerUpdateJump_Validate(float DeltaTime)
 
 
 ////////////////////////////////////////////////////////////////////////
-// NET AIM
-
-void ATachyonCharacter::SetX(float Value)
-{
-	float GlobalTimeDilat = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
-	if (GlobalTimeDilat > 0.03f)
-	{
-		ServerSetX(Value);
-	}
-}
-void ATachyonCharacter::ServerSetX_Implementation(float Value)
-{
-	InputX = Value;
-
-	if (ActorHasTag("Bot"))
-	{
-		MoveRight(Value);
-	}
-}
-bool ATachyonCharacter::ServerSetX_Validate(float Value)
-{
-	return true;
-}
-
-void ATachyonCharacter::SetZ(float Value)
-{
-	float GlobalTimeDilat = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
-	if (GlobalTimeDilat > 0.03f)
-	{
-		ServerSetZ(Value);
-	}
-}
-void ATachyonCharacter::ServerSetZ_Implementation(float Value)
-{
-	InputZ = Value;
-
-	if (ActorHasTag("Bot"))
-	{
-		MoveUp(Value);
-	}
-
-}
-bool ATachyonCharacter::ServerSetZ_Validate(float Value)
-{
-	return true;
-}
-
-
-////////////////////////////////////////////////////////////////////////
 // ATTACKING
 
 // ARM ATTACK
-void ATachyonCharacter::ArmAttack()
-{
-	ServerArmAttack();
-}
-void ATachyonCharacter::ServerArmAttack_Implementation()
-{
-	bShooting = true;
-}
-bool ATachyonCharacter::ServerArmAttack_Validate()
-{
-	return true;
-}
-
-// RELEASE ATTACK
-void ATachyonCharacter::ReleaseAttack()
-{
-	ServerReleaseAttack();
-}
-void ATachyonCharacter::ServerReleaseAttack_Implementation()
-{
-	bShooting = false;
-	if (WindupTimer > 0.0f)
-	{
-		FireAttack();
-	}
-}
-bool ATachyonCharacter::ServerReleaseAttack_Validate()
-{
-	return true;
-}
-
-// WINDUP TIMING
-void ATachyonCharacter::WindupAttack(float DeltaTime)
-{
-	ServerWindupAttack(DeltaTime);
-}
-void ATachyonCharacter::ServerWindupAttack_Implementation(float DeltaTime)
-{
-	WindupTimer += DeltaTime;
-
-	if (WindupTimer > 1.2f)
-	{
-		ReleaseAttack();
-	}
-
-	// Spawning windup FX
-	// We do this here to avoid more checks in Arm Attack
-	if ((ActiveWindup == nullptr) && (AttackTimer == 0.0f))
-	{
-		FVector FirePosition = GetActorLocation(); ///AttackScene->GetComponentLocation();
-		FVector LocalForward = GetActorForwardVector(); /// AttackScene->GetForwardVector();
-		LocalForward.Y = 0.0f;
-		FRotator FireRotation = LocalForward.GetSafeNormal().Rotation();
-		FActorSpawnParameters SpawnParams;
-		ActiveWindup = GetWorld()->SpawnActor<AActor>(AttackWindupClass, FirePosition, FireRotation, SpawnParams);
-		if (ActiveWindup != nullptr)
-		{
-			ActiveWindup->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
-		}
-	}
-}
-bool ATachyonCharacter::ServerWindupAttack_Validate(float DeltaTime)
-{
-	return true;
-}
-
-// FIRE ATTACK
-void ATachyonCharacter::FireAttack()
-{
-	if ((WindupTimer > 0.0f)
-		&& (AttackTimer <= 0.0f))
-	{
-		ServerFireAttack();
-	}
-}
-void ATachyonCharacter::ServerFireAttack_Implementation()
-{
-	if (AttackClass != nullptr) /// || bMultipleAttacks)
-	{
-		// Clear old attack
-		if (ActiveAttack != nullptr)
-		{
-			ActiveAttack->Destroy();
-			ActiveAttack = nullptr;
-		}
-
-		// Spawning
-		FVector FirePosition = AttackScene->GetComponentLocation();
-		FVector LocalForward = AttackScene->GetForwardVector();
-		LocalForward.Y = 0.0f;
-		FRotator FireRotation = LocalForward.GetSafeNormal().Rotation();
-		FireRotation += FRotator((AttackAngle * InputZ), 0.0f, 0.0f);
-		FActorSpawnParameters SpawnParams;
-
-		ActiveAttack = Cast<ATachyonAttack>(GetWorld()->SpawnActor<ATachyonAttack>(AttackClass, FirePosition, FireRotation, SpawnParams));
-		if (ActiveAttack != nullptr)
-		{
-			// The attack is born
-			if (ActiveAttack != nullptr)
-			{
-				float AttackStrength = FMath::Clamp(WindupTimer, 0.15f, 1.0f);
-				ActiveAttack->InitAttack(this, AttackStrength, InputZ); /// PrefireVal, AimClampedInputZ);
-
-				// Position lock, or naw
-				if (ActiveAttack->IsLockedEmitPoint())
-				{
-					ActiveAttack->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
-				}
-
-				// Recoil
-				//FVector RecoilVector = FireRotation.Vector().GetSafeNormal();
-				/*GetCharacterMovement()->AddImpulse(RecoilVector * -AttackRecoil
-					* FMath::Square(1.0f + AttackStrength)
-					* 30.0f);*/
-			}
-		}
-
-		// Refire timing
-		WindupTimer = 0.0f;
-		AttackTimer = AttackFireRate;
-
-		if (ActiveWindup != nullptr)
-		{
-			ActiveWindup->Destroy();
-			ActiveWindup = nullptr;
-		}
-	}
-}
-bool ATachyonCharacter::ServerFireAttack_Validate()
-{
-	return true;
-}
-
-// RE-FIRE TIMING
-void ATachyonCharacter::UpdateAttack(float DeltaTime)
-{
-	ServerUpdateAttack(DeltaTime);
-}
-void ATachyonCharacter::ServerUpdateAttack_Implementation(float DeltaTime)
-{
-	if (AttackTimer > 0.0f)
-	{
-		AttackTimer -= DeltaTime;
-	}
-	else
-	{
-		AttackTimer = 0.0f;
-	}
-}
-bool ATachyonCharacter::ServerUpdateAttack_Validate(float DeltaTime)
-{
-	return true;
-}
-
-// NULLIFY ATTACK
-void ATachyonCharacter::NullifyAttack()
-{
-	ServerNullifyAttack();
-}
-void ATachyonCharacter::ServerNullifyAttack_Implementation()
+void ATachyonCharacter::StartFire()
 {
 	if (ActiveAttack != nullptr)
 	{
-		ActiveAttack->Destroy();
-		ActiveAttack = nullptr;
+		ActiveAttack->StartFire();
 	}
 }
-bool ATachyonCharacter::ServerNullifyAttack_Validate()
+
+// RELEASE ATTACK
+void ATachyonCharacter::EndFire()
 {
-	return true;
+	if (ActiveAttack != nullptr)
+	{
+		ActiveAttack->EndFire();
+	}
 }
 
 
@@ -533,14 +315,11 @@ bool ATachyonCharacter::ServerNullifyAttack_Validate()
 
 void ATachyonCharacter::ModifyHealth(float Value)
 {
-	if (Controller != nullptr)
+	if (Role < ROLE_Authority)
 	{
 		ServerModifyHealth(Value);
 	}
-}
-void ATachyonCharacter::ServerModifyHealth_Implementation(float Value)
-{
-	//ModifyHealth(Value);
+	
 	if (Value >= 100.0f)
 	{
 		Health = 100.0f;
@@ -550,6 +329,10 @@ void ATachyonCharacter::ServerModifyHealth_Implementation(float Value)
 	{
 		MaxHealth = FMath::Clamp(Health + Value, -1.0f, 100.0f);
 	}
+}
+void ATachyonCharacter::ServerModifyHealth_Implementation(float Value)
+{
+	ModifyHealth(Value);
 }
 bool ATachyonCharacter::ServerModifyHealth_Validate(float Value)
 {
@@ -596,85 +379,6 @@ void ATachyonCharacter::UpdateHealth(float DeltaTime)
 	///GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Blue, FString::Printf(TEXT("Health: %f"), Health));
 }
 
-void ATachyonCharacter::ReceiveKnockback(FVector Knockback, bool bOverrideVelocity)
-{
-	if (Controller != nullptr)
-	{
-		ServerReceiveKnockback(Knockback, bOverrideVelocity);
-	}
-}
-void ATachyonCharacter::ServerReceiveKnockback_Implementation(FVector Knockback, bool bOverrideVelocity)
-{
-	MulticastReceiveKnockback(Knockback, bOverrideVelocity);
-}
-bool ATachyonCharacter::ServerReceiveKnockback_Validate(FVector Knockback, bool bOverrideVelocity)
-{
-	return true;
-}
-void ATachyonCharacter::MulticastReceiveKnockback_Implementation(FVector Knockback, bool bOverrideVelocity)
-{
-	GetCharacterMovement()->AddImpulse(Knockback, bOverrideVelocity);
-	ForceNetUpdate();
-}
-
-void ATachyonCharacter::UpdateBody(float DeltaTime)
-{
-	// Net part: currently for custom time dilation recovery
-	//ServerUpdateBody(DeltaTime);
-	/*if (CustomTimeDilation < 1.0f)
-	{
-		float RecoverySpeed = 3.0f * (1.0f + CustomTimeDilation);
-		float InterpTime = FMath::FInterpConstantTo(CustomTimeDilation, 1.0f, DeltaTime, RecoverySpeed);
-		NewTimescale(InterpTime);
-	}*/
-
-	// Set rotation so character faces direction of travel
-	float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
-	float ClimbDirection = FMath::Clamp(InputZ, -1.0f, 1.0f) * 5.0f;
-	float Roll = FMath::Clamp(InputZ, -1.0f, 1.0f) * 15.0f;
-	float RotatoeSpeed = 15.0f;
-
-	if (TravelDirection < 0.0f)
-	{
-		FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, Roll), DeltaTime, RotatoeSpeed);
-		Controller->SetControlRotation(Fint);
-	}
-	else if (TravelDirection > 0.0f)
-	{
-		FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, -Roll), DeltaTime, RotatoeSpeed);
-		Controller->SetControlRotation(Fint);
-	}
-
-	// No lateral Input - finish rotation
-	else
-	{
-		if (FMath::Abs(Controller->GetControlRotation().Yaw) > 90.0f)
-		{
-			FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, -Roll), DeltaTime, RotatoeSpeed);
-			Controller->SetControlRotation(Fint);
-		}
-		else if (FMath::Abs(Controller->GetControlRotation().Yaw) < 90.0f)
-		{
-			FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, Roll), DeltaTime, RotatoeSpeed);
-			Controller->SetControlRotation(Fint);
-		}
-	}
-}
-void ATachyonCharacter::ServerUpdateBody_Implementation(float DeltaTime)
-{
-	// Recover personal timescale if down
-	if (CustomTimeDilation < 1.0f)
-	{
-		float RecoverySpeed = 3.0f * (1.0f + CustomTimeDilation);
-		float InterpTime = FMath::FInterpConstantTo(CustomTimeDilation, 1.0f, DeltaTime, RecoverySpeed);
-		NewTimescale(InterpTime);
-	}
-}
-bool ATachyonCharacter::ServerUpdateBody_Validate(float DeltaTime)
-{
-	return true;
-}
-
 void ATachyonCharacter::UpdateCamera(float DeltaTime)
 {
 	float GlobalTimeScale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
@@ -682,7 +386,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 	// Poll for framing actors
 	/*if ((Actor1 == nullptr) || (Actor2 == nullptr))
 	{
-		UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("FramingActor"), FramingActors);
+	UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("FramingActor"), FramingActors);
 	}*/
 
 	UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("FramingActor"), FramingActors);
@@ -744,10 +448,10 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 						DistToActor2 = DistToTemp;
 						// Players get veto importance
 						/*if ((BestCandidate == nullptr)
-							|| (!BestCandidate->ActorHasTag("Player")))
+						|| (!BestCandidate->ActorHasTag("Player")))
 						{
-							BestCandidate = CurrentActor;
-							DistToActor2 = DistToTemp;
+						BestCandidate = CurrentActor;
+						DistToActor2 = DistToTemp;
 						}*/
 					}
 				}
@@ -930,6 +634,85 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 	}
 }
 
+void ATachyonCharacter::ReceiveKnockback(FVector Knockback, bool bOverrideVelocity)
+{
+	if (Controller != nullptr)
+	{
+		ServerReceiveKnockback(Knockback, bOverrideVelocity);
+	}
+}
+void ATachyonCharacter::ServerReceiveKnockback_Implementation(FVector Knockback, bool bOverrideVelocity)
+{
+	MulticastReceiveKnockback(Knockback, bOverrideVelocity);
+}
+bool ATachyonCharacter::ServerReceiveKnockback_Validate(FVector Knockback, bool bOverrideVelocity)
+{
+	return true;
+}
+void ATachyonCharacter::MulticastReceiveKnockback_Implementation(FVector Knockback, bool bOverrideVelocity)
+{
+	GetCharacterMovement()->AddImpulse(Knockback, bOverrideVelocity);
+	ForceNetUpdate();
+}
+
+void ATachyonCharacter::UpdateBody(float DeltaTime)
+{
+	// Net part: currently for custom time dilation recovery
+	//ServerUpdateBody(DeltaTime);
+	/*if (CustomTimeDilation < 1.0f)
+	{
+		float RecoverySpeed = 3.0f * (1.0f + CustomTimeDilation);
+		float InterpTime = FMath::FInterpConstantTo(CustomTimeDilation, 1.0f, DeltaTime, RecoverySpeed);
+		NewTimescale(InterpTime);
+	}*/
+
+	// Set rotation so character faces direction of travel
+	float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
+	float ClimbDirection = FMath::Clamp(InputZ, -1.0f, 1.0f) * 15.0f;
+	float Roll = FMath::Clamp(InputZ, -1.0f, 1.0f) * 21.0f;
+	float RotatoeSpeed = 15.0f;
+
+	if (TravelDirection < 0.0f)
+	{
+		FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, Roll), DeltaTime, RotatoeSpeed);
+		Controller->SetControlRotation(Fint);
+	}
+	else if (TravelDirection > 0.0f)
+	{
+		FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, -Roll), DeltaTime, RotatoeSpeed);
+		Controller->SetControlRotation(Fint);
+	}
+
+	// No lateral Input - finish rotation
+	else
+	{
+		if (FMath::Abs(Controller->GetControlRotation().Yaw) > 90.0f)
+		{
+			FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, -Roll), DeltaTime, RotatoeSpeed);
+			Controller->SetControlRotation(Fint);
+		}
+		else if (FMath::Abs(Controller->GetControlRotation().Yaw) < 90.0f)
+		{
+			FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, Roll), DeltaTime, RotatoeSpeed);
+			Controller->SetControlRotation(Fint);
+		}
+	}
+}
+void ATachyonCharacter::ServerUpdateBody_Implementation(float DeltaTime)
+{
+	// Recover personal timescale if down
+	if (CustomTimeDilation < 1.0f)
+	{
+		float RecoverySpeed = 3.0f * (1.0f + CustomTimeDilation);
+		float InterpTime = FMath::FInterpConstantTo(CustomTimeDilation, 1.0f, DeltaTime, RecoverySpeed);
+		NewTimescale(InterpTime);
+	}
+}
+bool ATachyonCharacter::ServerUpdateBody_Validate(float DeltaTime)
+{
+	return true;
+}
+
 
 ////////////////////////////////////////////////////////////////////////
 // COSMETICS
@@ -1032,25 +815,21 @@ void ATachyonCharacter::GetLifetimeReplicatedProps(TArray <FLifetimeProperty> & 
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	///DOREPLIFETIME(ATachyonCharacter, NetData);
-
-	DOREPLIFETIME(ATachyonCharacter, InputX);
-	DOREPLIFETIME(ATachyonCharacter, InputZ);
-	DOREPLIFETIME(ATachyonCharacter, Charge);
-	DOREPLIFETIME(ATachyonCharacter, Health);
-	DOREPLIFETIME(ATachyonCharacter, MaxHealth);
-	DOREPLIFETIME(ATachyonCharacter, AttackTimer);
-	DOREPLIFETIME(ATachyonCharacter, bShooting);
-	DOREPLIFETIME(ATachyonCharacter, WindupTimer);
+	DOREPLIFETIME(ATachyonCharacter, ActiveAttack);
+	DOREPLIFETIME(ATachyonCharacter, ActiveWindup);
+	DOREPLIFETIME(ATachyonCharacter, ActiveBoost);
+	
 	DOREPLIFETIME(ATachyonCharacter, bJumping);
+	DOREPLIFETIME(ATachyonCharacter, Health);
 	DOREPLIFETIME(ATachyonCharacter, BoostTimeAlive);
 	DOREPLIFETIME(ATachyonCharacter, DiminishingJumpValue);
 	DOREPLIFETIME(ATachyonCharacter, ActiveApparel);
 	DOREPLIFETIME(ATachyonCharacter, iApparelIndex);
 	DOREPLIFETIME(ATachyonCharacter, Opponent);
+	DOREPLIFETIME(ATachyonCharacter, AimVector);
+	DOREPLIFETIME(ATachyonCharacter, JumpMoveVector);
 
-	DOREPLIFETIME(ATachyonCharacter, ActiveAttack);
-	DOREPLIFETIME(ATachyonCharacter, ActiveWindup);
-	DOREPLIFETIME(ATachyonCharacter, ActiveBoost);
+	
 }
 
 

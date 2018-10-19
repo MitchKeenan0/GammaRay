@@ -150,11 +150,11 @@ void ATachyonAIController::NavigateTo(FVector TargetLocation)
 		MyInputX = FMath::Clamp(LateralDistance, -1.0f, 1.0f);
 		MyInputZ = FMath::Clamp(VerticalDistance, -1.0f, 1.0f);
 
-		if (MyTachyonCharacter != nullptr)
+		/*if (MyTachyonCharacter != nullptr)
 		{
 			MyTachyonCharacter->SetX(MyInputX);
 			MyTachyonCharacter->SetZ(MyInputZ);
-		}
+		}*/
 
 		float DeltaTime = GetWorld()->DeltaTimeSeconds;
 		MyTachyonCharacter->UpdateBody(DeltaTime);
@@ -220,12 +220,12 @@ void ATachyonAIController::Combat(AActor* TargetActor)
 			// Line up a shot with player Z input
 			if (FMath::Abs(AngleToTarget) <= 0.25f)
 			{
-				MyTachyonCharacter->SetZ(0.0f);
+				//MyTachyonCharacter->SetZ(0.0f);
 				MyInputZ = 0.0f;
 			}
 			else
 			{
-				MyTachyonCharacter->SetZ(1.0f);
+				//MyTachyonCharacter->SetZ(1.0f);
 				MyInputZ = 1.0f;
 			}
 
@@ -234,7 +234,7 @@ void ATachyonAIController::Combat(AActor* TargetActor)
 			MyCharacter->SetX(XTarget, 1.0f);*/
 
 			// Attacking
-			MyTachyonCharacter->ArmAttack();
+			MyTachyonCharacter->StartFire();
 
 			/*else
 			{

@@ -60,6 +60,12 @@ public:
 	UFUNCTION(BlueprintCallable)
 	USceneComponent* GetAttackScene() { return AttackScene; }
 
+	UFUNCTION()
+	float GetX() { return InputX; }
+
+	UFUNCTION()
+	float GetZ() { return InputZ; }
+
 	UFUNCTION(BlueprintCallable)
 	void SetOpponent(ATachyonCharacter* NewTarget) { Opponent = NewTarget; }
 
@@ -135,40 +141,10 @@ public:
 	// NETWORK FUNCTIONS ////////////////////////////////////////////////////////
 
 	UFUNCTION()
-	void ArmAttack();
-	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
-	void ServerArmAttack();
+	void StartFire();
 
 	UFUNCTION()
-	void ReleaseAttack();
-	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
-	void ServerReleaseAttack();
-
-	UFUNCTION()
-	void WindupAttack(float DeltaTime);
-	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
-	void ServerWindupAttack(float DeltaTime);
-
-	UFUNCTION()
-	void FireAttack();
-	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
-	void ServerFireAttack();
-
-	void UpdateAttack(float DeltaTime);
-	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
-	void ServerUpdateAttack(float DeltaTime);
-
-	void NullifyAttack();
-	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
-	void ServerNullifyAttack();
-
-	void SetX(float Value);
-	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
-	void ServerSetX(float Value);
-
-	void SetZ(float Value);
-	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
-	void ServerSetZ(float Value);
+	void EndFire();
 
 	void UpdateBody(float DeltaTime);
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
@@ -190,7 +166,6 @@ public:
 	void ReceiveKnockback(FVector Knockback, bool bOverrideVelocity);
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
 	void ServerReceiveKnockback(FVector Knockback, bool bOverrideVelocity);
-
 	UFUNCTION(NetMulticast, BlueprintCallable, reliable)
 	void MulticastReceiveKnockback(FVector Knockback, bool bOverrideVelocity);
 
@@ -203,7 +178,6 @@ public:
 	void NewTimescale(float Value);
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
 	void ServerNewTimescale(float Value);
-
 	UFUNCTION(NetMulticast, BlueprintCallable, reliable)
 	void MulticastNewTimescale(float Value);
 
@@ -215,7 +189,6 @@ public:
 	void RestartGame();
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
 	void ServerRestartGame();
-
 	UFUNCTION(NetMulticast, BlueprintCallable, reliable)
 	void MulticastRestartGame();
 
@@ -225,16 +198,22 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	TArray<AActor*> FramingActors;
-
 	// MOVEMENT ///////////////////////////////////////////////////////////////
 	void MoveRight(float Value);
 	void MoveUp(float Value);
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	float InputX = 0.0f;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	float InputZ = 0.0f;
+
 	// HEALTH & CAMERA ///////////////////////////////////////////////////////////////
 	void UpdateHealth(float DeltaTime);
 	void UpdateCamera(float DeltaTime);
+
+	// ATTACK & STUFF ///////////////////////////////////////////////////////////////
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	TArray<AActor*> FramingActors;
 
 	UPROPERTY(EditDefaultsOnly)
 	class USceneComponent* AttackScene = nullptr;
@@ -245,50 +224,49 @@ protected:
 
 
 	// REPLICATED VARIABLES ///////////////////////////////////////////////////////////////
-	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
-	float InputX = 0.0f;
-	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
-	float InputZ = 0.0f;
-	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	float Charge = 0.0f;
-	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
-	float Health = 0.0f;
-	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	float AttackTimer = 0.0f;
-	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	float WindupTimer = 0.0f;
-	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	bool bShooting = false;
-	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
+	
+	UPROPERTY(Replicated, BlueprintReadOnly)
+	float Health = 0.0f;
+	UPROPERTY(Replicated, BlueprintReadOnly)
+	FVector AimVector = FVector::ZeroVector;
+	UPROPERTY(Replicated, BlueprintReadOnly)
 	bool bJumping = false;
-	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
+	UPROPERTY(Replicated, BlueprintReadOnly)
 	FVector JumpMoveVector = FVector::ZeroVector;
-	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
+	UPROPERTY(Replicated, BlueprintReadOnly)
 	float DiminishingJumpValue = 0.0f;
-	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
+	UPROPERTY(Replicated, BlueprintReadOnly)
 	float BoostTimeAlive = 0.0f;
-	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
+	UPROPERTY(Replicated, BlueprintReadOnly)
 	int iApparelIndex = 0;
-	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
+	UPROPERTY(Replicated, BlueprintReadOnly)
 	class ATApparel* ActiveApparel = nullptr;
-	UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadOnly)
+	UPROPERTY(Replicated, BlueprintReadOnly)
 	class ATachyonCharacter* Opponent = nullptr;
 
 
 	// ARMAMENT ///////////////////////////////////////////////////////////////
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<ATachyonAttack> AttackClass;
-	UPROPERTY(EditDefaultsOnly, Replicated)
+	UPROPERTY(Replicated)
 	class ATachyonAttack* ActiveAttack = nullptr;
 
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<AActor> AttackWindupClass;
-	UPROPERTY(EditDefaultsOnly, Replicated)
+	UPROPERTY(Replicated)
 	class AActor* ActiveWindup = nullptr;
 
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<AActor> BoostClass;
-	UPROPERTY(EditDefaultsOnly, Replicated)
+	UPROPERTY(Replicated)
 	class AActor* ActiveBoost = nullptr;
 
 	UPROPERTY(EditDefaultsOnly)

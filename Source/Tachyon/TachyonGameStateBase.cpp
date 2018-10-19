@@ -8,6 +8,9 @@ ATachyonGameStateBase::ATachyonGameStateBase()
 	PrimaryActorTick.bStartWithTickEnabled = true;
 	PrimaryActorTick.bCanEverTick = true;
 
+	GameStateScene = CreateDefaultSubobject<USceneComponent>(TEXT("GameStateScene"));
+	SetRootComponent(GameStateScene);
+
 	GameSound = CreateDefaultSubobject<UAudioComponent>(TEXT("GameSound"));
 
 	bReplicates = true;
