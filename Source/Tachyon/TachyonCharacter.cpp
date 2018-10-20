@@ -668,8 +668,8 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 
 	// Set rotation so character faces direction of travel
 	float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
-	float ClimbDirection = FMath::Clamp(InputZ, -1.0f, 1.0f) * 15.0f;
-	float Roll = FMath::Clamp(InputZ, -1.0f, 1.0f) * 21.0f;
+	float ClimbDirection = FMath::Clamp(InputZ, -1.0f, 1.0f) * 6.0f;
+	float Roll = FMath::Clamp(InputZ, -1.0f, 1.0f) * 11.1f;
 	float RotatoeSpeed = 15.0f;
 
 	if (TravelDirection < 0.0f)
