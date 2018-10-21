@@ -22,8 +22,18 @@ void ATachyonAIController::FindOneself()
 			if (!MyTachyonCharacter->Tags.Contains("Bot"))
 			{
 				MyTachyonCharacter->Tags.Add("Bot");
-				MyTachyonCharacter->Tags.Add("FramingActor");
 			}
+
+			MyTachyonCharacter->Tags.Add("FramingActor");
+
+			MyTachyonCharacter->GetCharacterMovement()->MaxAcceleration = 9000.0f;
+			MyTachyonCharacter->GetCharacterMovement()->MaxFlySpeed = 1500.0f;
+			MyTachyonCharacter->GetCharacterMovement()->bOrientRotationToMovement = true;
+			MyTachyonCharacter->GetCharacterMovement()->BrakingFrictionFactor = 50.0f;
+
+			MyTachyonCharacter->bUseControllerRotationPitch = true;
+			MyTachyonCharacter->bUseControllerRotationPitch = true;
+			MyTachyonCharacter->bUseControllerRotationRoll = true;
 		}
 	}
 }
@@ -136,7 +146,7 @@ void ATachyonAIController::NavigateTo(FVector TargetLocation)
 	FVector ToTarget = TargetLocation - MyLocation;
 
 	// Reached target already?
-	if (ToTarget.Size() < 100.0f)
+	if (ToTarget.Size() < 10.0f)
 	{
 		LocationTarget = FVector::ZeroVector;
 		bCourseLayedIn = false;
@@ -150,47 +160,45 @@ void ATachyonAIController::NavigateTo(FVector TargetLocation)
 		MyInputX = FMath::Clamp(LateralDistance, -1.0f, 1.0f);
 		MyInputZ = FMath::Clamp(VerticalDistance, -1.0f, 1.0f);
 
-		/*if (MyTachyonCharacter != nullptr)
-		{
-			MyTachyonCharacter->SetX(MyInputX);
-			MyTachyonCharacter->SetZ(MyInputZ);
-		}*/
+		MyTachyonCharacter->BotMove(MyInputX, MyInputZ);
 
 		float DeltaTime = GetWorld()->DeltaTimeSeconds;
-		MyTachyonCharacter->UpdateBody(DeltaTime);
+		//MyTachyonCharacter->UpdateBody(DeltaTime);
 
-		//// Set rotation so character faces direction of travel
-		//float DeltaTime = GetWorld()->DeltaTimeSeconds;
-		//float TravelDirection = FMath::Clamp(MyInputX, -1.0f, 1.0f);
-		//float ClimbDirection = FMath::Clamp(MyInputZ, -1.0f, 1.0f) * 5.0f;
-		//float Roll = FMath::Clamp(MyInputZ, -1.0f, 1.0f) * 15.0f;
-		//float RotatoeSpeed = 15.0f;
+		// Set rotation so character faces direction of travel
+		float TravelDirection = FMath::Clamp(MyInputX, -1.0f, 1.0f);
+		float ClimbDirection = FMath::Clamp(MyInputZ * 20.0f, -5.0f, 5.0f);
+		float Roll = FMath::Clamp(MyInputZ * 11.1f, -11.1f, 11.1f);
+		float RotatoeSpeed = 50.0f;
 
-		//if (TravelDirection < 0.0f)
-		//{
-		//	FRotator Fint = FMath::RInterpTo(GetControlRotation(), FRotator(ClimbDirection, 180.0f, Roll), DeltaTime, RotatoeSpeed);
-		//	SetControlRotation(Fint);
-		//}
-		//else if (TravelDirection > 0.0f)
-		//{
-		//	FRotator Fint = FMath::RInterpTo(GetControlRotation(), FRotator(ClimbDirection, 0.0f, -Roll), DeltaTime, RotatoeSpeed);
-		//	SetControlRotation(Fint);
-		//}
+		if (TravelDirection < 0.0f)
+		{
+			FRotator Fint = FMath::RInterpTo(GetControlRotation(), FRotator(ClimbDirection, 180.0f, Roll), DeltaTime, RotatoeSpeed);
+			SetControlRotation(Fint);
+		}
+		else if (TravelDirection > 0.0f)
+		{
+			FRotator Fint = FMath::RInterpTo(GetControlRotation(), FRotator(ClimbDirection, 0.0f, -Roll), DeltaTime, RotatoeSpeed);
+			SetControlRotation(Fint);
+		}
 
-		//// No lateral Input - finish rotation
-		//else
-		//{
-		//	if (FMath::Abs(GetControlRotation().Yaw) > 90.0f)
-		//	{
-		//		FRotator Fint = FMath::RInterpTo(GetControlRotation(), FRotator(ClimbDirection, 180.0f, -Roll), DeltaTime, RotatoeSpeed);
-		//		SetControlRotation(Fint);
-		//	}
-		//	else if (FMath::Abs(GetControlRotation().Yaw) < 90.0f)
-		//	{
-		//		FRotator Fint = FMath::RInterpTo(GetControlRotation(), FRotator(ClimbDirection, 0.0f, Roll), DeltaTime, RotatoeSpeed);
-		//		SetControlRotation(Fint);
-		//	}
-		//}
+		// No lateral Input - finish rotation
+		else
+		{
+			if (FMath::Abs(GetControlRotation().Yaw) > 90.0f)
+			{
+				FRotator Fint = FMath::RInterpTo(GetControlRotation(), FRotator(ClimbDirection, 180.0f, -Roll), DeltaTime, RotatoeSpeed);
+				SetControlRotation(Fint);
+			}
+			else if (FMath::Abs(GetControlRotation().Yaw) < 90.0f)
+			{
+				FRotator Fint = FMath::RInterpTo(GetControlRotation(), FRotator(ClimbDirection, 0.0f, Roll), DeltaTime, RotatoeSpeed);
+				SetControlRotation(Fint);
+			}
+		}
+
+		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Blue, FString::Printf(TEXT("Pitch: %f"), GetControlRotation().Pitch));
+		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Blue, FString::Printf(TEXT("My Z: %f"), MyTachyonCharacter->GetZ()));
 	}
 }
 
@@ -218,16 +226,16 @@ void ATachyonAIController::Combat(AActor* TargetActor)
 
 
 			// Line up a shot with player Z input
-			if (FMath::Abs(AngleToTarget) <= 0.25f)
-			{
-				//MyTachyonCharacter->SetZ(0.0f);
-				MyInputZ = 0.0f;
-			}
-			else
-			{
-				//MyTachyonCharacter->SetZ(1.0f);
-				MyInputZ = 1.0f;
-			}
+			//if (FMath::Abs(AngleToTarget) <= 0.25f)
+			//{
+			//	//MyTachyonCharacter->SetZ(0.0f);
+			//	MyInputZ = 0.0f;
+			//}
+			//else
+			//{
+			//	//MyTachyonCharacter->SetZ(1.0f);
+			//	MyInputZ = 1.0f;
+			//}
 
 			// Aim input -- seems unnecessary
 			/*float XTarget = FMath::Clamp(ToPlayer.X, -1.0f, 1.0f);

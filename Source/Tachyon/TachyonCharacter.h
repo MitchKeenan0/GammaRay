@@ -66,6 +66,12 @@ public:
 	UFUNCTION()
 	float GetZ() { return InputZ; }
 
+	UFUNCTION()
+	void SetX(float Value) { InputX = Value; }
+
+	UFUNCTION()
+	void SetZ(float Value) { InputZ = Value; }
+
 	UFUNCTION(BlueprintCallable)
 	void SetOpponent(ATachyonCharacter* NewTarget) { Opponent = NewTarget; }
 
@@ -74,6 +80,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void RequestBots();
+
+	UFUNCTION()
+	void BotMove(float X, float Z);
 
 
 	// ATTRIBUTES ///////////////////////////////////////////////////////////////

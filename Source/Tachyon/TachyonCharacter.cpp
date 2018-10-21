@@ -41,9 +41,11 @@ ATachyonCharacter::ATachyonCharacter(const FObjectInitializer& ObjectInitializer
 	CameraBoom->bAbsoluteRotation = true;
 	SideViewCameraComponent->bUsePawnControlRotation = false;
 	SideViewCameraComponent->bAutoActivate = true;
-	GetCharacterMovement()->bOrientRotationToMovement = false;
 	bUseControllerRotationPitch = true;
 	bUseControllerRotationRoll = true;
+
+	GetCharacterMovement()->bOrientRotationToMovement = true;
+	GetCharacterMovement()->BrakingFrictionFactor = 50.0f;
 
 	AttackScene = CreateDefaultSubobject<USceneComponent>(TEXT("AttackScene"));
 	AttackScene->SetupAttachment(RootComponent);
@@ -77,9 +79,12 @@ void ATachyonCharacter::BeginPlay()
 	Tags.Add("FramingActor");
 
 	GetCharacterMovement()->MaxAcceleration = MoveSpeed;
+	GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed;
+	//GetCharacterMovement()->bOrientRotationToMovement = true;
+	GetCharacterMovement()->BrakingFrictionFactor = 50.0f;
 
 	// Spawn player's weapon
-	if (Role == ROLE_Authority)
+	if ((Role == ROLE_Authority) || ActorHasTag("Bot"))
 	{
 		FVector SpawnLoca = AttackScene->GetComponentLocation();
 		FRotator SpawnRota = GetActorForwardVector().Rotation();
@@ -88,9 +93,11 @@ void ATachyonCharacter::BeginPlay()
 		if (ActiveAttack != nullptr)
 		{
 			ActiveAttack->SetOwner(this);
-			ActiveAttack->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+			///ActiveAttack->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
 		}
 	}
+
+	GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("Began play"));
 }
 
 
@@ -108,7 +115,10 @@ void ATachyonCharacter::Tick(float DeltaTime)
 		UpdateHealth(DeltaTime);
 
 		/// Interp body rotation
-		UpdateBody(DeltaTime);
+		if (!ActorHasTag("Bot"))
+		{
+			UpdateBody(DeltaTime);
+		}
 
 		/// Cammmera
 		UpdateCamera(DeltaTime);
@@ -172,10 +182,21 @@ void ATachyonCharacter::MoveRight(float Value)
 void ATachyonCharacter::MoveUp(float Value)
 {
 	AddMovementInput(FVector::UpVector, Value);
-
+	
 	InputZ = Value;
 }
 
+void ATachyonCharacter::BotMove(float X, float Z)
+{
+	if (ActorHasTag("Bot"))
+	{
+		MoveRight(X);
+		MoveUp(Z);
+
+		SetX(X);
+		SetZ(Z);
+	}
+}
 
 ////////////////////////////////////////////////////////////////////////
 // JUMP
@@ -237,7 +258,7 @@ bool ATachyonCharacter::ServerEngageJump_Validate()
 void ATachyonCharacter::DisengageJump()
 {
 	GetCharacterMovement()->MaxAcceleration = MoveSpeed;
-	GetCharacterMovement()->MaxFlySpeed = 1000.0f;
+	GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed;
 	bJumping = false;
 
 	ServerDisengageJump();
@@ -247,7 +268,7 @@ void ATachyonCharacter::ServerDisengageJump_Implementation()
 	bJumping = false;
 
 	GetCharacterMovement()->MaxAcceleration = MoveSpeed;
-	GetCharacterMovement()->MaxFlySpeed = 1000.0f;
+	GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed;
 
 	GetWorldTimerManager().ClearAllTimersForObject(this);
 
@@ -667,35 +688,41 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 	}*/
 
 	// Set rotation so character faces direction of travel
-	float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
-	float ClimbDirection = FMath::Clamp(InputZ, -1.0f, 1.0f) * 6.0f;
-	float Roll = FMath::Clamp(InputZ, -1.0f, 1.0f) * 11.1f;
-	float RotatoeSpeed = 15.0f;
+	if (Controller != nullptr)
+	{
+		float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
+		float ClimbDirection = FMath::Clamp(InputZ * 5.0f, -5.0f, 5.0f);
+		float Roll = FMath::Clamp(InputZ * 11.1f, -11.1f, 11.1f);
+		float RotatoeSpeed = 15.0f;
 
-	if (TravelDirection < 0.0f)
-	{
-		FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, Roll), DeltaTime, RotatoeSpeed);
-		Controller->SetControlRotation(Fint);
-	}
-	else if (TravelDirection > 0.0f)
-	{
-		FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, -Roll), DeltaTime, RotatoeSpeed);
-		Controller->SetControlRotation(Fint);
-	}
-
-	// No lateral Input - finish rotation
-	else
-	{
-		if (FMath::Abs(Controller->GetControlRotation().Yaw) > 90.0f)
+		if (TravelDirection < 0.0f)
 		{
-			FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, -Roll), DeltaTime, RotatoeSpeed);
+			FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, Roll), DeltaTime, RotatoeSpeed);
 			Controller->SetControlRotation(Fint);
 		}
-		else if (FMath::Abs(Controller->GetControlRotation().Yaw) < 90.0f)
+		else if (TravelDirection > 0.0f)
 		{
-			FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, Roll), DeltaTime, RotatoeSpeed);
+			FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, -Roll), DeltaTime, RotatoeSpeed);
 			Controller->SetControlRotation(Fint);
 		}
+
+		// No lateral Input - finish rotation
+		else
+		{
+			if (FMath::Abs(Controller->GetControlRotation().Yaw) > 90.0f)
+			{
+				FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, -Roll), DeltaTime, RotatoeSpeed);
+				Controller->SetControlRotation(Fint);
+			}
+			else if (FMath::Abs(Controller->GetControlRotation().Yaw) < 90.0f)
+			{
+				FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, Roll), DeltaTime, RotatoeSpeed);
+				Controller->SetControlRotation(Fint);
+			}
+		}
+
+		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Pitch: %f"), Controller->GetControlRotation().Pitch));
+		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("ClimbDirection: %f"), ClimbDirection));
 	}
 }
 void ATachyonCharacter::ServerUpdateBody_Implementation(float DeltaTime)
@@ -703,7 +730,7 @@ void ATachyonCharacter::ServerUpdateBody_Implementation(float DeltaTime)
 	// Recover personal timescale if down
 	if (CustomTimeDilation < 1.0f)
 	{
-		float RecoverySpeed = 3.0f * (1.0f + CustomTimeDilation);
+		float RecoverySpeed = 5.0f * (1.0f + CustomTimeDilation);
 		float InterpTime = FMath::FInterpConstantTo(CustomTimeDilation, 1.0f, DeltaTime, RecoverySpeed);
 		NewTimescale(InterpTime);
 	}

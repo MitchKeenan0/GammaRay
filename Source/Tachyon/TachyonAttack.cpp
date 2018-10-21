@@ -144,11 +144,6 @@ void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 		SetInitVelocities();
 		SpawnBurst();
 
-		if (FireShake != nullptr)
-		{
-			UGameplayStatics::PlayWorldCameraShake(GetWorld(), FireShake, GetActorLocation(), 0.0f, 5555.0f, 1.0f, false);
-		}
-
 		// Lifetime
 		DynamicLifetime = (DeliveryTime + LethalTime + DurationTime);
 		///SetLifeSpan(DynamicLifetime * 1.15f);
@@ -193,6 +188,10 @@ void ATachyonAttack::ActivateEffects_Implementation()
 {
 	ActivateParticles();
 	ActivateSound();
+	if (FireShake != nullptr)
+	{
+		UGameplayStatics::PlayWorldCameraShake(GetWorld(), FireShake, GetActorLocation(), 0.0f, 5555.0f, 1.0f, false);
+	}
 }
 
 
@@ -248,11 +247,35 @@ void ATachyonAttack::RedirectAttack()
 {
 	if (OwningShooter != nullptr)
 	{
+		ATachyonCharacter* TachyonShooter = Cast<ATachyonCharacter>(OwningShooter);
+		if (TachyonShooter != nullptr)
+		{
+			FVector LocalForward = TachyonShooter->GetActorForwardVector();
+			LocalForward.Y = 0.0f;
+			float ShooterAimDirection = FMath::Clamp(OwningShooter->GetActorForwardVector().Z * ShootingAngle, -1.0f, 1.0f);
+			float TargetPitch = ShootingAngle * ShooterAimDirection;
+	
+			FRotator NewRotation = LocalForward.Rotation() + FRotator(TargetPitch, 0.0f, 0.0f);
+			
+			// Clamp Yaw for feels
+			float ShooterYaw = FMath::Abs(OwningShooter->GetActorRotation().Yaw);
+			float Yaw = 0.0f;
+			if ((ShooterYaw > 50.0f))
+			{
+				Yaw = 180.0f;
+			}
+			NewRotation.Yaw = Yaw;
+			
+			NewRotation.Pitch = FMath::Clamp(NewRotation.Pitch, -ShootingAngle, ShootingAngle);
+			
+			SetActorRotation(NewRotation);
+			GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("ShooterAimDirection: %f"), ShooterAimDirection));
+		}
+		
 		FVector EmitLocation;
 		FRotator EmitRotation;
 		OwningShooter->GetActorEyesViewPoint(EmitLocation, EmitRotation);
 		SetActorLocation(EmitLocation);
-		SetActorRotation(EmitRotation);
 	}
 }
 
@@ -281,6 +304,12 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 		CallForTimescale(this, true, 0.01f);
 	}
 
+	// Responsive aim for flex shots
+	if (LifeTimer <= (DeliveryTime * 1.5f))
+	{
+		RedirectAttack();
+	}
+
 
 	// Attack main line
 	if (!bDoneLethal && (LifeTimer >= DeliveryTime))
@@ -288,7 +317,6 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 		
 		if (!bLethal)
 		{
-			RedirectAttack();
 			Lethalize();
 		}
 		else
@@ -585,6 +613,11 @@ void ATachyonAttack::Neutralize()
 	{
 		AttackRadial->SetWorldLocation(GetActorLocation());
 	}
+
+	// Reset rotation
+	FRotator MyRotation = GetActorRotation();
+	MyRotation.Pitch = 0.0f;
+	SetActorRotation(MyRotation);
 }
 
 

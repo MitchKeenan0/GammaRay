@@ -149,32 +149,30 @@ void ATachyonGameStateBase::UpdateGlobalTimescale(float DeltaTime)
 
 void ATachyonGameStateBase::SpawnBot(FVector SpawnLocation)
 {
-	if (HasAuthority())
+	FActorSpawnParameters SpawnParams;
+	FRotator Rotation = FRotator::ZeroRotator;
+	TSubclassOf<ATachyonCharacter> TachyonSpawning = Tachyons[0];
+	TSubclassOf<ATachyonAIController> AISpawning = Controllers[0];
+
+	// Spawn the body
+	ATachyonCharacter* NewTachyon =
+		Cast<ATachyonCharacter>
+		(GetWorld()->SpawnActor<AActor>
+		(TachyonSpawning, SpawnLocation, Rotation, SpawnParams));
+
+	// Possess with AI controller
+	if (NewTachyon != nullptr)
 	{
-		FActorSpawnParameters SpawnParams;
-		FRotator Rotation = FRotator::ZeroRotator;
-		TSubclassOf<ATachyonCharacter> TachyonSpawning = Tachyons[0];
-		TSubclassOf<ATachyonAIController> AISpawning = Controllers[0];
-
-		// Spawn the body
-		ATachyonCharacter* NewTachyon =
-			Cast<ATachyonCharacter>
+		ATachyonAIController* NewController =
+			Cast<ATachyonAIController>
 			(GetWorld()->SpawnActor<AActor>
-			(TachyonSpawning, SpawnLocation, Rotation, SpawnParams));
+			(AISpawning, SpawnLocation, Rotation, SpawnParams));
 
-		// Possess with AI controller
-		if (NewTachyon != nullptr)
+		if (NewController != nullptr)
 		{
-			ATachyonAIController* NewController =
-				Cast<ATachyonAIController>
-				(GetWorld()->SpawnActor<AActor>
-				(AISpawning, SpawnLocation, Rotation, SpawnParams));
-
-			if (NewController != nullptr)
-			{
-				NewTachyon->Controller = NewController;
-				NewController->Possess(NewTachyon);
-			}
+			NewTachyon->Controller = NewController;
+			NewController->Possess(NewTachyon);
+			NewTachyon->Tags.Add("Bot");
 		}
 	}
 }
