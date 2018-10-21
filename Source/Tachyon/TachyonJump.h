@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Tachyon.h"
+#include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "TachyonJump.generated.h"
 
@@ -14,6 +14,10 @@ class TACHYON_API ATachyonJump : public AActor
 public:	
 	// Sets default values for this actor's properties
 	ATachyonJump();
+
+	void StartJump();
+
+	void EndJump();
 
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -31,13 +35,33 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+
+	float LastJumpTime = 0.0f;
+	FTimerHandle TimerHandle_TimeBetweenJumps;
+	float TimeBetweenJumps = 0.0f;
+
+	void Jump();
+	
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerJump();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerEndJump();
+
+	UPROPERTY(BlueprintReadWrite)
+	float LifeTimer = 0.0f;
+
+	UFUNCTION(NetMulticast, Reliable)
+	void DoJumpVisuals();
+
+
 	UFUNCTION()
 	void UpdateJump(float DeltaTime);
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated)
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	class ACharacter* OwningJumper = nullptr;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated)
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	FVector JumpVector = FVector::ZeroVector;
 
 	//////////////////////////////////////////////////////////////////

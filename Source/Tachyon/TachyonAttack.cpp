@@ -50,7 +50,7 @@ void ATachyonAttack::BeginPlay()
 	
 	// Tactical setup
 	bLethal = false;
-	HitTimer = (1.0f / HitsPerSecond);
+	HitTimer = (1.0f / 100.0f);
 	AttackDamage = 1.0f;
 	TimeBetweenShots = RefireTime;
 
@@ -83,8 +83,7 @@ void ATachyonAttack::Fire()
 		if (!bInitialized)
 		{
 			Neutralize();
-			
-			InitAttack(GetOwner(), 1.0f, 0.0f);
+			InitAttack(MyOwner, 1.0f, 0.0f);
 		}
 	}
 }
@@ -109,11 +108,11 @@ void ATachyonAttack::SpawnBurst()
 		if (NewBurst != nullptr)
 		{
 			NewBurst->AttachToActor(OwningShooter, FAttachmentTransformRules::KeepWorldTransform);
-			
+
 			float VisibleMagnitude = FMath::Clamp(AttackMagnitude, 0.5f, 1.0f);
 			FVector NewBurstScale = NewBurst->GetActorRelativeScale3D() * VisibleMagnitude;
 			NewBurst->SetActorRelativeScale3D(NewBurstScale);
-			
+
 			NewBurst->SetLifeSpan(AttackMagnitude);
 		}
 	}
@@ -161,6 +160,7 @@ void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 }
 
 
+
 void ATachyonAttack::Lethalize()
 {
 	bLethal = true;
@@ -190,7 +190,7 @@ void ATachyonAttack::ActivateEffects_Implementation()
 	ActivateSound();
 	if (FireShake != nullptr)
 	{
-		UGameplayStatics::PlayWorldCameraShake(GetWorld(), FireShake, GetActorLocation(), 0.0f, 5555.0f, 1.0f, false);
+		UGameplayStatics::PlayWorldCameraShake(GetWorld(), FireShake, GetActorLocation(), 0.0f, 9999.0f, 1.0f, false);
 	}
 }
 
@@ -252,7 +252,11 @@ void ATachyonAttack::RedirectAttack()
 		{
 			FVector LocalForward = TachyonShooter->GetActorForwardVector();
 			LocalForward.Y = 0.0f;
-			float ShooterAimDirection = FMath::Clamp(OwningShooter->GetActorForwardVector().Z * ShootingAngle, -1.0f, 1.0f);
+			float ShooterAimDirection = FMath::Clamp(TachyonShooter->GetActorForwardVector().Z * ShootingAngle, -1.0f, 1.0f);
+			if (ShooterAimDirection == 0.0f)
+			{
+				ShooterAimDirection = FMath::Clamp(TachyonShooter->GetZ() * ShootingAngle, -1.0f, 1.0f);
+			}
 			float TargetPitch = ShootingAngle * ShooterAimDirection;
 	
 			FRotator NewRotation = LocalForward.Rotation() + FRotator(TargetPitch, 0.0f, 0.0f);
@@ -269,7 +273,6 @@ void ATachyonAttack::RedirectAttack()
 			NewRotation.Pitch = FMath::Clamp(NewRotation.Pitch, -ShootingAngle, ShootingAngle);
 			
 			SetActorRotation(NewRotation);
-			GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("ShooterAimDirection: %f"), ShooterAimDirection));
 		}
 		
 		FVector EmitLocation;
@@ -314,12 +317,13 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 	// Attack main line
 	if (!bDoneLethal && (LifeTimer >= DeliveryTime))
 	{
-		
+
 		if (!bLethal)
 		{
 			Lethalize();
 		}
-		else
+		
+		if (bLethal)
 		{
 			// Hits Per Second
 			float GlobalDilation = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
@@ -341,6 +345,7 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 	if ((LifeTimer >= (DeliveryTime + LethalTime))
 		&& bLethal)
 	{
+		
 		bDoneLethal = true;
 		bLethal = false;
 	}
@@ -597,7 +602,7 @@ void ATachyonAttack::Neutralize()
 	bFirstHitReported = false;
 	LifeTimer = 0.0f;
 	HitTimer = (1.0f / HitsPerSecond);
-	HitsPerSecond = 50.0f;
+	HitsPerSecond = 100.0f;
 	
 	// Reset components
 	if (AttackParticles != nullptr)

@@ -22,6 +22,9 @@ ATachyonCharacter::ATachyonCharacter(const FObjectInitializer& ObjectInitializer
 	///GetMesh()->SetIsReplicated(true);
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
+	PointLight = CreateDefaultSubobject<UPointLightComponent>(TEXT("PointLight"));
+	PointLight->SetupAttachment(RootComponent);
+
 	// Create a camera boom attached to the root (capsule)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
@@ -83,21 +86,37 @@ void ATachyonCharacter::BeginPlay()
 	//GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->BrakingFrictionFactor = 50.0f;
 
-	// Spawn player's weapon
+	// Spawn player's weapon & jump objects
 	if ((Role == ROLE_Authority) || ActorHasTag("Bot"))
 	{
+		FActorSpawnParameters SpawnParams;
 		FVector SpawnLoca = AttackScene->GetComponentLocation();
 		FRotator SpawnRota = GetActorForwardVector().Rotation();
-		FActorSpawnParameters SpawnParams;
-		ActiveAttack = GetWorld()->SpawnActor<ATachyonAttack>(AttackClass, SpawnLoca, SpawnRota, SpawnParams);
-		if (ActiveAttack != nullptr)
+		
+		if (AttackClass != nullptr)
 		{
-			ActiveAttack->SetOwner(this);
-			///ActiveAttack->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+			ActiveAttack = GetWorld()->SpawnActor<ATachyonAttack>(AttackClass, SpawnLoca, SpawnRota, SpawnParams);
+			if (ActiveAttack != nullptr)
+			{
+				ActiveAttack->SetOwner(this);
+				if (ActiveAttack->IsLockedEmitPoint())
+				{
+					ActiveAttack->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+				}
+			}
+		}
+
+		if (BoostClass != nullptr)
+		{
+			FRotator InputRotation = JumpMoveVector.GetSafeNormal().Rotation();
+			ActiveBoost = GetWorld()->SpawnActor<ATachyonJump>(BoostClass, SpawnLoca, InputRotation, SpawnParams);
+			if (ActiveBoost != nullptr)
+			{
+				ActiveBoost->SetOwner(this);
+				ActiveBoost->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
+			}
 		}
 	}
-
-	GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("Began play"));
 }
 
 
@@ -122,13 +141,6 @@ void ATachyonCharacter::Tick(float DeltaTime)
 
 		/// Cammmera
 		UpdateCamera(DeltaTime);
-
-		// UNUSED
-		// Jump timing
-		/*if (bJumping)
-			UpdateJump(DeltaTime);
-		else if (ActiveBoost != nullptr)
-			DisengageJump();*/
 
 		// Disable movement during slowtime
 		/*float CurrentTimescale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
@@ -159,8 +171,8 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 	// Actions
 	PlayerInputComponent->BindAction("Attack", IE_Pressed, this, &ATachyonCharacter::StartFire);
 	PlayerInputComponent->BindAction("Attack", IE_Released, this, &ATachyonCharacter::EndFire);
-	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ATachyonCharacter::EngageJump);
-	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ATachyonCharacter::DisengageJump);
+	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ATachyonCharacter::StartJump);
+	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ATachyonCharacter::EndJump);
 	PlayerInputComponent->BindAction("SummonBot", IE_Pressed, this, &ATachyonCharacter::RequestBots);
 	PlayerInputComponent->BindAction("Restart", IE_Pressed, this, &ATachyonCharacter::RestartGame);
 
@@ -201,58 +213,27 @@ void ATachyonCharacter::BotMove(float X, float Z)
 ////////////////////////////////////////////////////////////////////////
 // JUMP
 
+void ATachyonCharacter::StartJump()
+{
+	if (ActiveBoost != nullptr)
+	{
+		ActiveBoost->StartJump();
+	}
+}
+
+void ATachyonCharacter::EndJump()
+{
+	if (ActiveBoost != nullptr)
+	{
+		ActiveBoost->EndJump();
+	}
+}
+
 void ATachyonCharacter::EngageJump()
 {
 	bJumping = true;
 	GetCharacterMovement()->MaxAcceleration = BoostSpeed;
 	GetCharacterMovement()->MaxFlySpeed = BoostSustain;
-
-	ServerEngageJump();
-
-	if (HasAuthority())
-	{
-		FTimerHandle TimerHand;
-		GetWorldTimerManager().SetTimer(TimerHand, this, &ATachyonCharacter::DisengageJump, 0.9f, false);
-	}
-}
-void ATachyonCharacter::ServerEngageJump_Implementation()
-{
-	bJumping = true;
-	GetCharacterMovement()->MaxAcceleration = BoostSpeed;
-	GetCharacterMovement()->MaxFlySpeed = BoostSustain;
-
-	// Boost!
-	JumpMoveVector = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
-	if (JumpMoveVector.X == 0.0f)
-	{
-		JumpMoveVector.X = GetActorForwardVector().X;
-		JumpMoveVector = JumpMoveVector.GetSafeNormal();
-	}
-
-	// Spawning jump FX
-	if (BoostClass != nullptr)
-	{
-		if (ActiveBoost != nullptr)
-		{
-			ActiveBoost->Destroy();
-			ActiveBoost = nullptr;
-		}
-
-		FActorSpawnParameters SpawnParams;
-		FRotator InputRotation = JumpMoveVector.GetSafeNormal().Rotation();
-		FVector SpawnLocation = GetActorLocation() + (FVector::UpVector * 10.0f);
-		ActiveBoost = GetWorld()->SpawnActor<AActor>(BoostClass, SpawnLocation, InputRotation, SpawnParams);
-		if (ActiveBoost != nullptr)
-		{
-			ActiveBoost->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
-		}
-	}
-
-	ForceNetUpdate();
-}
-bool ATachyonCharacter::ServerEngageJump_Validate()
-{
-	return true;
 }
 
 void ATachyonCharacter::DisengageJump()
@@ -260,52 +241,6 @@ void ATachyonCharacter::DisengageJump()
 	GetCharacterMovement()->MaxAcceleration = MoveSpeed;
 	GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed;
 	bJumping = false;
-
-	ServerDisengageJump();
-}
-void ATachyonCharacter::ServerDisengageJump_Implementation()
-{
-	bJumping = false;
-
-	GetCharacterMovement()->MaxAcceleration = MoveSpeed;
-	GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed;
-
-	GetWorldTimerManager().ClearAllTimersForObject(this);
-
-	DiminishingJumpValue = 0.0f;
-	BoostTimeAlive = 0.0f;
-
-	if (ActiveBoost != nullptr)
-	{
-		ActiveBoost->Destroy();
-		ActiveBoost = nullptr;
-	}
-
-	ForceNetUpdate();
-}
-bool ATachyonCharacter::ServerDisengageJump_Validate()
-{
-	return true;
-}
-/// unused
-void ATachyonCharacter::UpdateJump(float DeltaTime)
-{
-	ServerUpdateJump(DeltaTime);
-}
-void ATachyonCharacter::ServerUpdateJump_Implementation(float DeltaTime)
-{
-	if (ActiveBoost != nullptr)
-	{
-		BoostTimeAlive = ActiveBoost->GetGameTimeSinceCreation();
-		if (BoostTimeAlive > 1.0f)
-		{
-			DisengageJump();
-		}
-	}
-}
-bool ATachyonCharacter::ServerUpdateJump_Validate(float DeltaTime)
-{
-	return true;
 }
 
 
@@ -495,7 +430,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 			float ChargeScalar = FMath::Clamp((FMath::Sqrt(Charge - 0.9f)), 1.0f, ChargeMax);
 			float SpeedScalar = 1.0f + FMath::Sqrt(Actor1Velocity.Size() + 0.01f) * 0.1f;
 			float PersonalScalar = 1.0f + (36.0f * ChargeScalar * SpeedScalar) * (FMath::Sqrt(SafeVelocitySize));
-			float CameraMinimumDistance = 2500.0f + (PersonalScalar * CameraDistanceScalar); // (1100.0f + PersonalScalar)
+			float CameraMinimumDistance = 3500.0f + (PersonalScalar * CameraDistanceScalar); // (1100.0f + PersonalScalar)
 			float CameraMaxDistance = 11551000.0f;
 
 
@@ -720,9 +655,6 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 				Controller->SetControlRotation(Fint);
 			}
 		}
-
-		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Pitch: %f"), Controller->GetControlRotation().Pitch));
-		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("ClimbDirection: %f"), ClimbDirection));
 	}
 }
 void ATachyonCharacter::ServerUpdateBody_Implementation(float DeltaTime)

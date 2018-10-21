@@ -1,6 +1,10 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "TachyonJump.h"
+#include "TachyonCharacter.h"
+#include "TimerManager.h"
+#include "Particles/ParticleSystem.h"
+#include "Particles/ParticleSystemComponent.h"
 
 
 // Sets default values
@@ -14,6 +18,10 @@ ATachyonJump::ATachyonJump()
 
 	JumpParticles = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("JumpParticles"));
 	JumpParticles->SetupAttachment(RootComponent);
+
+	SetReplicates(true);
+	bReplicateMovement = true;
+	NetDormancy = ENetDormancy::DORM_Never;
 }
 
 // Called when the game starts or when spawned
@@ -21,19 +29,99 @@ void ATachyonJump::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	JumpParticles->Deactivate();
+
+	TimeBetweenJumps = 0.25f;
 }
+
+
+void ATachyonJump::StartJump()
+{
+	float FirstDelay = FMath::Max(LastJumpTime + TimeBetweenJumps - GetWorld()->TimeSeconds, 0.0f);
+
+	GetWorldTimerManager().SetTimer(TimerHandle_TimeBetweenJumps, this, &ATachyonJump::Jump, TimeBetweenJumps, false, FirstDelay);
+}
+
+void ATachyonJump::EndJump()
+{
+	if (Role < ROLE_Authority)
+	{
+		ServerEndJump();
+	}
+
+	AActor* MyOwner = GetOwner();
+	if (MyOwner != nullptr)
+	{
+		ATachyonCharacter* MyDude = Cast<ATachyonCharacter>(MyOwner);
+		if (MyDude != nullptr)
+		{
+			MyDude->DisengageJump();
+			JumpParticles->DeactivateSystem();
+			JumpParticles->Deactivate();
+
+			LastJumpTime = GetWorld()->TimeSeconds;
+		}
+
+		GetWorldTimerManager().ClearTimer(TimerHandle_TimeBetweenJumps);
+	}
+}
+
+void ATachyonJump::ServerEndJump_Implementation()
+{
+	EndJump();
+}
+
+bool ATachyonJump::ServerEndJump_Validate()
+{
+	return true;
+}
+
+void ATachyonJump::Jump()
+{
+	if (Role < ROLE_Authority)
+	{
+		ServerJump();
+	}
+
+	AActor* MyOwner = GetOwner();
+	if (MyOwner != nullptr)
+	{
+
+		ATachyonCharacter* MyDude = Cast<ATachyonCharacter>(MyOwner);
+		if (MyDude != nullptr)
+		{
+			MyDude->EngageJump();
+
+			FTimerHandle TimerHand;
+			GetWorldTimerManager().SetTimer(TimerHand, this, &ATachyonJump::EndJump, 0.7777f, false);
+		}
+		DoJumpVisuals();
+	}
+}
+
+void ATachyonJump::ServerJump_Implementation()
+{
+	Jump();
+}
+
+bool ATachyonJump::ServerJump_Validate()
+{
+	return true;
+}
+
+
 
 // Called every frame
 void ATachyonJump::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if ((OwningJumper != nullptr)
+	/*if ((OwningJumper != nullptr)
 		&& (JumpVector != FVector::ZeroVector))
 	{
 		UpdateJump(DeltaTime);
 		ForceNetUpdate();
-	}
+	}*/
 }
 
 
@@ -41,6 +129,14 @@ void ATachyonJump::InitJump(FVector JumpDirection, ACharacter* Jumper)
 {
 	OwningJumper = Jumper;
 	JumpVector = JumpDirection;
+}
+
+void ATachyonJump::DoJumpVisuals_Implementation()
+{
+	if (JumpParticles != nullptr)
+	{
+		JumpParticles->Activate();
+	}
 }
 
 
@@ -62,15 +158,5 @@ void ATachyonJump::UpdateJump(float DeltaTime)
 			OwningJumper->SetActorLocation(UpdatedJumpLocation);
 		}
 	}
-}
-
-
-// NETWORK VARIABLES
-void ATachyonJump::GetLifetimeReplicatedProps(TArray <FLifetimeProperty> & OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME(ATachyonJump, OwningJumper);
-	DOREPLIFETIME(ATachyonJump, JumpVector);
 }
 

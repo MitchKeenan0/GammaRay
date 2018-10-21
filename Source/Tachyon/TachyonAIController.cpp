@@ -26,6 +26,9 @@ void ATachyonAIController::FindOneself()
 
 			MyTachyonCharacter->Tags.Add("FramingActor");
 
+			GEngine->AddOnScreenDebugMessage(-1, 10.5f, FColor::White, FString::Printf(TEXT("Bot MaxAccel: %f"), MyTachyonCharacter->GetCharacterMovement()->MaxAcceleration));
+			GEngine->AddOnScreenDebugMessage(-1, 10.5f, FColor::White, FString::Printf(TEXT("Bot FlySpeed: %f"), MyTachyonCharacter->GetCharacterMovement()->MaxFlySpeed));
+
 			MyTachyonCharacter->GetCharacterMovement()->MaxAcceleration = 9000.0f;
 			MyTachyonCharacter->GetCharacterMovement()->MaxFlySpeed = 1500.0f;
 			MyTachyonCharacter->GetCharacterMovement()->bOrientRotationToMovement = true;
@@ -197,8 +200,8 @@ void ATachyonAIController::NavigateTo(FVector TargetLocation)
 			}
 		}
 
-		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Blue, FString::Printf(TEXT("Pitch: %f"), GetControlRotation().Pitch));
-		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Blue, FString::Printf(TEXT("My Z: %f"), MyTachyonCharacter->GetZ()));
+		/*GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Blue, FString::Printf(TEXT("Pitch: %f"), GetControlRotation().Pitch));
+		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Blue, FString::Printf(TEXT("My Z: %f"), MyTachyonCharacter->GetZ()));*/
 	}
 }
 

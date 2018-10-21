@@ -155,21 +155,21 @@ public:
 	UFUNCTION()
 	void EndFire();
 
+	UFUNCTION()
+	void StartJump();
+
+	UFUNCTION()
+	void EndJump();
+
 	void UpdateBody(float DeltaTime);
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
 	void ServerUpdateBody(float DeltaTime);
 
+	UFUNCTION()
 	void EngageJump();
-	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
-	void ServerEngageJump();
 
+	UFUNCTION()
 	void DisengageJump();
-	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
-	void ServerDisengageJump();
-
-	void UpdateJump(float DeltaTime);
-	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
-	void ServerUpdateJump(float DeltaTime);
 
 	UFUNCTION(BlueprintCallable)
 	void ReceiveKnockback(FVector Knockback, bool bOverrideVelocity);
@@ -230,6 +230,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	class UParticleSystemComponent* AmbientParticles = nullptr;
 
+	UPROPERTY(EditDefaultsOnly)
+	class UPointLightComponent* PointLight = nullptr;
+
 
 
 	// REPLICATED VARIABLES ///////////////////////////////////////////////////////////////
@@ -276,7 +279,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<AActor> BoostClass;
 	UPROPERTY(Replicated)
-	class AActor* ActiveBoost = nullptr;
+	class ATachyonJump* ActiveBoost = nullptr;
 
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<ATApparel> ApparelClass;
