@@ -62,6 +62,8 @@ ATachyonCharacter::ATachyonCharacter(const FObjectInitializer& ObjectInitializer
 	ReplicatedMovement.LocationQuantizationLevel = EVectorQuantization::RoundTwoDecimals;
 	ReplicatedMovement.VelocityQuantizationLevel = EVectorQuantization::RoundTwoDecimals;
 	NetDormancy = ENetDormancy::DORM_Never;
+
+	
 }
 
 
@@ -76,7 +78,6 @@ void ATachyonCharacter::BeginPlay()
 	UKismetSystemLibrary::ExecuteConsoleCommand(GetWorld(), TEXT("p.NetEnableMoveCombining 0"));
 	
 	///DonApparel();
-	MaxHealth = 100.0f;
 	Health = MaxHealth;
 	Tags.Add("Player");
 	Tags.Add("FramingActor");
@@ -108,7 +109,7 @@ void ATachyonCharacter::BeginPlay()
 
 		if (BoostClass != nullptr)
 		{
-			FRotator InputRotation = JumpMoveVector.GetSafeNormal().Rotation();
+			FRotator InputRotation = GetActorRotation();
 			ActiveBoost = GetWorld()->SpawnActor<ATachyonJump>(BoostClass, SpawnLoca, InputRotation, SpawnParams);
 			if (ActiveBoost != nullptr)
 			{
@@ -127,30 +128,15 @@ void ATachyonCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	// Local stuff
 	if (Controller != nullptr)
 	{
-		/// Interp lifepoints
 		UpdateHealth(DeltaTime);
-
-		/// Interp body rotation
-		if (!ActorHasTag("Bot"))
-		{
-			UpdateBody(DeltaTime);
-		}
-
-		/// Cammmera
 		UpdateCamera(DeltaTime);
 
-		// Disable movement during slowtime
-		/*float CurrentTimescale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
-		if (CurrentTimescale < 0.05f)
-			GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_None);
-		else
-			GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Flying);*/
+		if (!ActorHasTag("Bot"))
+			UpdateBody(DeltaTime);
 	}
 
-	// Personal timescale recovery
 	if (HasAuthority())
 	{
 		if (CustomTimeDilation < 1.0f)
@@ -231,7 +217,6 @@ void ATachyonCharacter::EndJump()
 
 void ATachyonCharacter::EngageJump()
 {
-	bJumping = true;
 	GetCharacterMovement()->MaxAcceleration = BoostSpeed;
 	GetCharacterMovement()->MaxFlySpeed = BoostSustain;
 }
@@ -240,7 +225,6 @@ void ATachyonCharacter::DisengageJump()
 {
 	GetCharacterMovement()->MaxAcceleration = MoveSpeed;
 	GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed;
-	bJumping = false;
 }
 
 
@@ -275,15 +259,17 @@ void ATachyonCharacter::ModifyHealth(float Value)
 	{
 		ServerModifyHealth(Value);
 	}
-	
-	if (Value >= 100.0f)
-	{
-		Health = 100.0f;
-		MaxHealth = 100.0f;
-	}
 	else
 	{
-		MaxHealth = FMath::Clamp(Health + Value, -1.0f, 100.0f);
+		if (Value >= 100.0f)
+		{
+			Health = 100.0f;
+			MaxHealth = 100.0f;
+		}
+		else
+		{
+			MaxHealth = FMath::Clamp(Health + Value, -1.0f, 100.0f);
+		}
 	}
 }
 void ATachyonCharacter::ServerModifyHealth_Implementation(float Value)
@@ -676,56 +662,56 @@ bool ATachyonCharacter::ServerUpdateBody_Validate(float DeltaTime)
 ////////////////////////////////////////////////////////////////////////
 // COSMETICS
 
-void ATachyonCharacter::DonApparel()
-{
-	if (Controller != nullptr)
-	{
-		APlayerState* PlayerState = Controller->PlayerState;
-		if (PlayerState != nullptr)
-		{
-			ATachyonPlayerState* MyState = Cast<ATachyonPlayerState>(PlayerState);
-			if (MyState != nullptr)
-			{
-				TArray<TSubclassOf<ATApparel>> MyApparels = MyState->Skins;
-				if (MyApparels.Num() > 0)
-				{
-					FActorSpawnParameters SpawnParams;
-					TSubclassOf<ATApparel> Attire = MyApparels[iApparelIndex];
-					if (Attire != nullptr)
-					{
-						ActiveApparel = GetWorld()->SpawnActor<ATApparel>(Attire, SpawnParams);
+//void ATachyonCharacter::DonApparel()
+//{
+//	if (Controller != nullptr)
+//	{
+//		APlayerState* PlayerState = Controller->PlayerState;
+//		if (PlayerState != nullptr)
+//		{
+//			ATachyonPlayerState* MyState = Cast<ATachyonPlayerState>(PlayerState);
+//			if (MyState != nullptr)
+//			{
+//				TArray<TSubclassOf<ATApparel>> MyApparels = MyState->Skins;
+//				if (MyApparels.Num() > 0)
+//				{
+//					FActorSpawnParameters SpawnParams;
+//					TSubclassOf<ATApparel> Attire = MyApparels[iApparelIndex];
+//					if (Attire != nullptr)
+//					{
+//						ActiveApparel = GetWorld()->SpawnActor<ATApparel>(Attire, SpawnParams);
+//
+//						if (ActiveApparel != nullptr)
+//						{
+//							GetMesh()->SetMaterial(0, ActiveApparel->ApparelMaterial);
+//
+//							GEngine->AddOnScreenDebugMessage(-1, 30.0f, FColor::Green, TEXT("Donned New Apparel"));
+//						}
+//					}
+//				}
+//			}
+//		}
+//	}
+//}
 
-						if (ActiveApparel != nullptr)
-						{
-							GetMesh()->SetMaterial(0, ActiveApparel->ApparelMaterial);
-
-							GEngine->AddOnScreenDebugMessage(-1, 30.0f, FColor::Green, TEXT("Donned New Apparel"));
-						}
-					}
-				}
-			}
-		}
-	}
-}
-
-void ATachyonCharacter::SetApparel(int ApparelIndex)
-{
-	iApparelIndex = ApparelIndex;
-	DonApparel();
-	
-	if (Role < ROLE_Authority)
-	{
-		ServerSetApparel(ApparelIndex);
-	}
-}
-void ATachyonCharacter::ServerSetApparel_Implementation(int ApparelIndex)
-{
-	SetApparel(ApparelIndex);
-}
-bool ATachyonCharacter::ServerSetApparel_Validate(int ApparelIndex)
-{
-	return true;
-}
+//void ATachyonCharacter::SetApparel(int ApparelIndex)
+//{
+//	iApparelIndex = ApparelIndex;
+//	DonApparel();
+//	
+//	if (Role < ROLE_Authority)
+//	{
+//		ServerSetApparel(ApparelIndex);
+//	}
+//}
+//void ATachyonCharacter::ServerSetApparel_Implementation(int ApparelIndex)
+//{
+//	SetApparel(ApparelIndex);
+//}
+//bool ATachyonCharacter::ServerSetApparel_Validate(int ApparelIndex)
+//{
+//	return true;
+//}
 
 
 ////////////////////////////////////////////////////////////////////////
@@ -777,18 +763,14 @@ void ATachyonCharacter::GetLifetimeReplicatedProps(TArray <FLifetimeProperty> & 
 	DOREPLIFETIME(ATachyonCharacter, ActiveAttack);
 	DOREPLIFETIME(ATachyonCharacter, ActiveWindup);
 	DOREPLIFETIME(ATachyonCharacter, ActiveBoost);
-	
-	DOREPLIFETIME(ATachyonCharacter, bJumping);
-	DOREPLIFETIME(ATachyonCharacter, Health);
-	DOREPLIFETIME(ATachyonCharacter, BoostTimeAlive);
-	DOREPLIFETIME(ATachyonCharacter, DiminishingJumpValue);
-	DOREPLIFETIME(ATachyonCharacter, ActiveApparel);
-	DOREPLIFETIME(ATachyonCharacter, iApparelIndex);
-	DOREPLIFETIME(ATachyonCharacter, Opponent);
-	DOREPLIFETIME(ATachyonCharacter, AimVector);
-	DOREPLIFETIME(ATachyonCharacter, JumpMoveVector);
 
+	DOREPLIFETIME(ATachyonCharacter, Health);
+	DOREPLIFETIME(ATachyonCharacter, MaxHealth);
+
+	DOREPLIFETIME(ATachyonCharacter, Opponent);
 	
+	//DOREPLIFETIME(ATachyonCharacter, ActiveApparel);
+	//DOREPLIFETIME(ATachyonCharacter, iApparelIndex);
 }
 
 

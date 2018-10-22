@@ -23,6 +23,9 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 	UPROPERTY(EditDefaultsOnly)
+	float TimescaleRecoverySpeed = 10.0f;
+
+	UPROPERTY(EditDefaultsOnly)
 	TArray<TSubclassOf<ATachyonCharacter>> Tachyons;
 
 	UPROPERTY(EditDefaultsOnly)

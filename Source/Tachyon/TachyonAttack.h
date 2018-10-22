@@ -66,6 +66,7 @@ protected:
 	float LastFireTime = 0.0f;
 	FTimerHandle TimerHandle_TimeBetweenShots;
 	float TimeBetweenShots = 0.0f;
+	float TimeAtInit = 0.0f;
 
 	void Fire();
 
@@ -78,16 +79,17 @@ protected:
 	UFUNCTION(NetMulticast, Reliable)
 	void ActivateEffects();
 
-	UFUNCTION()
-	void OnAttackBeginOverlap
-	(
-		UPrimitiveComponent* OverlappedComponent,
-		AActor* OtherActor,
-		UPrimitiveComponent* OtherComp,
-		int32 OtherBodyIndex,
-		bool bFromSweep,
-		const FHitResult& SweepResult
-	);
+	UPROPERTY()
+	float ActualDeliveryTime = 0.0f;
+
+	UPROPERTY()
+	float ActualHitsPerSecond = 0.0f;
+
+	UPROPERTY()
+	float ActualAttackDamage = 0.0f;
+
+	UPROPERTY()
+	float ActualLethalTime = 0.0f;
 
 	/////////////////////////////////////////////////////////////////////////
 	// Attack functions
@@ -96,6 +98,8 @@ protected:
 
 	UFUNCTION()
 	void Lethalize();
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerLethalize();
 
 	UFUNCTION()
 	void SetInitVelocities();
@@ -116,6 +120,17 @@ protected:
 	UFUNCTION()
 	void ApplyKnockForce(AActor* HitActor, FVector HitLocation, float HitScalar);
 
+	UFUNCTION()
+	void OnAttackBeginOverlap
+	(
+		UPrimitiveComponent* OverlappedComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex,
+		bool bFromSweep,
+		const FHitResult& SweepResult
+	);
+
 
 	/////////////////////////////////////////////////////////////////////////
 	// Attributes
@@ -129,13 +144,25 @@ protected:
 	float DeliveryTime = 0.1f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	float RedirectionTime = 0.2f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	float DurationTime = 0.3f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	float MagnitudeTimeScalar = 1.0f;
+	float LethalTime = 0.2f;
+
+	UPROPERTY(BlueprintReadWrite)
+	float AttackDamage = 1.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	float TimeExtendOnHit = 0.015f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	float HitsPerSecond = 100.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	float HitsPerSecondDecay = 0.333f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	float HitSlow = 0.5f;
@@ -233,15 +260,12 @@ protected:
 	UPROPERTY(BlueprintReadWrite)
 	bool bInitialized = false;
 	
-	
 	UPROPERTY(BlueprintReadWrite)
 	class AActor* OwningShooter = nullptr;
 	UPROPERTY(BlueprintReadWrite)
 	class AActor* HitActor = nullptr;
 	UPROPERTY(BlueprintReadWrite)
 	float DynamicLifetime = 0.0f;
-	UPROPERTY(BlueprintReadWrite)
-	float LethalTime = 0.2f;
 	
 	UPROPERTY(BlueprintReadWrite)
 	float HitTimer = 0.0f;
@@ -253,8 +277,7 @@ protected:
 	float AttackMagnitude = 0.0f;
 	UPROPERTY(BlueprintReadWrite)
 	float AttackDirection = 0.0f;
-	UPROPERTY(BlueprintReadWrite)
-	float AttackDamage = 10.0f;
+	
 	UPROPERTY(BlueprintReadWrite)
 	bool bLethal = false;
 	UPROPERTY(BlueprintReadWrite)

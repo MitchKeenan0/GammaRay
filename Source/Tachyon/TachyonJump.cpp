@@ -31,7 +31,7 @@ void ATachyonJump::BeginPlay()
 	
 	JumpParticles->Deactivate();
 
-	TimeBetweenJumps = 0.25f;
+	TimeBetweenJumps = JumpFireDelay;
 }
 
 
@@ -86,14 +86,13 @@ void ATachyonJump::Jump()
 	AActor* MyOwner = GetOwner();
 	if (MyOwner != nullptr)
 	{
-
 		ATachyonCharacter* MyDude = Cast<ATachyonCharacter>(MyOwner);
 		if (MyDude != nullptr)
 		{
 			MyDude->EngageJump();
 
 			FTimerHandle TimerHand;
-			GetWorldTimerManager().SetTimer(TimerHand, this, &ATachyonJump::EndJump, 0.7777f, false);
+			GetWorldTimerManager().SetTimer(TimerHand, this, &ATachyonJump::EndJump, JumpDurationTime, false);
 		}
 		DoJumpVisuals();
 	}
@@ -140,6 +139,7 @@ void ATachyonJump::DoJumpVisuals_Implementation()
 }
 
 
+// unused
 void ATachyonJump::UpdateJump(float DeltaTime)
 {
 	float JumpTimeAlive = GetGameTimeSinceCreation();

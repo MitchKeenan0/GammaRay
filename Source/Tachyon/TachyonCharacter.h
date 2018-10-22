@@ -75,8 +75,8 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SetOpponent(ATachyonCharacter* NewTarget) { Opponent = NewTarget; }
 
-	UFUNCTION(BlueprintCallable)
-	void DonApparel();
+	/*UFUNCTION(BlueprintCallable)
+	void DonApparel();*/
 
 	UFUNCTION(BlueprintCallable)
 	void RequestBots();
@@ -190,16 +190,16 @@ public:
 	UFUNCTION(NetMulticast, BlueprintCallable, reliable)
 	void MulticastNewTimescale(float Value);
 
-	UFUNCTION(BlueprintCallable)
-	void SetApparel(int ApparelIndex);
-	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
-	void ServerSetApparel(int ApparelIndex);
-
 	void RestartGame();
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
 	void ServerRestartGame();
 	UFUNCTION(NetMulticast, BlueprintCallable, reliable)
 	void MulticastRestartGame();
+
+	/*UFUNCTION(BlueprintCallable)
+	void SetApparel(int ApparelIndex);
+	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
+	void ServerSetApparel(int ApparelIndex);*/
 
 	
 
@@ -247,22 +247,14 @@ protected:
 	
 	UPROPERTY(Replicated, BlueprintReadOnly)
 	float Health = 0.0f;
-	UPROPERTY(Replicated, BlueprintReadOnly)
-	FVector AimVector = FVector::ZeroVector;
-	UPROPERTY(Replicated, BlueprintReadOnly)
-	bool bJumping = false;
-	UPROPERTY(Replicated, BlueprintReadOnly)
-	FVector JumpMoveVector = FVector::ZeroVector;
-	UPROPERTY(Replicated, BlueprintReadOnly)
-	float DiminishingJumpValue = 0.0f;
-	UPROPERTY(Replicated, BlueprintReadOnly)
-	float BoostTimeAlive = 0.0f;
-	UPROPERTY(Replicated, BlueprintReadOnly)
-	int iApparelIndex = 0;
-	UPROPERTY(Replicated, BlueprintReadOnly)
-	class ATApparel* ActiveApparel = nullptr;
+	
 	UPROPERTY(Replicated, BlueprintReadOnly)
 	class ATachyonCharacter* Opponent = nullptr;
+
+	//UPROPERTY(Replicated, BlueprintReadOnly)
+	//int iApparelIndex = 0;
+	//UPROPERTY(Replicated, BlueprintReadOnly)
+	//class ATApparel* ActiveApparel = nullptr;
 
 
 	// ARMAMENT ///////////////////////////////////////////////////////////////

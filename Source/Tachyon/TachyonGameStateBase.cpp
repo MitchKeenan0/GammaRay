@@ -136,10 +136,10 @@ void ATachyonGameStateBase::UpdateGlobalTimescale(float DeltaTime)
 
 	// Interpolating to desired timescale
 	float FactoredTimescale = DesiredTimescale * 10.0f;
-	float InterpSpeed = 10.0f + (1.0f / FactoredTimescale);
+	float InterpSpeed = TimescaleRecoverySpeed + (1.0f / FactoredTimescale);
 	if (DesiredTimescale == 0.01f)
 	{
-		InterpSpeed *= 0.5555f;
+		InterpSpeed *= 0.333f;
 	}
 	float InterpTime = FMath::FInterpConstantTo(CurrentTime, DesiredTimescale, DeltaTime, InterpSpeed);
 	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), InterpTime);
@@ -149,6 +149,7 @@ void ATachyonGameStateBase::UpdateGlobalTimescale(float DeltaTime)
 
 void ATachyonGameStateBase::SpawnBot(FVector SpawnLocation)
 {
+	// Temp hardcode, just spawning 1st type for now
 	FActorSpawnParameters SpawnParams;
 	FRotator Rotation = FRotator::ZeroRotator;
 	TSubclassOf<ATachyonCharacter> TachyonSpawning = Tachyons[0];

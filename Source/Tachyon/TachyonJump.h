@@ -35,6 +35,11 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+	UPROPERTY(EditDefaultsOnly)
+	float JumpDurationTime = 0.7f;
+
+	UPROPERTY(EditDefaultsOnly)
+	float JumpFireDelay = 0.1f;
 
 	float LastJumpTime = 0.0f;
 	FTimerHandle TimerHandle_TimeBetweenJumps;
