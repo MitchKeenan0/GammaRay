@@ -107,6 +107,19 @@ void ATachyonCharacter::BeginPlay()
 			}
 		}
 
+		if (ShieldClass != nullptr)
+		{
+			ActiveShield = GetWorld()->SpawnActor<ATachyonAttack>(ShieldClass, SpawnLoca, SpawnRota, SpawnParams);
+			if (ActiveShield != nullptr)
+			{
+				ActiveShield->SetOwner(this);
+				if (ActiveShield->IsLockedEmitPoint())
+				{
+					ActiveShield->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+				}
+			}
+		}
+
 		if (BoostClass != nullptr)
 		{
 			FRotator InputRotation = GetActorRotation();
@@ -157,6 +170,7 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 	// Actions
 	PlayerInputComponent->BindAction("Attack", IE_Pressed, this, &ATachyonCharacter::StartFire);
 	PlayerInputComponent->BindAction("Attack", IE_Released, this, &ATachyonCharacter::EndFire);
+	PlayerInputComponent->BindAction("Shield", IE_Pressed, this, &ATachyonCharacter::StartShield);
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ATachyonCharacter::StartJump);
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ATachyonCharacter::EndJump);
 	PlayerInputComponent->BindAction("SummonBot", IE_Pressed, this, &ATachyonCharacter::RequestBots);
@@ -231,7 +245,6 @@ void ATachyonCharacter::DisengageJump()
 ////////////////////////////////////////////////////////////////////////
 // ATTACKING
 
-// ARM ATTACK
 void ATachyonCharacter::StartFire()
 {
 	if (ActiveAttack != nullptr)
@@ -240,12 +253,20 @@ void ATachyonCharacter::StartFire()
 	}
 }
 
-// RELEASE ATTACK
 void ATachyonCharacter::EndFire()
 {
 	if (ActiveAttack != nullptr)
 	{
 		ActiveAttack->EndFire();
+	}
+}
+
+
+void ATachyonCharacter::StartShield()
+{
+	if (ActiveShield != nullptr)
+	{
+		ActiveShield->StartFire();
 	}
 }
 

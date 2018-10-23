@@ -58,11 +58,10 @@ void ATachyonJump::EndJump()
 			MyDude->DisengageJump();
 			JumpParticles->DeactivateSystem();
 			JumpParticles->Deactivate();
-
-			LastJumpTime = GetWorld()->TimeSeconds;
 		}
 
 		GetWorldTimerManager().ClearTimer(TimerHandle_TimeBetweenJumps);
+		GetWorldTimerManager().ClearTimer(TimerHandle_EndJumpTimer);
 	}
 }
 
@@ -75,6 +74,7 @@ bool ATachyonJump::ServerEndJump_Validate()
 {
 	return true;
 }
+
 
 void ATachyonJump::Jump()
 {
@@ -91,9 +91,11 @@ void ATachyonJump::Jump()
 		{
 			MyDude->EngageJump();
 
-			FTimerHandle TimerHand;
-			GetWorldTimerManager().SetTimer(TimerHand, this, &ATachyonJump::EndJump, JumpDurationTime, false);
+			GetWorldTimerManager().SetTimer(TimerHandle_EndJumpTimer, this, &ATachyonJump::EndJump, JumpDurationTime, false);
+
+			LastJumpTime = GetWorld()->TimeSeconds;
 		}
+
 		DoJumpVisuals();
 	}
 }
@@ -137,7 +139,6 @@ void ATachyonJump::DoJumpVisuals_Implementation()
 		JumpParticles->Activate();
 	}
 }
-
 
 // unused
 void ATachyonJump::UpdateJump(float DeltaTime)

@@ -45,6 +45,8 @@ protected:
 	FTimerHandle TimerHandle_TimeBetweenJumps;
 	float TimeBetweenJumps = 0.0f;
 
+	FTimerHandle TimerHandle_EndJumpTimer;
+
 	void Jump();
 	
 	UFUNCTION(Server, Reliable, WithValidation)

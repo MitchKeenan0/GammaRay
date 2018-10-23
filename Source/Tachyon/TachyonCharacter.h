@@ -161,6 +161,9 @@ public:
 	UFUNCTION()
 	void EndJump();
 
+	UFUNCTION()
+	void StartShield();
+
 	void UpdateBody(float DeltaTime);
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
 	void ServerUpdateBody(float DeltaTime);
@@ -262,6 +265,11 @@ protected:
 	TSubclassOf<ATachyonAttack> AttackClass;
 	UPROPERTY(Replicated)
 	class ATachyonAttack* ActiveAttack = nullptr;
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<ATachyonAttack> ShieldClass;
+	UPROPERTY(Replicated)
+	class ATachyonAttack* ActiveShield = nullptr;
 
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<AActor> AttackWindupClass;

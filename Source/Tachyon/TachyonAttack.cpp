@@ -56,6 +56,11 @@ void ATachyonAttack::StartFire()
 {
 	float FirstDelay = FMath::Max(LastFireTime + TimeBetweenShots - GetWorld()->TimeSeconds, 0.0f);
 	GetWorldTimerManager().SetTimer(TimerHandle_TimeBetweenShots, this, &ATachyonAttack::Fire, TimeBetweenShots, true, FirstDelay);
+
+	if (ActorHasTag("Shield"))
+	{
+		GetWorldTimerManager().SetTimer(TimerHandle_ShieldNeutralizeTimer, this, &ATachyonAttack::Neutralize, DurationTime, false, 0.0f);
+	}
 }
 
 void ATachyonAttack::EndFire()
@@ -234,6 +239,7 @@ void ATachyonAttack::ActivateParticles()
 	if (AttackParticles != nullptr)
 	{
 		AttackParticles->Activate();
+		AttackParticles->ActivateSystem();
 	}
 }
 
@@ -351,7 +357,7 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 			if (GlobalDilation > 0.01f)
 			{
 				HitTimer += DeltaT;
-				if (HitTimer >= (1.0f / ActualHitsPerSecond))
+				if (!bFirstHitReported || (HitTimer >= (1.0f / ActualHitsPerSecond)))
 				{
 					RaycastForHit(GetActorForwardVector());
 					HitTimer = 0.0f;
@@ -546,6 +552,7 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 	ReportHitToMatch(OwningShooter, HitActor);
 
 	ActualHitsPerSecond *= HitsPerSecondDecay;
+	AttackParticles->CustomTimeDilation *= HitsPerSecondDecay;
 }
 
 // unused
@@ -610,20 +617,23 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 
 void ATachyonAttack::CallForTimescale(AActor* TargetActor, bool bGlobal, float NewTimescale)
 {
-	ATachyonGameStateBase* TGState = Cast<ATachyonGameStateBase>(GetWorld()->GetGameState());
-	if (TGState != nullptr)
+	if (AttackParticles->IsActive())
 	{
-		if (bGlobal)
+		ATachyonGameStateBase* TGState = Cast<ATachyonGameStateBase>(GetWorld()->GetGameState());
+		if (TGState != nullptr)
 		{
-			TGState->SetGlobalTimescale(NewTimescale);
+			if (bGlobal)
+			{
+				TGState->SetGlobalTimescale(NewTimescale);
+			}
+			else
+			{
+				TGState->SetActorTimescale(TargetActor, NewTimescale);
+				TGState->SetActorTimescale(OwningShooter, NewTimescale);
+			}
+
+			TGState->ForceNetUpdate();
 		}
-		else
-		{
-			TGState->SetActorTimescale(TargetActor, NewTimescale);
-			TGState->SetActorTimescale(OwningShooter, NewTimescale);
-		}
-		
-		TGState->ForceNetUpdate();
 	}
 }
 
@@ -648,6 +658,7 @@ void ATachyonAttack::Neutralize()
 	// Reset components
 	if (AttackParticles != nullptr)
 	{
+		AttackParticles->CustomTimeDilation = 1.0f;
 		AttackParticles->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
 		AttackParticles->Deactivate();
 	}
@@ -664,6 +675,8 @@ void ATachyonAttack::Neutralize()
 	FRotator MyRotation = GetActorRotation();
 	MyRotation.Pitch = 0.0f;
 	SetActorRotation(MyRotation);
+
+	GetWorldTimerManager().ClearTimer(TimerHandle_ShieldNeutralizeTimer);
 }
 
 

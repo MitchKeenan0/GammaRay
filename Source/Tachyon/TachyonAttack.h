@@ -63,6 +63,8 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+	FTimerHandle TimerHandle_ShieldNeutralizeTimer;
+
 	float LastFireTime = 0.0f;
 	FTimerHandle TimerHandle_TimeBetweenShots;
 	float TimeBetweenShots = 0.0f;
