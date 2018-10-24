@@ -162,7 +162,7 @@ public:
 	void EndJump();
 
 	UFUNCTION()
-	void StartShield();
+	void Shield();
 
 	void UpdateBody(float DeltaTime);
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
@@ -209,6 +209,8 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+
+	void SpawnAbilities();
 
 	// MOVEMENT ///////////////////////////////////////////////////////////////
 	void MoveRight(float Value);
@@ -267,11 +269,6 @@ protected:
 	class ATachyonAttack* ActiveAttack = nullptr;
 
 	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<ATachyonAttack> ShieldClass;
-	UPROPERTY(Replicated)
-	class ATachyonAttack* ActiveShield = nullptr;
-
-	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<AActor> AttackWindupClass;
 	UPROPERTY(Replicated)
 	class AActor* ActiveWindup = nullptr;
@@ -280,6 +277,11 @@ protected:
 	TSubclassOf<AActor> BoostClass;
 	UPROPERTY(Replicated)
 	class ATachyonJump* ActiveBoost = nullptr;
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<ATachyonAttack> SecondaryClass;
+	UPROPERTY(Replicated)
+	class ATachyonAttack* ActiveSecondary = nullptr;
 
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<ATApparel> ApparelClass;

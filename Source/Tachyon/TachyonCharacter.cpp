@@ -88,11 +88,42 @@ void ATachyonCharacter::BeginPlay()
 	GetCharacterMovement()->BrakingFrictionFactor = 50.0f;
 
 	// Spawn player's weapon & jump objects
-	if ((Role == ROLE_Authority) || ActorHasTag("Bot"))
+	SpawnAbilities();
+}
+
+void ATachyonCharacter::SpawnAbilities()
+{
+	if (HasAuthority() || ActorHasTag("Bot"))
 	{
+		if (ActorHasTag("Bot"))
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Yellow, TEXT("Had tag Bot"));
+		}
+
 		FActorSpawnParameters SpawnParams;
 		FVector SpawnLoca = AttackScene->GetComponentLocation();
 		FRotator SpawnRota = GetActorForwardVector().Rotation();
+
+		if (SecondaryClass != nullptr)
+		{
+			ActiveSecondary = GetWorld()->SpawnActor<ATachyonAttack>(SecondaryClass, SpawnLoca, SpawnRota, SpawnParams);
+			if (ActiveSecondary != nullptr)
+			{
+				ActiveSecondary->SetOwner(this);
+				if (ActiveSecondary->IsLockedEmitPoint())
+				{
+					ActiveSecondary->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+				}
+			}
+			else
+			{
+				GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Yellow, TEXT("shield spawn didnt go"));
+			}
+		}
+		else
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Yellow, TEXT("no shield class"));
+		}
 		
 		if (AttackClass != nullptr)
 		{
@@ -103,19 +134,6 @@ void ATachyonCharacter::BeginPlay()
 				if (ActiveAttack->IsLockedEmitPoint())
 				{
 					ActiveAttack->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
-				}
-			}
-		}
-
-		if (ShieldClass != nullptr)
-		{
-			ActiveShield = GetWorld()->SpawnActor<ATachyonAttack>(ShieldClass, SpawnLoca, SpawnRota, SpawnParams);
-			if (ActiveShield != nullptr)
-			{
-				ActiveShield->SetOwner(this);
-				if (ActiveShield->IsLockedEmitPoint())
-				{
-					ActiveShield->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
 				}
 			}
 		}
@@ -170,7 +188,7 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 	// Actions
 	PlayerInputComponent->BindAction("Attack", IE_Pressed, this, &ATachyonCharacter::StartFire);
 	PlayerInputComponent->BindAction("Attack", IE_Released, this, &ATachyonCharacter::EndFire);
-	PlayerInputComponent->BindAction("Shield", IE_Pressed, this, &ATachyonCharacter::StartShield);
+	PlayerInputComponent->BindAction("Shield", IE_Pressed, this, &ATachyonCharacter::Shield);
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ATachyonCharacter::StartJump);
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ATachyonCharacter::EndJump);
 	PlayerInputComponent->BindAction("SummonBot", IE_Pressed, this, &ATachyonCharacter::RequestBots);
@@ -261,12 +279,11 @@ void ATachyonCharacter::EndFire()
 	}
 }
 
-
-void ATachyonCharacter::StartShield()
+void ATachyonCharacter::Shield()
 {
-	if (ActiveShield != nullptr)
+	if (ActiveSecondary != nullptr)
 	{
-		ActiveShield->StartFire();
+		ActiveSecondary->StartFire();
 	}
 }
 
@@ -784,6 +801,7 @@ void ATachyonCharacter::GetLifetimeReplicatedProps(TArray <FLifetimeProperty> & 
 	DOREPLIFETIME(ATachyonCharacter, ActiveAttack);
 	DOREPLIFETIME(ATachyonCharacter, ActiveWindup);
 	DOREPLIFETIME(ATachyonCharacter, ActiveBoost);
+	DOREPLIFETIME(ATachyonCharacter, ActiveSecondary);
 
 	DOREPLIFETIME(ATachyonCharacter, Health);
 	DOREPLIFETIME(ATachyonCharacter, MaxHealth);

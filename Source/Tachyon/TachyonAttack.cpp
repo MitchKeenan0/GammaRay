@@ -40,6 +40,8 @@ ATachyonAttack::ATachyonAttack()
 	SetReplicates(true);
 	bReplicateMovement = true;
 	NetDormancy = ENetDormancy::DORM_Never;
+	NetUpdateFrequency = 60.0f;
+	MinNetUpdateFrequency = 30.0f;
 }
 
 
@@ -54,12 +56,16 @@ void ATachyonAttack::BeginPlay()
 
 void ATachyonAttack::StartFire()
 {
-	float FirstDelay = FMath::Max(LastFireTime + TimeBetweenShots - GetWorld()->TimeSeconds, 0.0f);
-	GetWorldTimerManager().SetTimer(TimerHandle_TimeBetweenShots, this, &ATachyonAttack::Fire, TimeBetweenShots, true, FirstDelay);
-
 	if (ActorHasTag("Shield"))
 	{
-		GetWorldTimerManager().SetTimer(TimerHandle_ShieldNeutralizeTimer, this, &ATachyonAttack::Neutralize, DurationTime, false, 0.0f);
+		Fire();
+		Lethalize();
+		/// Shields don't currently use EndFire calls
+	}
+	else
+	{
+		float FirstDelay = FMath::Max(LastFireTime + TimeBetweenShots - GetWorld()->TimeSeconds, 0.0f);
+		GetWorldTimerManager().SetTimer(TimerHandle_TimeBetweenShots, this, &ATachyonAttack::Fire, TimeBetweenShots, true, FirstDelay);
 	}
 }
 
@@ -178,6 +184,8 @@ void ATachyonAttack::Lethalize()
 
 			// Calculate and set magnitude characteristics
 			float GeneratedMagnitude = FMath::Clamp((GetWorld()->TimeSeconds - TimeAtInit), 0.1f, 1.0f);
+			if (bSecondary)
+				GeneratedMagnitude = 1.0f;
 			AttackMagnitude = GeneratedMagnitude;
 
 			float NewHitRate = FMath::Clamp((HitsPerSecond * (AttackMagnitude * 2.1f)), 1.0f, HitsPerSecond);
@@ -251,12 +259,17 @@ void ATachyonAttack::SetInitVelocities()
 	// Inherit some velocity from owning shooter
 	if ((ProjectileComponent != nullptr) && (ProjectileSpeed != 0.0f))
 	{
-		ProjectileComponent->Velocity = GetActorForwardVector() * ProjectileSpeed;
+		FVector InitialVelocity = GetActorForwardVector() * ProjectileSpeed;
+		InitialVelocity.Y = 0.0f;
+		ProjectileComponent->Velocity = InitialVelocity;
 		
 		float VelSize = ShooterVelocity.Size();
 		if (VelSize != 0.0f)
 		{
-			FVector ScalarVelocity = ShooterVelocity.GetSafeNormal() * FMath::Sqrt(VelSize) * ProjectileSpeed;
+			float ScalarProjectileSpeed = ProjectileSpeed;
+			if (bSecondary)
+				ScalarProjectileSpeed *= 0.0f;
+			FVector ScalarVelocity = ShooterVelocity.GetSafeNormal() * FMath::Sqrt(VelSize) * ScalarProjectileSpeed;
 			ScalarVelocity.Z *= 0.21f;
 			ProjectileComponent->Velocity += ScalarVelocity;
 		}
@@ -321,11 +334,6 @@ void ATachyonAttack::Tick(float DeltaTime)
 	{
 		UpdateLifeTime(DeltaTime);
 	}
-
-	if ((GetWorld()->TimeSeconds - TimeAtInit) >= 2.0f)
-	{
-		Lethalize();
-	}
 }
 
 
@@ -336,6 +344,12 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 	if (bGameEnder && (UGameplayStatics::GetGlobalTimeDilation(GetWorld()) != 0.01f))
 	{
 		CallForTimescale(this, true, 0.01f);
+	}
+
+	// Fully charged 'timeout' hit
+	if ((GetWorld()->TimeSeconds - TimeAtInit) >= 2.0f)
+	{
+		Lethalize();
 	}
 
 	// Attack main line
@@ -553,6 +567,9 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 
 	ActualHitsPerSecond *= HitsPerSecondDecay;
 	AttackParticles->CustomTimeDilation *= HitsPerSecondDecay;
+
+	if (!bFirstHitReported)
+		bFirstHitReported = true;
 }
 
 // unused
@@ -608,7 +625,6 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 				float ImpactScalar = (AttackMagnitude * 2.0f);
 				float HitTimescale = FMath::Clamp((1.0f - ImpactScalar), 0.07f, 0.7f);
 				CallForTimescale(Mark, false, HitTimescale);
-				bFirstHitReported = true;
 			}
 		}
 	}
@@ -676,17 +692,17 @@ void ATachyonAttack::Neutralize()
 	MyRotation.Pitch = 0.0f;
 	SetActorRotation(MyRotation);
 
-	GetWorldTimerManager().ClearTimer(TimerHandle_ShieldNeutralizeTimer);
+	SetActorLocation(GetOwner()->GetActorLocation());
 }
 
 
 // COLLISION BEGIN
 void ATachyonAttack::OnAttackBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	bool bTime = (HitTimer >= (1 / ActualHitsPerSecond));
-	bool bActors = (OwningShooter != nullptr) && (OtherActor != nullptr);
+	bool bTime = !bFirstHitReported || (HitTimer >= (1 / ActualHitsPerSecond));
+	bool bActors = (OwningShooter != nullptr) && (OtherActor != nullptr) && (OtherActor != OwningShooter);
 	float TimeSc = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
-	if (bTime && bActors && (bLethal && !bDoneLethal) && (OtherActor != OwningShooter) && (TimeSc > 0.5f))
+	if (bTime && bActors && (bLethal && !bDoneLethal) && (TimeSc > 0.05f))
 	{
 		FVector DamageLocation = GetActorLocation() + (OwningShooter->GetActorForwardVector() * RaycastHitRange);
 		if (ActorHasTag("Obstacle"))
@@ -694,8 +710,8 @@ void ATachyonAttack::OnAttackBeginOverlap(UPrimitiveComponent* OverlappedCompone
 			DamageLocation = GetActorLocation() + SweepResult.ImpactPoint;
 		}
 
-		// Got'em
-		//HitEffects(OtherActor, DamageLocation);
+		MainHit(OtherActor, DamageLocation);
+		HitTimer = 0.0f;
 	}
 }
 
