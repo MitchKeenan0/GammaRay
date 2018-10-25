@@ -115,14 +115,6 @@ void ATachyonCharacter::SpawnAbilities()
 					ActiveSecondary->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
 				}
 			}
-			else
-			{
-				GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Yellow, TEXT("shield spawn didnt go"));
-			}
-		}
-		else
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Yellow, TEXT("no shield class"));
 		}
 		
 		if (AttackClass != nullptr)

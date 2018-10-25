@@ -314,13 +314,21 @@ void ATachyonAttack::RedirectAttack()
 			
 			NewRotation.Pitch = FMath::Clamp(NewRotation.Pitch, -ShootingAngle, ShootingAngle);
 			
-			SetActorRotation(NewRotation);
+			if (!bSecondary)
+			{
+				SetActorRotation(NewRotation);
+				FVector EmitLocation;
+				FRotator EmitRotation;
+				OwningShooter->GetActorEyesViewPoint(EmitLocation, EmitRotation);
+				SetActorLocation(EmitLocation);
+			}
+			else
+			{
+				float ProjectileClock = ProjectileComponent->Velocity.Size();
+				FVector RedirectionVelocity = NewRotation.Vector().GetSafeNormal() * ProjectileClock;
+				ProjectileComponent->Velocity = RedirectionVelocity;
+			}
 		}
-		
-		FVector EmitLocation;
-		FRotator EmitRotation;
-		OwningShooter->GetActorEyesViewPoint(EmitLocation, EmitRotation);
-		SetActorLocation(EmitLocation);
 	}
 }
 
@@ -347,7 +355,7 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 	}
 
 	// Fully charged 'timeout' hit
-	if ((GetWorld()->TimeSeconds - TimeAtInit) >= 2.0f)
+	if (!bDoneLethal && ((GetWorld()->TimeSeconds - TimeAtInit) >= 2.0f))
 	{
 		Lethalize();
 	}
@@ -365,7 +373,7 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 		}
 
 		// Hits Per Second
-		if (!bDoneLethal && (LifeTimer >= ActualDeliveryTime))
+		if (bLethal && !bDoneLethal && (LifeTimer >= ActualDeliveryTime))
 		{
 			float GlobalDilation = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
 			if (GlobalDilation > 0.01f)
@@ -394,7 +402,7 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 	}
 
 	// Time to go
-	if (LifeTimer >= (ActualDeliveryTime + ActualLethalTime))
+	if (!bDoneLethal && (LifeTimer >= (ActualDeliveryTime + ActualLethalTime)))
 	{
 		bDoneLethal = true;
 		bLethal = false;
@@ -567,6 +575,7 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 
 	ActualHitsPerSecond *= HitsPerSecondDecay;
 	AttackParticles->CustomTimeDilation *= HitsPerSecondDecay;
+	ProjectileComponent->Velocity *= (1.0f - ProjectileDrag);
 
 	if (!bFirstHitReported)
 		bFirstHitReported = true;
@@ -656,43 +665,47 @@ void ATachyonAttack::CallForTimescale(AActor* TargetActor, bool bGlobal, float N
 
 void ATachyonAttack::Neutralize()
 {
-	// Reset variables
-	bNeutralized = true;
-	bInitialized = false;
-	bDoneLethal = false;
-	bLethal = false;
-	bGameEnder = false;
-	bFirstHitReported = false;
-	LifeTimer = 0.0f;
-	HitTimer = (1.0f / HitsPerSecond);
-	TimeBetweenShots = RefireTime;
-	ActualHitsPerSecond = HitsPerSecond;
-	ActualDeliveryTime = DeliveryTime;
-	ActualAttackDamage = AttackDamage;
-	ActualLethalTime = LethalTime;
-	
-	// Reset components
-	if (AttackParticles != nullptr)
+	if (Role == ROLE_Authority)
 	{
-		AttackParticles->CustomTimeDilation = 1.0f;
-		AttackParticles->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
-		AttackParticles->Deactivate();
-	}
-	if (AttackSound != nullptr)
-	{
-		AttackSound->Deactivate();
-	}
-	if (AttackRadial != nullptr)
-	{
-		AttackRadial->SetWorldLocation(GetActorLocation());
-	}
+		// Reset variables
+		bNeutralized = true;
+		bInitialized = false;
+		bDoneLethal = false;
+		bLethal = false;
+		bGameEnder = false;
+		bFirstHitReported = false;
+		LifeTimer = 0.0f;
+		HitTimer = (1.0f / HitsPerSecond);
+		TimeBetweenShots = RefireTime;
+		ActualHitsPerSecond = HitsPerSecond;
+		ActualDeliveryTime = DeliveryTime;
+		ActualAttackDamage = AttackDamage;
+		ActualLethalTime = LethalTime;
 
-	// Reset rotation
-	FRotator MyRotation = GetActorRotation();
-	MyRotation.Pitch = 0.0f;
-	SetActorRotation(MyRotation);
+		// Reset components
+		if (AttackParticles != nullptr)
+		{
+			AttackParticles->CustomTimeDilation = 1.0f;
+			AttackParticles->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
+			AttackParticles->Deactivate();
+			AttackParticles->DeactivateSystem();
+		}
+		if (AttackSound != nullptr)
+		{
+			AttackSound->Deactivate();
+		}
+		if (AttackRadial != nullptr)
+		{
+			AttackRadial->SetWorldLocation(GetActorLocation());
+		}
 
-	SetActorLocation(GetOwner()->GetActorLocation());
+		// Reset rotation
+		FRotator MyRotation = GetActorRotation();
+		MyRotation.Pitch = 0.0f;
+		SetActorRotation(MyRotation);
+
+		SetActorLocation(GetOwner()->GetActorLocation());
+	}
 }
 
 
