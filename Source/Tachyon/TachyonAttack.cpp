@@ -316,7 +316,6 @@ void ATachyonAttack::RedirectAttack()
 			
 			if (!bSecondary)
 			{
-				SetActorRotation(NewRotation);
 				FVector EmitLocation;
 				FRotator EmitRotation;
 				OwningShooter->GetActorEyesViewPoint(EmitLocation, EmitRotation);
@@ -328,6 +327,8 @@ void ATachyonAttack::RedirectAttack()
 				FVector RedirectionVelocity = NewRotation.Vector().GetSafeNormal() * ProjectileClock;
 				ProjectileComponent->Velocity = RedirectionVelocity;
 			}
+
+			SetActorRotation(NewRotation);
 		}
 	}
 }
@@ -629,7 +630,7 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		else
 		{
 			// Basic hits
-			if (!bFirstHitReported)
+			if (!bFirstHitReported || bSecondary)
 			{
 				float ImpactScalar = (AttackMagnitude * 2.0f);
 				float HitTimescale = FMath::Clamp((1.0f - ImpactScalar), 0.07f, 0.7f);
