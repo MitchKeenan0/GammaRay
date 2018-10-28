@@ -51,16 +51,18 @@ void ATachyonAttack::BeginPlay()
 	Super::BeginPlay();
 	
 	TimeBetweenShots = RefireTime;
+
+	if (bSecondary)
+		CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
 
 void ATachyonAttack::StartFire()
 {
-	if (ActorHasTag("Shield"))
+	if (bSecondary)
 	{
 		Fire();
-		Lethalize();
-		/// Shields don't currently use EndFire calls
+		EndFire();
 	}
 	else
 	{
@@ -195,6 +197,10 @@ void ATachyonAttack::Lethalize()
 			ActualLethalTime = LethalTime;
 			HitTimer = (1.0f / ActualHitsPerSecond);
 
+			if (bSecondary)
+				CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+
+
 			// Shooter Recoil
 			if (RecoilForce > 0.0f)
 			{
@@ -222,11 +228,17 @@ bool ATachyonAttack::ServerLethalize_Validate()
 
 void ATachyonAttack::ActivateEffects_Implementation()
 {
-	ActivateParticles();
-	ActivateSound();
-	if (FireShake != nullptr)
+	AActor* MyOwner = GetOwner();
+	if (MyOwner != nullptr)
 	{
-		UGameplayStatics::PlayWorldCameraShake(GetWorld(), FireShake, GetActorLocation(), 0.0f, 9999.0f, 1.0f, false);
+		if ((AttackParticles != nullptr) && !AttackParticles->IsActive())
+			ActivateParticles();
+		
+		if (AttackSound != nullptr)
+			ActivateSound();
+		
+		if (FireShake != nullptr)
+			UGameplayStatics::PlayWorldCameraShake(GetWorld(), FireShake, GetActorLocation(), 0.0f, 9999.0f, 1.0f, false);
 	}
 }
 
@@ -411,6 +423,7 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 
 	if (LifeTimer >= DynamicLifetime)
 	{
+		LastFireTime = GetWorld()->TimeSeconds;
 		Neutralize();
 	}
 }
@@ -510,9 +523,8 @@ void ATachyonAttack::RaycastForHit(FVector RaycastVector)
 		}
 	}
 
-	ActivateEffects();
-
-	LastFireTime = GetWorld()->TimeSeconds;
+	if (!AttackParticles->IsActive() || bDoneLethal)
+		ActivateEffects();
 }
 
 
@@ -539,6 +551,9 @@ void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, floa
 	FVector KnockDirection = (HitActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
 	FVector KnockVector = KnockDirection * (KineticForce * HitScalar * AttackMagnitude);
 	KnockVector.Y = 0.0f;
+
+	float GlobalDilationScalar = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+	KnockVector *= (1.0f / GlobalDilationScalar);
 
 	// Character case
 	ATachyonCharacter* Chara = Cast<ATachyonCharacter>(HitActor);
@@ -666,7 +681,7 @@ void ATachyonAttack::CallForTimescale(AActor* TargetActor, bool bGlobal, float N
 
 void ATachyonAttack::Neutralize()
 {
-	if (Role == ROLE_Authority)
+	if (GetOwner() != nullptr)///(Role == ROLE_Authority) && ())
 	{
 		// Reset variables
 		bNeutralized = true;
@@ -683,13 +698,16 @@ void ATachyonAttack::Neutralize()
 		ActualAttackDamage = AttackDamage;
 		ActualLethalTime = LethalTime;
 
+		if (bSecondary)
+			CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
 		// Reset components
 		if (AttackParticles != nullptr)
 		{
 			AttackParticles->CustomTimeDilation = 1.0f;
 			AttackParticles->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
 			AttackParticles->Deactivate();
-			AttackParticles->DeactivateSystem();
+			//AttackParticles->DeactivateSystem();
 		}
 		if (AttackSound != nullptr)
 		{
