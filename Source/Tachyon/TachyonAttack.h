@@ -91,6 +91,9 @@ protected:
 	UPROPERTY()
 	float ActualLethalTime = 0.0f;
 
+	UPROPERTY()
+	float ActualDurationTime = 0.0f;
+
 	/////////////////////////////////////////////////////////////////////////
 	// Attack functions
 	UFUNCTION()
@@ -107,6 +110,9 @@ protected:
 	void MainHit(AActor* HitActor, FVector HitLocation);
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerMainHit(AActor* HitActor, FVector HitLocation);
+
+	/*UFUNCTION(Server, Reliable, WithValidation)
+	void ServerNeutralize();*/
 
 	UFUNCTION()
 	void ReportHitToMatch(AActor* Shooter, AActor* Mark);
@@ -235,6 +241,9 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	class UAudioComponent* AttackSound = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	UParticleSystem* AttackEffect;
 
 	/////////////////////////////////////////////////////////////////////////
 	// Spawned Resources
