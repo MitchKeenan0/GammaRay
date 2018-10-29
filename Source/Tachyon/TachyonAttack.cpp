@@ -126,42 +126,46 @@ void ATachyonAttack::SpawnBurst()
 
 void ATachyonAttack::InitAttack(AActor* Shooter, float Magnitude, float YScale)
 {
-	OwningShooter = Shooter;
-	if (OwningShooter != nullptr)
+	AActor* MyOwner = GetOwner();
+	if (MyOwner != nullptr)
 	{
-		AttackMagnitude = FMath::Clamp(Magnitude, 0.1f, 1.0f);
-		AttackDirection = YScale;
+		OwningShooter = Shooter;
+		if (OwningShooter != nullptr)
+		{
+			AttackMagnitude = FMath::Clamp(Magnitude, 0.1f, 1.0f);
+			AttackDirection = YScale;
 
-		// Attack magnitude characteristics
-		/*float MagnitudeDelivery = (DeliveryTime * AttackMagnitude) * 0.5555f;
-		DeliveryTime = (DeliveryTime + MagnitudeDelivery);
+			// Attack magnitude characteristics
+			/*float MagnitudeDelivery = (DeliveryTime * AttackMagnitude) * 0.5555f;
+			DeliveryTime = (DeliveryTime + MagnitudeDelivery);
 
-		float ModifiedHitsPerSecond = HitsPerSecond * (AttackMagnitude * 2.1f);
-		HitsPerSecond = (HitsPerSecond + ModifiedHitsPerSecond);
+			float ModifiedHitsPerSecond = HitsPerSecond * (AttackMagnitude * 2.1f);
+			HitsPerSecond = (HitsPerSecond + ModifiedHitsPerSecond);
 
-		float ModifiedKineticForce = (KineticForce * AttackMagnitude) * 0.2222f;
-		KineticForce += ModifiedKineticForce;*/
+			float ModifiedKineticForce = (KineticForce * AttackMagnitude) * 0.2222f;
+			KineticForce += ModifiedKineticForce;*/
 
-		// Movement and VFX
-		RedirectAttack();
-		SetInitVelocities();
-		SpawnBurst();
+			// Movement and VFX
+			RedirectAttack();
+			SetInitVelocities();
+			SpawnBurst();
 
-		// Lifetime
-		DynamicLifetime = (ActualDeliveryTime + ActualLethalTime + ActualDurationTime);
-		///SetLifeSpan(DynamicLifetime * 1.15f);
+			// Lifetime
+			DynamicLifetime = (ActualDeliveryTime + ActualLethalTime + ActualDurationTime);
+			///SetLifeSpan(DynamicLifetime * 1.15f);
 
-		bInitialized = true;
-		bNeutralized = false;
+			bInitialized = true;
+			bNeutralized = false;
 
-		TimeAtInit = GetWorld()->TimeSeconds;
+			TimeAtInit = GetWorld()->TimeSeconds;
 
-		//ForceNetUpdate();
+			//ForceNetUpdate();
 
-		///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("Inited attack"));
-		///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackMagnitude: %f"), AttackMagnitude));
-		///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("HitsPerSecond:   %f"), HitsPerSecond));
-		///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackDamage:    %f"), AttackDamage));
+			///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("Inited attack"));
+			///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackMagnitude: %f"), AttackMagnitude));
+			///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("HitsPerSecond:   %f"), HitsPerSecond));
+			///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackDamage:    %f"), AttackDamage));
+		}
 	}
 }
 
@@ -210,9 +214,6 @@ void ATachyonAttack::Lethalize()
 					CharacterShooter->ReceiveKnockback(RecoilVector, true);
 				}
 			}
-
-
-			GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("ActualDeliveryTime: %f"), ActualDeliveryTime));
 		}
 	}
 }
@@ -353,9 +354,13 @@ void ATachyonAttack::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (bInitialized && !bNeutralized)
+	AActor* MyOwner = GetOwner();
+	if (MyOwner != nullptr)
 	{
-		UpdateLifeTime(DeltaTime);
+		if (bInitialized && !bNeutralized)
+		{
+			UpdateLifeTime(DeltaTime);
+		}
 	}
 }
 
@@ -369,8 +374,9 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 		CallForTimescale(this, true, 0.01f);
 	}
 
-	// Fully charged 'timeout' hit
-	if (!bSecondary && !bDoneLethal && ((GetWorld()->TimeSeconds - TimeAtInit) >= 2.0f))
+	// Fully charged 'timeout' to release attack
+	if (!bSecondary && !bDoneLethal 
+		&& ((GetWorld()->TimeSeconds - TimeAtInit) >= 2.0f))
 	{
 		Lethalize();
 	}
@@ -559,10 +565,12 @@ void ATachyonAttack::SpawnHit(AActor* HitActor, FVector HitLocation)
 
 void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, float HitScalar)
 {
-	FVector KnockDirection = (HitActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+	// Init intended force
+	FVector KnockDirection = GetActorForwardVector() + (HitActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
 	FVector KnockVector = KnockDirection * (KineticForce * HitScalar * AttackMagnitude);
 	KnockVector.Y = 0.0f;
 
+	// Adjust force size for time dilation
 	float GlobalDilationScalar = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
 	if (GlobalDilationScalar <= 0.05f)
 		GlobalDilationScalar = 0.0f;
@@ -638,18 +646,6 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 			}
 		}
 
-		// Modify Health of Mark
-		if (Role == ROLE_Authority)
-		{
-			HitTachyon->ModifyHealth(-ActualAttackDamage);
-
-			// Scale intensity for next hit
-			NumHits += 1;
-			ActualAttackDamage += NumHits;
-			ActualLethalTime += TimeExtendOnHit;
-			ActualDurationTime += TimeExtendOnHit;
-		}
-		
 		// Call it in
 		float TachyonHealth = HitTachyon->GetHealth();
 		if (TachyonHealth <= 0.0f)
@@ -668,6 +664,18 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 				CallForTimescale(Mark, false, HitTimescale);
 			}
 		}
+
+		// Modify Health of Mark
+		if ((Role == ROLE_Authority) && !bGameEnder)
+		{
+			HitTachyon->ModifyHealth(-ActualAttackDamage);
+
+			// Scale intensity for next hit
+			NumHits += 1;
+			ActualAttackDamage += NumHits;
+			ActualLethalTime += TimeExtendOnHit;
+			ActualDurationTime += TimeExtendOnHit;
+		}
 	}
 }
 
@@ -680,6 +688,7 @@ void ATachyonAttack::CallForTimescale(AActor* TargetActor, bool bGlobal, float N
 		if (bGlobal)
 		{
 			TGState->SetGlobalTimescale(NewTimescale);
+			Neutralize();
 		}
 		else
 		{
@@ -694,7 +703,8 @@ void ATachyonAttack::CallForTimescale(AActor* TargetActor, bool bGlobal, float N
 
 void ATachyonAttack::Neutralize()
 {
-	if (Role == ROLE_Authority)
+	AActor* MyOwner = GetOwner();
+	if (MyOwner != nullptr)
 	{
 		if (AttackParticles != nullptr)
 		{

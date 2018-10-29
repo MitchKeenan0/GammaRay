@@ -147,6 +147,9 @@ protected:
 	bool LockedEmitPoint = true;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	FVector WindupPullDirection = FVector::ZeroVector;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	float DeliveryTime = 0.1f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
