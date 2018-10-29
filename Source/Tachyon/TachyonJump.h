@@ -78,6 +78,9 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	class UParticleSystemComponent* JumpParticles = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Jump")
+	UParticleSystem* JumpEffect;
 	
 
 	

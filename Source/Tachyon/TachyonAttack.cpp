@@ -210,6 +210,9 @@ void ATachyonAttack::Lethalize()
 					CharacterShooter->ReceiveKnockback(RecoilVector, true);
 				}
 			}
+
+
+			GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("ActualDeliveryTime: %f"), ActualDeliveryTime));
 		}
 	}
 }
@@ -604,9 +607,6 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 	ActualHitsPerSecond *= HitsPerSecondDecay;
 
 	ProjectileComponent->Velocity *= (1.0f - ProjectileDrag);
-
-	/*if (AttackParticles != nullptr)
-		AttackParticles->CustomTimeDilation *= HitsPerSecondDecay;*/
 
 	if (!bFirstHitReported)
 		bFirstHitReported = true;

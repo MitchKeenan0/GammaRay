@@ -134,9 +134,13 @@ void ATachyonJump::InitJump(FVector JumpDirection, ACharacter* Jumper)
 
 void ATachyonJump::DoJumpVisuals_Implementation()
 {
-	if (JumpParticles != nullptr)
+	if (JumpEffect != nullptr)
 	{
-		JumpParticles->Activate();
+		JumpParticles = UGameplayStatics::SpawnEmitterAttached(JumpEffect, GetRootComponent(), NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
+		if (JumpParticles != nullptr)
+		{
+			JumpParticles->bAutoDestroy = true;
+		}
 	}
 }
 
