@@ -83,7 +83,7 @@ protected:
 	UPROPERTY(BlueprintReadWrite)
 	float LifeTimer = 0.0f;
 
-	UFUNCTION(NetMulticast, Reliable)
+	UFUNCTION(NetMulticast, Reliable) /// 
 	void ActivateEffects();
 
 	UPROPERTY()

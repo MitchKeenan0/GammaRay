@@ -60,7 +60,7 @@ void ATachyonAttack::BeginPlay()
 void ATachyonAttack::StartFire()
 {
 	float FirstDelay = FMath::Max(LastFireTime + TimeBetweenShots - GetWorld()->TimeSeconds, 0.0f);
-	
+
 	GetWorldTimerManager().SetTimer(TimerHandle_TimeBetweenShots, this, &ATachyonAttack::Fire, TimeBetweenShots, true, FirstDelay);
 }
 
@@ -84,7 +84,28 @@ void ATachyonAttack::Fire()
 	{
 		if (!bInitialized)
 		{
-			InitAttack();
+			OwningShooter = MyOwner;
+
+			// Movement and VFX
+			RedirectAttack();
+			SetInitVelocities();
+			
+			if (Role == ROLE_Authority)
+			{
+				SpawnBurst();	
+			}
+
+			bInitialized = true;
+			bNeutralized = false;
+
+			// Used to determine magnitude at Lethalize
+			TimeAtInit = GetWorld()->TimeSeconds;
+
+			// Debug bank
+			///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("Inited attack"));
+			///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackMagnitude: %f"), AttackMagnitude));
+			///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("HitsPerSecond:   %f"), HitsPerSecond));
+			///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackDamage:    %f"), AttackDamage));
 		}
 	}
 }
@@ -127,24 +148,32 @@ void ATachyonAttack::InitAttack()
 	AActor* MyOwner = GetOwner();
 	if (MyOwner != nullptr)
 	{
-		OwningShooter = MyOwner;
+		if (!bInitialized)
+		{
+			OwningShooter = MyOwner;
 
-		// Movement and VFX
-		RedirectAttack();
-		SetInitVelocities();
-		SpawnBurst();
+			// Movement and VFX
+			RedirectAttack();
+			SetInitVelocities();
+			SpawnBurst();
 
-		bInitialized = true;
-		bNeutralized = false;
+			bInitialized = true;
+			bNeutralized = false;
 
-		// Used to determine magnitude at Lethalize
-		TimeAtInit = GetWorld()->TimeSeconds;
+			// Used to determine magnitude at Lethalize
+			TimeAtInit = GetWorld()->TimeSeconds;
 
-		// Debug bank
-		/// GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("Inited attack"));
-		/// GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackMagnitude: %f"), AttackMagnitude));
-		/// GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("HitsPerSecond:   %f"), HitsPerSecond));
-		/// GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackDamage:    %f"), AttackDamage));
+			// Debug bank
+			GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("Inited attack"));
+			/// GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackMagnitude: %f"), AttackMagnitude));
+			/// GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("HitsPerSecond:   %f"), HitsPerSecond));
+			/// GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackDamage:    %f"), AttackDamage));
+		}
+	}
+
+	if (bSecondary)
+	{
+		EndFire();
 	}
 }
 
@@ -159,7 +188,7 @@ void ATachyonAttack::Lethalize()
 	AActor* MyOwner = GetOwner();
 	if (MyOwner != nullptr)
 	{
-		if (!bLethal && bInitialized && !bNeutralized && !bDoneLethal)
+		if (bInitialized)
 		{
 			RedirectAttack();
 
@@ -172,7 +201,7 @@ void ATachyonAttack::Lethalize()
 			float NewHitRate = FMath::Clamp((HitsPerSecond * (AttackMagnitude * 2.1f)), 1.0f, HitsPerSecond);
 			ActualHitsPerSecond = NewHitRate;
 			ActualAttackDamage *= (1.0f + AttackMagnitude);
-			
+
 			ActualLethalTime = LethalTime + AttackMagnitude;
 			ActualDeliveryTime *= AttackMagnitude;
 			ActualDurationTime = ActualDeliveryTime + DurationTime;
@@ -180,7 +209,7 @@ void ATachyonAttack::Lethalize()
 			HitTimer = (1.0f / ActualHitsPerSecond);
 
 			// Physically prepare
-			ActivateEffects();
+			//ActivateEffects();
 
 			if (bSecondary)
 				CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
@@ -201,7 +230,8 @@ void ATachyonAttack::Lethalize()
 			// Start shooting and timeout process
 			LastFireTime = GetWorld()->TimeSeconds;
 
-			GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, (1.0f / ActualHitsPerSecond), true, 0.0f);
+			if (HasAuthority())
+				GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, (1.0f / ActualHitsPerSecond), true, 0.0f);
 
 			GetWorldTimerManager().SetTimer(TimerHandle_Neutralize, this, &ATachyonAttack::Neutralize, ActualDurationTime, false, ActualDurationTime);
 
@@ -222,13 +252,13 @@ bool ATachyonAttack::ServerLethalize_Validate()
 }
 
 
-void ATachyonAttack::ActivateEffects_Implementation()
+void ATachyonAttack::ActivateEffects_Implementation() /// 
 {
 	ActivateParticles();
 
 	if (AttackSound != nullptr)
 		ActivateSound();
-
+	
 	AActor* MyOwner = GetOwner();
 	if (MyOwner != nullptr)
 	{
@@ -251,7 +281,7 @@ void ATachyonAttack::ActivateSound()
 
 void ATachyonAttack::ActivateParticles()
 {
-	if ((AttackEffect != nullptr) && !bNeutralized)
+	if (AttackEffect != nullptr)
 	{
 		AttackParticles = UGameplayStatics::SpawnEmitterAttached(AttackEffect, GetRootComponent(), NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
 		if (AttackParticles != nullptr)
@@ -362,11 +392,11 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 	}
 
 	// Fully charged 'timeout' to release attack
-	if (!bSecondary && !bDoneLethal 
+	/*if (!bSecondary && !bDoneLethal 
 		&& ((GetWorld()->TimeSeconds - TimeAtInit) >= 2.0f))
 	{
 		Lethalize();
-	}
+	}*/
 
 	// Attack main line
 	//if (bLethal || bDoneLethal)
@@ -375,10 +405,10 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 	//	LifeTimer += CustomDeltaTime;
 
 	//	// Responsive aim for flex shots
-	//	/*if (LifeTimer <= RedirectionTime)
+	//	if (LifeTimer <= RedirectionTime)
 	//	{
 	//		RedirectAttack();
-	//	}*/
+	//	}
 	//}
 }
 
@@ -490,6 +520,8 @@ void ATachyonAttack::RaycastForHit()
 				}
 			}
 		}
+
+		ActivateEffects();
 	}
 }
 void ATachyonAttack::ServerRaycastForHit_Implementation()
@@ -553,14 +585,14 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 	ATachyonAttack* PotentialAttack = Cast<ATachyonAttack>(HitActor);
 	if (PotentialAttack != nullptr)
 	{
-		if (PotentialAttack->GetOwner() == this->GetOwner())
+		if (PotentialAttack->OwningShooter == this->OwningShooter)
 		{
 			return;
 		}
 	}
 
 	// Smashy fx
-	if (!bGameEnder)
+	if (HasAuthority() && !bGameEnder)
 	{
 		SpawnHit(HitActor, HitLocation);
 		ApplyKnockForce(HitActor, HitLocation, 1.0f);
