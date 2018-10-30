@@ -32,7 +32,7 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 	UFUNCTION()
-	void InitAttack(AActor* Shooter, float Magnitude, float YScale);
+	void InitAttack();
 
 	UFUNCTION()
 	void ActivateSound();
@@ -68,6 +68,13 @@ protected:
 	float TimeBetweenShots = 0.0f;
 	float TimeAtInit = 0.0f;
 
+	FTimerHandle TimerHandle_DeliveryTime;
+
+	FTimerHandle TimerHandle_Neutralize;
+
+	FTimerHandle TimerHandle_Raycast;
+
+	UFUNCTION()
 	void Fire();
 
 	UFUNCTION(Server, Reliable, WithValidation)
@@ -97,6 +104,11 @@ protected:
 	/////////////////////////////////////////////////////////////////////////
 	// Attack functions
 	UFUNCTION()
+	void RaycastForHit();
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerRaycastForHit();
+
+	UFUNCTION()
 	void RedirectAttack();
 
 	UFUNCTION()
@@ -111,14 +123,11 @@ protected:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerMainHit(AActor* HitActor, FVector HitLocation);
 
-	/*UFUNCTION(Server, Reliable, WithValidation)
-	void ServerNeutralize();*/
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerNeutralize();
 
 	UFUNCTION()
 	void ReportHitToMatch(AActor* Shooter, AActor* Mark);
-
-	UFUNCTION()
-	void RaycastForHit(FVector RaycastVector);
 
 	UFUNCTION()
 	void SpawnHit(AActor* HitActor, FVector HitLocation);

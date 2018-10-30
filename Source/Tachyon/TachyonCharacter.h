@@ -64,7 +64,7 @@ public:
 	float GetX() { return InputX; }
 
 	UFUNCTION()
-	float GetZ() { return InputZ; }
+	float GetZ() { float Z = ((Controller != nullptr) && IsLocallyControlled()) ? InputZ : 0.0f; return Z; }
 
 	UFUNCTION()
 	void SetX(float Value) { InputX = Value; }

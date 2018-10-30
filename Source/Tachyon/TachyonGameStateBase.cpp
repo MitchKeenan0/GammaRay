@@ -88,7 +88,8 @@ void ATachyonGameStateBase::RestartGame()
 				ATachyonAttack* Attack = Cast<ATachyonAttack>(AttackActor);
 				if (Attack != nullptr)
 				{
-					Attack->Neutralize();
+					if (Role == ROLE_Authority)
+						Attack->Neutralize();
 				}
 			}
 		}
@@ -108,9 +109,12 @@ void ATachyonGameStateBase::RestartGame()
 				ATachyonCharacter* Player = Cast<ATachyonCharacter>(PlayerActor);
 				if (Player != nullptr)
 				{
-					Player->ModifyHealth(100.0f);
-					Player->NewTimescale(1.0f);
-					Player->ForceNetUpdate();
+					if (Role == ROLE_Authority)
+					{
+						Player->ModifyHealth(100.0f);
+						Player->NewTimescale(1.0f);
+						Player->ForceNetUpdate();
+					}
 				}
 			}
 		}

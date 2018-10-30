@@ -56,8 +56,12 @@ void ATachyonJump::EndJump()
 		if (MyDude != nullptr)
 		{
 			MyDude->DisengageJump();
-			JumpParticles->DeactivateSystem();
-			JumpParticles->Deactivate();
+			
+			if (JumpParticles != nullptr)
+			{
+				JumpParticles->DeactivateSystem();
+				JumpParticles->Deactivate();
+			}
 		}
 
 		GetWorldTimerManager().ClearTimer(TimerHandle_TimeBetweenJumps);

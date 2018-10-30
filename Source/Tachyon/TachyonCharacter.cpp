@@ -93,13 +93,8 @@ void ATachyonCharacter::BeginPlay()
 
 void ATachyonCharacter::SpawnAbilities()
 {
-	if (HasAuthority() || ActorHasTag("Bot"))
+	if ((Role == ROLE_Authority) || ActorHasTag("Bot"))
 	{
-		if (ActorHasTag("Bot"))
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Yellow, TEXT("Had tag Bot"));
-		}
-
 		FActorSpawnParameters SpawnParams;
 		FVector SpawnLoca = AttackScene->GetComponentLocation();
 		FRotator SpawnRota = GetActorForwardVector().Rotation();
@@ -110,6 +105,7 @@ void ATachyonCharacter::SpawnAbilities()
 			if (ActiveSecondary != nullptr)
 			{
 				ActiveSecondary->SetOwner(this);
+				
 				if (ActiveSecondary->IsLockedEmitPoint())
 				{
 					ActiveSecondary->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
@@ -123,6 +119,7 @@ void ATachyonCharacter::SpawnAbilities()
 			if (ActiveAttack != nullptr)
 			{
 				ActiveAttack->SetOwner(this);
+				
 				if (ActiveAttack->IsLockedEmitPoint())
 				{
 					ActiveAttack->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
@@ -285,26 +282,28 @@ void ATachyonCharacter::Shield()
 
 void ATachyonCharacter::ModifyHealth(float Value)
 {
-	if (Role < ROLE_Authority)
+	/*if (Role < ROLE_Authority)
 	{
 		ServerModifyHealth(Value);
-	}
-	else
+	}*/
+	
+	if (Role == ROLE_Authority)
 	{
-		if (Value >= 100.0f)
-		{
-			Health = 100.0f;
-			MaxHealth = 100.0f;
-		}
-		else
-		{
-			MaxHealth = FMath::Clamp(Health + Value, -1.0f, 100.0f);
-		}
+		ServerModifyHealth(Value);
 	}
 }
 void ATachyonCharacter::ServerModifyHealth_Implementation(float Value)
 {
-	ModifyHealth(Value);
+	//ModifyHealth(Value);
+	if (Value >= 100.0f)
+	{
+		Health = 100.0f;
+		MaxHealth = 100.0f;
+	}
+	else
+	{
+		MaxHealth = FMath::Clamp(Health + Value, -1.0f, 100.0f);
+	}
 }
 bool ATachyonCharacter::ServerModifyHealth_Validate(float Value)
 {
@@ -643,7 +642,7 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 	{
 		float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
 		float ClimbDirection = FMath::Clamp(InputZ * 5.0f, -5.0f, 5.0f);
-		float Roll = FMath::Clamp(InputZ * 11.1f, -11.1f, 11.1f);
+		float Roll = FMath::Clamp(InputZ * -25.1f, -25.1f, 25.1f);
 		float RotatoeSpeed = 15.0f;
 
 		if (TravelDirection < 0.0f)
