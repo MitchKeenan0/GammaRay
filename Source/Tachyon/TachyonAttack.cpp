@@ -589,6 +589,11 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 		{
 			return;
 		}
+		else
+		{
+			// Check for shield here...
+
+		}
 	}
 
 	// Smashy fx
