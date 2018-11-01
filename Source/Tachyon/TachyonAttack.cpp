@@ -101,6 +101,11 @@ void ATachyonAttack::Fire()
 			// Used to determine magnitude at Lethalize
 			TimeAtInit = GetWorld()->TimeSeconds;
 
+			if (bSecondary)
+			{
+				EndFire();
+			}
+
 			// Debug bank
 			///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("Inited attack"));
 			///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackMagnitude: %f"), AttackMagnitude));
@@ -592,7 +597,10 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 		else
 		{
 			// Check for shield here...
-
+			if (PotentialAttack->ActorHasTag("Shield"))
+			{
+				GEngine->AddOnScreenDebugMessage(-1, 10.5f, FColor::White, TEXT("OHH get shielded on"));
+			}
 		}
 	}
 
