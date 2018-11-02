@@ -168,6 +168,7 @@ void ATachyonAttack::InitAttack()
 			// Used to determine magnitude at Lethalize
 			TimeAtInit = GetWorld()->TimeSeconds;
 
+
 			// Debug bank
 			GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("Inited attack"));
 			/// GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackMagnitude: %f"), AttackMagnitude));
@@ -213,9 +214,6 @@ void ATachyonAttack::Lethalize()
 			DynamicLifetime = (ActualDeliveryTime + ActualLethalTime + ActualDurationTime);
 			HitTimer = (1.0f / ActualHitsPerSecond);
 
-			// Physically prepare
-			//ActivateEffects();
-
 			if (bSecondary)
 				CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 
@@ -257,7 +255,7 @@ bool ATachyonAttack::ServerLethalize_Validate()
 }
 
 
-void ATachyonAttack::ActivateEffects_Implementation() /// 
+void ATachyonAttack::ActivateEffects_Implementation()
 {
 	ActivateParticles();
 
@@ -356,12 +354,15 @@ void ATachyonAttack::RedirectAttack()
 		NewRotation.Pitch = FMath::Clamp(NewRotation.Pitch, -ShootingAngle, ShootingAngle);
 		SetActorRotation(NewRotation);
 
-		FVector EmitLocation;
-		FRotator EmitRotation;
-		OwningShooter->GetActorEyesViewPoint(EmitLocation, EmitRotation);
-		SetActorLocation(EmitLocation);
-
-		if (ProjectileSpeed > 100.0f)
+		if ((ProjectileSpeed == 0.0f)
+			|| !bLethal)
+		{
+			FVector EmitLocation;
+			FRotator EmitRotation;
+			OwningShooter->GetActorEyesViewPoint(EmitLocation, EmitRotation);
+			SetActorLocation(EmitLocation);
+		}
+		else
 		{
 			float ProjectileClock = ProjectileComponent->Velocity.Size();
 			FVector RedirectionVelocity = NewRotation.Vector().GetSafeNormal() * ProjectileClock;
