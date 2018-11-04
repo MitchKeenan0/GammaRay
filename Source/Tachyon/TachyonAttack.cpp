@@ -36,6 +36,7 @@ ATachyonAttack::ATachyonAttack()
 	ProjectileComponent->SetIsReplicated(true);
 
 	AttackRadial = CreateDefaultSubobject<URadialForceComponent>(TEXT("AttackRadial"));
+	AttackRadial->SetupAttachment(RootComponent);
 
 	SetReplicates(true);
 	bReplicateMovement = true;
@@ -54,6 +55,11 @@ void ATachyonAttack::BeginPlay()
 
 	if (bSecondary)
 		CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	if (AttackRadial != nullptr)
+	{
+		AttackRadial->SetWorldLocation(GetActorLocation());
+	}
 }
 
 
@@ -261,6 +267,14 @@ void ATachyonAttack::Lethalize()
 				//CurrentBurstObject->Destroy();
 			}
 
+			// Screen shake
+			AActor* MyOwner = GetOwner();
+			if (MyOwner != nullptr)
+			{
+				if (FireShake != nullptr)
+					UGameplayStatics::PlayWorldCameraShake(GetWorld(), FireShake, GetActorLocation(), 0.0f, 9999.0f, 1.0f, false);
+			}
+
 			bLethal = true;
 			bDoneLethal = false;
 		}
@@ -282,13 +296,6 @@ void ATachyonAttack::ActivateEffects_Implementation()
 
 	if (AttackSound != nullptr)
 		ActivateSound();
-	
-	AActor* MyOwner = GetOwner();
-	if (MyOwner != nullptr)
-	{
-		if (FireShake != nullptr)
-			UGameplayStatics::PlayWorldCameraShake(GetWorld(), FireShake, GetActorLocation(), 0.0f, 9999.0f, 1.0f, false);
-	}
 }
 
 
@@ -355,40 +362,39 @@ void ATachyonAttack::RedirectAttack()
 	ATachyonCharacter* TachyonShooter = Cast<ATachyonCharacter>(OwningShooter);
 	if (TachyonShooter != nullptr)
 	{
-		FVector LocalForward = TachyonShooter->GetActorForwardVector();
-		LocalForward.Y = 0.0f;
-		float ShooterAimDirection = FMath::Clamp(TachyonShooter->GetActorForwardVector().Z * ShootingAngle, -1.0f, 1.0f);
-		if (ShooterAimDirection == 0.0f)
-		{
-			ShooterAimDirection = FMath::Clamp(TachyonShooter->GetZ() * ShootingAngle, -1.0f, 1.0f);
-		}
-		float TargetPitch = ShootingAngle * ShooterAimDirection;
-		FRotator NewRotation = LocalForward.Rotation() + FRotator(TargetPitch, 0.0f, 0.0f);
-
-		// Clamp Angles
-		float ShooterYaw = FMath::Abs(OwningShooter->GetActorRotation().Yaw);
-		float Yaw = 0.0f;
-		if ((ShooterYaw > 50.0f))
-		{
-			Yaw = 180.0f;
-		}
-		NewRotation.Yaw = Yaw;
-		NewRotation.Pitch = FMath::Clamp(NewRotation.Pitch, -ShootingAngle, ShootingAngle);
-		SetActorRotation(NewRotation);
-
 		if ((ProjectileSpeed == 0.0f)
 			|| !bLethal)
 		{
+			FVector LocalForward = TachyonShooter->GetActorForwardVector();
+			LocalForward.Y = 0.0f;
+			float ShooterAimDirection = FMath::Clamp(TachyonShooter->GetActorForwardVector().Z * ShootingAngle, -1.0f, 1.0f);
+			if (ShooterAimDirection == 0.0f)
+			{
+				ShooterAimDirection = FMath::Clamp(TachyonShooter->GetZ() * ShootingAngle, -1.0f, 1.0f);
+			}
+			float TargetPitch = ShootingAngle * ShooterAimDirection;
+			FRotator NewRotation = LocalForward.Rotation() + FRotator(TargetPitch, 0.0f, 0.0f);
+
+			// Clamp Angles
+			float ShooterYaw = FMath::Abs(OwningShooter->GetActorRotation().Yaw);
+			float Yaw = 0.0f;
+			if ((ShooterYaw > 50.0f))
+			{
+				Yaw = 180.0f;
+			}
+			NewRotation.Yaw = Yaw;
+			NewRotation.Pitch = FMath::Clamp(NewRotation.Pitch, -ShootingAngle, ShootingAngle);
+			SetActorRotation(NewRotation);
+
 			FVector EmitLocation;
 			FRotator EmitRotation;
 			OwningShooter->GetActorEyesViewPoint(EmitLocation, EmitRotation);
 			SetActorLocation(EmitLocation);
 		}
-		else
+
+		if (AttackRadial != nullptr)
 		{
-			float ProjectileClock = ProjectileComponent->Velocity.Size();
-			FVector RedirectionVelocity = NewRotation.Vector().GetSafeNormal() * ProjectileClock;
-			ProjectileComponent->Velocity = RedirectionVelocity;
+			AttackRadial->SetWorldLocation(GetActorLocation());
 		}
 	}
 }

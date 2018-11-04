@@ -344,7 +344,7 @@ void ATachyonCharacter::UpdateHealth(float DeltaTime)
 	{
 		float Timescalar = 1.0f / CustomTimeDilation;
 		float HealthDifference = FMath::Abs(Health - MaxHealth) * 50.0f;
-		float InterpSpeed = Timescalar * FMath::Clamp(HealthDifference, 5.0f, 50.0f);
+		float InterpSpeed = Timescalar * FMath::Clamp(HealthDifference, 10.0f, 100.0f);
 		Health = FMath::FInterpConstantTo(Health, MaxHealth, DeltaTime, InterpSpeed);
 	}
 
