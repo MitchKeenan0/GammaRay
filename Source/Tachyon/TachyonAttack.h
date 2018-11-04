@@ -74,6 +74,9 @@ protected:
 
 	FTimerHandle TimerHandle_Raycast;
 
+	UPROPERTY()
+	AActor* CurrentBurstObject = nullptr;
+
 	UFUNCTION()
 	void Fire();
 
@@ -170,8 +173,11 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	float LethalTime = 0.2f;
 
-	UPROPERTY(BlueprintReadWrite)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	float AttackDamage = 1.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	float GivenMagnitude = 0.3f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	float TimeExtendOnHit = 0.015f;

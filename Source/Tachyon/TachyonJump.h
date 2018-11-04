@@ -31,6 +31,9 @@ public:
 	UPROPERTY(EditDefaultsOnly)
 	float JumpSustain = 1.0f;
 
+	UFUNCTION()
+	float GetLifeTimer() { return LifeTimer; }
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

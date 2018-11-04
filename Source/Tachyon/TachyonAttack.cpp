@@ -86,13 +86,21 @@ void ATachyonAttack::Fire()
 		{
 			OwningShooter = MyOwner;
 
+			// strangeley dense way to prevent particle ghosting
+			if (AttackParticles != nullptr)
+			{
+				AttackParticles->DeactivateSystem();
+				AttackParticles->Deactivate();
+				AttackParticles->SetVisibility(false, true);
+			}
+
 			// Movement and VFX
 			RedirectAttack();
 			SetInitVelocities();
 			
 			if (Role == ROLE_Authority)
 			{
-				SpawnBurst();	
+				SpawnBurst();
 			}
 
 			bInitialized = true;
@@ -132,22 +140,22 @@ void ATachyonAttack::SpawnBurst()
 		if ((BurstClass != nullptr)) ///(Role == ROLE_Authority) &&  
 		{
 			FActorSpawnParameters SpawnParams;
-			AActor* NewBurst = GetWorld()->SpawnActor<AActor>(BurstClass, GetActorLocation(), GetActorRotation(), SpawnParams);
-			if (NewBurst != nullptr)
+			CurrentBurstObject = GetWorld()->SpawnActor<AActor>(BurstClass, GetActorLocation(), GetActorRotation(), SpawnParams);
+			if (CurrentBurstObject != nullptr)
 			{
-				NewBurst->AttachToActor(MyOwner, FAttachmentTransformRules::KeepWorldTransform);
+				CurrentBurstObject->AttachToActor(MyOwner, FAttachmentTransformRules::KeepWorldTransform);
 
-				float VisibleMagnitude = FMath::Clamp(AttackMagnitude, 0.5f, 1.0f);
-				FVector NewBurstScale = NewBurst->GetActorRelativeScale3D() * VisibleMagnitude;
-				NewBurst->SetActorRelativeScale3D(NewBurstScale);
-
-				NewBurst->SetLifeSpan(AttackMagnitude);
+				// Scaling
+				/*float VisibleMagnitude = FMath::Clamp(AttackMagnitude, 0.5f, 1.0f);
+				FVector NewBurstScale = CurrentBurstObject->GetActorRelativeScale3D() * VisibleMagnitude;
+				CurrentBurstObject->SetActorRelativeScale3D(NewBurstScale);*/
 			}
 		}
 	}
 }
 
 
+// unused
 void ATachyonAttack::InitAttack()
 {
 	AActor* MyOwner = GetOwner();
@@ -156,6 +164,12 @@ void ATachyonAttack::InitAttack()
 		if (!bInitialized)
 		{
 			OwningShooter = MyOwner;
+
+			if (AttackParticles != nullptr)
+			{
+				AttackParticles->Deactivate();
+				AttackParticles->DeactivateSystem();
+			}
 
 			// Movement and VFX
 			RedirectAttack();
@@ -201,7 +215,7 @@ void ATachyonAttack::Lethalize()
 			// Calculate and set magnitude characteristics
 			float GeneratedMagnitude = FMath::Clamp((GetWorld()->TimeSeconds - TimeAtInit), 0.1f, 1.0f);
 			if (bSecondary)
-				GeneratedMagnitude = 1.0f;
+				GeneratedMagnitude = GivenMagnitude;
 			AttackMagnitude = (FMath::FloorToFloat(GeneratedMagnitude * 10)) * 0.1f;
 
 			float NewHitRate = FMath::Clamp((HitsPerSecond * (AttackMagnitude * 2.1f)), 1.0f, HitsPerSecond);
@@ -240,6 +254,13 @@ void ATachyonAttack::Lethalize()
 
 			GetWorldTimerManager().ClearTimer(TimerHandle_TimeBetweenShots);
 
+			// Clear burst object
+			if (CurrentBurstObject != nullptr)
+			{
+				CurrentBurstObject->SetLifeSpan(0.36f);
+				//CurrentBurstObject->Destroy();
+			}
+
 			bLethal = true;
 			bDoneLethal = false;
 		}
@@ -273,11 +294,12 @@ void ATachyonAttack::ActivateEffects_Implementation()
 
 void ATachyonAttack::ActivateSound()
 {
-	if (AttackSound != nullptr)
+	if ((AttackSound != nullptr)) /// && !AttackSound->IsPlaying()
 	{
 		float ModifiedPitch = AttackSound->PitchMultiplier * (AttackMagnitude);
 		AttackSound->SetPitchMultiplier(ModifiedPitch);
 		AttackSound->Activate();
+		AttackSound->Play();
 	}
 }
 

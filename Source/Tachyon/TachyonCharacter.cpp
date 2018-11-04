@@ -130,7 +130,7 @@ void ATachyonCharacter::SpawnAbilities()
 		if (BoostClass != nullptr)
 		{
 			FRotator InputRotation = GetActorRotation();
-			ActiveBoost = GetWorld()->SpawnActor<ATachyonJump>(BoostClass, SpawnLoca, InputRotation, SpawnParams);
+			ActiveBoost = GetWorld()->SpawnActor<ATachyonJump>(BoostClass, GetActorLocation(), InputRotation, SpawnParams);
 			if (ActiveBoost != nullptr)
 			{
 				ActiveBoost->SetOwner(this);
@@ -294,8 +294,10 @@ void ATachyonCharacter::ModifyHealth(float Value)
 }
 void ATachyonCharacter::ServerModifyHealth_Implementation(float Value)
 {
+	MaxHealth = FMath::Clamp(Health + Value, -1.0f, 100.0f);
+
 	//ModifyHealth(Value);
-	if (Value >= 100.0f)
+	/*if (Value >= 100.0f)
 	{
 		Health = 100.0f;
 		MaxHealth = 100.0f;
@@ -303,7 +305,7 @@ void ATachyonCharacter::ServerModifyHealth_Implementation(float Value)
 	else
 	{
 		MaxHealth = FMath::Clamp(Health + Value, -1.0f, 100.0f);
-	}
+	}*/
 }
 bool ATachyonCharacter::ServerModifyHealth_Validate(float Value)
 {
@@ -338,11 +340,10 @@ void ATachyonCharacter::MulticastNewTimescale_Implementation(float Value)
 void ATachyonCharacter::UpdateHealth(float DeltaTime)
 {
 	// Update smooth health value
-	if (MaxHealth < Health)
+	if (MaxHealth != Health)
 	{
-		float CurrentTimescale = CustomTimeDilation; ///UGameplayStatics::GetGlobalTimeDilation(GetWorld());
-		float Timescalar = 1.0f / CurrentTimescale;
-		float HealthDifference = FMath::Abs(Health - MaxHealth) * 5.1f;
+		float Timescalar = 1.0f / CustomTimeDilation;
+		float HealthDifference = FMath::Abs(Health - MaxHealth) * 50.0f;
 		float InterpSpeed = Timescalar * FMath::Clamp(HealthDifference, 5.0f, 50.0f);
 		Health = FMath::FInterpConstantTo(Health, MaxHealth, DeltaTime, InterpSpeed);
 	}
