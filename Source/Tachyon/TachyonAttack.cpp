@@ -59,6 +59,7 @@ void ATachyonAttack::BeginPlay()
 	if (AttackRadial != nullptr)
 	{
 		AttackRadial->SetWorldLocation(GetActorLocation());
+		AttackRadial->Deactivate();
 	}
 }
 
@@ -217,6 +218,11 @@ void ATachyonAttack::Lethalize()
 		if (bInitialized)
 		{
 			RedirectAttack();
+
+			if (AttackRadial != nullptr)
+			{
+				AttackRadial->Activate();
+			}
 
 			// Calculate and set magnitude characteristics
 			float GeneratedMagnitude = FMath::Clamp((GetWorld()->TimeSeconds - TimeAtInit), 0.1f, 1.0f);
@@ -634,21 +640,24 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 	}
 
 	// Smashy fx
-	if (HasAuthority() && !bGameEnder)
+	if (Role == ROLE_Authority)
 	{
-		SpawnHit(HitActor, HitLocation);
-		ApplyKnockForce(HitActor, HitLocation, 1.0f);
+		if (!bGameEnder)
+		{
+			SpawnHit(HitActor, HitLocation);
+			ApplyKnockForce(HitActor, HitLocation, 1.0f);
+		}
+		
+		// Update GameState
+		ReportHitToMatch(GetOwner(), HitActor);
+
+		ActualHitsPerSecond *= HitsPerSecondDecay;
+
+		ProjectileComponent->Velocity *= (1.0f - ProjectileDrag);
+
+		if (!bFirstHitReported)
+			bFirstHitReported = true;
 	}
-
-	// Update GameState
-	ReportHitToMatch(GetOwner(), HitActor);
-
-	ActualHitsPerSecond *= HitsPerSecondDecay;
-
-	ProjectileComponent->Velocity *= (1.0f - ProjectileDrag);
-
-	if (!bFirstHitReported)
-		bFirstHitReported = true;
 }
 
 // unused
@@ -781,6 +790,7 @@ void ATachyonAttack::Neutralize()
 		if (AttackRadial != nullptr)
 		{
 			AttackRadial->SetWorldLocation(GetActorLocation());
+			AttackRadial->Deactivate();
 		}
 
 		GetWorldTimerManager().ClearTimer(TimerHandle_Raycast);

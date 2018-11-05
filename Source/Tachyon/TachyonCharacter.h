@@ -256,6 +256,9 @@ protected:
 	UPROPERTY(Replicated, BlueprintReadOnly)
 	class ATachyonCharacter* Opponent = nullptr;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "NearDeath")
+	UParticleSystem* NearDeathEffect;
+
 	//UPROPERTY(Replicated, BlueprintReadOnly)
 	//int iApparelIndex = 0;
 	//UPROPERTY(Replicated, BlueprintReadOnly)

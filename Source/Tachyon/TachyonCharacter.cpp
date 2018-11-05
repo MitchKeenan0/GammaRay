@@ -282,30 +282,27 @@ void ATachyonCharacter::Shield()
 
 void ATachyonCharacter::ModifyHealth(float Value)
 {
-	/*if (Role < ROLE_Authority)
+	MaxHealth = FMath::Clamp(Health + Value, -1.0f, 100.0f);
+
+	if (Role < ROLE_Authority)
 	{
 		ServerModifyHealth(Value);
-	}*/
-	
-	if (Role == ROLE_Authority)
+	}
+
+	if ((MaxHealth <= 10.0f) && 
+		(Role == ROLE_Authority) && (NearDeathEffect != nullptr))
 	{
-		ServerModifyHealth(Value);
+		UParticleSystemComponent* NearDeathParticles = UGameplayStatics::SpawnEmitterAttached(NearDeathEffect, GetRootComponent(), NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
+		if (NearDeathParticles != nullptr)
+		{
+			
+			NearDeathParticles->SetIsReplicated(true);
+		}
 	}
 }
 void ATachyonCharacter::ServerModifyHealth_Implementation(float Value)
 {
-	MaxHealth = FMath::Clamp(Health + Value, -1.0f, 100.0f);
-
-	//ModifyHealth(Value);
-	/*if (Value >= 100.0f)
-	{
-		Health = 100.0f;
-		MaxHealth = 100.0f;
-	}
-	else
-	{
-		MaxHealth = FMath::Clamp(Health + Value, -1.0f, 100.0f);
-	}*/
+	ModifyHealth(Value);
 }
 bool ATachyonCharacter::ServerModifyHealth_Validate(float Value)
 {
