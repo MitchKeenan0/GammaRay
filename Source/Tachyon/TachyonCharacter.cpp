@@ -368,7 +368,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 
 	if ((Controller != nullptr) && (FramingActors.Num() >= 1))
 	{
-		// Edge case: player is spectator, find a sub
+		
 		if (Actor1 == nullptr)
 		{
 			int LoopSize = FramingActors.Num();
@@ -394,14 +394,12 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 			float ConsideredDistanceScalar = CameraDistanceScalar;
 
 			// Position by another actor
-			bool bAlone = true;
-			// Find closest best candidate for Actor 2
-			// Find Actor2 by nominating best actor
 			float DistToActor2 = 99999.0f;
 			int LoopCount = FramingActors.Num();
 			AActor* CurrentActor = nullptr;
 			AActor* BestCandidate = nullptr;
 			float BestDistance = 0.0f;
+			
 			for (int i = 0; i < LoopCount; ++i)
 			{
 				CurrentActor = FramingActors[i];
@@ -413,15 +411,13 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 					float DistToTemp = FVector::Dist(CurrentActor->GetActorLocation(), GetActorLocation());
 					if (DistToTemp < DistToActor2)
 					{
-						BestCandidate = CurrentActor;
-						DistToActor2 = DistToTemp;
 						// Players get veto importance
-						/*if ((BestCandidate == nullptr)
+						if ((BestCandidate == nullptr)
 						|| (!BestCandidate->ActorHasTag("Player")))
 						{
-						BestCandidate = CurrentActor;
-						DistToActor2 = DistToTemp;
-						}*/
+							BestCandidate = CurrentActor;
+							DistToActor2 = DistToTemp;
+						}
 					}
 				}
 			}
@@ -448,11 +444,12 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 
 
 			// If Actor2 is valid, make Pair Framing
+			bool bAlone = true;
 			if (Actor2 != nullptr)
 			{
 
 				// Distance check i.e pair bounds
-				float PairDistanceThreshold = FMath::Clamp(Actor1->GetVelocity().Size() * 2.5f, 5000.0f, 15000.0f); /// formerly 3000.0f
+				float PairDistanceThreshold = 5000.0f + FMath::Clamp(Actor1->GetVelocity().Size() * 2.5f, 5000.0f, 15000.0f); /// formerly 3000.0f
 				if (this->ActorHasTag("Spectator"))
 				{
 					PairDistanceThreshold *= 3.3f;
@@ -463,9 +460,9 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				}
 
 				// Special care taken for vertical as we are probably widescreen
-				float Vertical = FMath::Abs((Actor2->GetActorLocation() - Actor1->GetActorLocation()).Z);
+				float Vertical = FMath::Abs(( Actor2->GetActorLocation() - Actor1->GetActorLocation() ).Z);
 				bool bInRange = (FVector::Dist(Actor1->GetActorLocation(), Actor2->GetActorLocation()) <= PairDistanceThreshold)
-					&& (Vertical <= (PairDistanceThreshold * 0.55f));
+					&& (Vertical <= (PairDistanceThreshold * 0.9f));
 				bool TargetVisible = Actor2->WasRecentlyRendered(0.2f);
 
 				if (bInRange && TargetVisible)
@@ -498,13 +495,12 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 			// Positions done
 			// Find the midpoint
 			float MidpointBias = 0.5f;
-			/*if ((Actor2 != nullptr) && !Actor2->ActorHasTag("Player")) {
-			MidpointBias = 0.2f; /// super jerky
-			}*/
 			FVector TargetMidpoint = PositionOne + ((PositionTwo - PositionOne) * MidpointBias);
 			float MidpointInterpSpeed = 10.0f * FMath::Clamp(TargetMidpoint.Size() * 0.01f, 10.0f, 100.0f);
+			if (bAlone)
+				MidpointInterpSpeed *= 0.1f;
 
-			Midpoint = TargetMidpoint; /// FMath::VInterpTo(Midpoint, TargetMidpoint, DeltaTime, MidpointInterpSpeed);
+			Midpoint = FMath::VInterpTo(Midpoint, TargetMidpoint, DeltaTime, MidpointInterpSpeed); /// TargetMidpoint; /// 
 			if (Midpoint.Size() > 0.0f)
 			{
 

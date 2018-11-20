@@ -87,12 +87,8 @@ void ATachyonAIController::Tick(float DeltaTime)
 				NavigateTo(LocationTarget);
 				TravelTimer += DeltaTime;
 			}
-
-			// Combat
-			if (ReactionTimeIsNow(DeltaTime))
-			{
-				Combat(Player);
-			}
+			
+			Combat(Player, DeltaTime);
 		}
 		else
 		{
@@ -206,9 +202,9 @@ void ATachyonAIController::NavigateTo(FVector TargetLocation)
 }
 
 
-void ATachyonAIController::Combat(AActor* TargetActor)
+void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 {
-	// Aim - leads to attacks and secondaries
+	// Aim - leads to attacks and secondaries////////////////////////
 	FVector LocalForward = MyTachyonCharacter->GetAttackScene()->GetForwardVector();
 	FVector ToTarget = TargetActor->GetActorLocation() - MyTachyonCharacter->GetActorLocation();
 	FVector ForwardNorm = LocalForward.GetSafeNormal();
@@ -226,31 +222,28 @@ void ATachyonAIController::Combat(AActor* TargetActor)
 
 		if (AngleToTarget <= 21.0f)  // && MyCharacter->WasRecentlyRendered(0.15f)
 		{
+			
+			// Attacking///////////////////////////////////////////////
 
-
-			// Line up a shot with player Z input
-			//if (FMath::Abs(AngleToTarget) <= 0.25f)
-			//{
-			//	//MyTachyonCharacter->SetZ(0.0f);
-			//	MyInputZ = 0.0f;
-			//}
-			//else
-			//{
-			//	//MyTachyonCharacter->SetZ(1.0f);
-			//	MyInputZ = 1.0f;
-			//}
-
-			// Aim input -- seems unnecessary
-			/*float XTarget = FMath::Clamp(ToPlayer.X, -1.0f, 1.0f);
-			MyCharacter->SetX(XTarget, 1.0f);*/
-
-			// Attacking
-			MyTachyonCharacter->StartFire();
-
-			/*else
+			/// initializing charge
+			if (ReactionTimeIsNow(DeltaTime) && (ShootingChargeTimer == 0.0f))
 			{
-				MyTachyonCharacter->ReleaseAttack();
-			}*/
+				MyTachyonCharacter->StartFire();
+				ShootingChargeTimer += 0.001f;
+			}
+			else {
+				ShootingChargeTimer += DeltaTime;
+			}
+
+			/// release attack
+			if (ShootingChargeTimer >= (ReactionTime + (1.0f / Aggression) * 0.1f))
+			{
+				
+				MyTachyonCharacter->EndFire();
+				
+				ShootingChargeTimer = 0.0f;
+				TimeAtLastShotFired = GetWorld()->TimeSeconds;
+			}
 		}
 	}
 }

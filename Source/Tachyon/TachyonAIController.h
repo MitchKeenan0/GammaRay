@@ -34,6 +34,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly)
 	float ReactionTime = 0.2f;
+	
+	UPROPERTY(EditDefaultsOnly)
+	float Aggression = 0.5f;
 
 	UFUNCTION(BlueprintCallable)
 	void SetPlayer(ATachyonCharacter* NewPlayer) { Player = NewPlayer; }
@@ -48,7 +51,7 @@ public:
 	void NavigateTo(FVector TargetLocation);
 
 	UFUNCTION(BlueprintCallable)
-	void Combat(AActor* TargetActor);
+	void Combat(AActor* TargetActor, float DeltaTime);
 
 	UFUNCTION(BlueprintCallable)
 	void AimAtTarget(AActor* TargetActor);
@@ -94,5 +97,12 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly)
 	float TravelTimer = 0.0f;
-	
+
+
+private:
+	UPROPERTY()
+	float ShootingChargeTimer = 0.0f;
+
+	UPROPERTY()
+	float TimeAtLastShotFired = 0.0f;
 };

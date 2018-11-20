@@ -68,7 +68,7 @@ void ATachyonAttack::StartFire()
 {
 	float FirstDelay = FMath::Max(LastFireTime + TimeBetweenShots - GetWorld()->TimeSeconds, 0.0f);
 
-	GetWorldTimerManager().SetTimer(TimerHandle_TimeBetweenShots, this, &ATachyonAttack::Fire, TimeBetweenShots, true, FirstDelay);
+	GetWorldTimerManager().SetTimer(TimerHandle_TimeBetweenShots, this, &ATachyonAttack::Fire, TimeBetweenShots, !bSecondary, FirstDelay);
 }
 
 void ATachyonAttack::EndFire()
@@ -116,13 +116,12 @@ void ATachyonAttack::Fire()
 			// Used to determine magnitude at Lethalize
 			TimeAtInit = GetWorld()->TimeSeconds;
 
-			if (bSecondary)
+			if (bSecondary && !(GetWorldTimerManager().IsTimerActive(TimerHandle_DeliveryTime)))
 			{
 				EndFire();
 			}
 
 			// Debug bank
-			///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("Inited attack"));
 			///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackMagnitude: %f"), AttackMagnitude));
 			///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("HitsPerSecond:   %f"), HitsPerSecond));
 			///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackDamage:    %f"), AttackDamage));
