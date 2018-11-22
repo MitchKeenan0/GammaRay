@@ -224,7 +224,7 @@ void ATachyonAttack::Lethalize()
 			}
 
 			// Calculate and set magnitude characteristics
-			float GeneratedMagnitude = FMath::Clamp((GetWorld()->TimeSeconds - TimeAtInit), 0.1f, 1.0f);
+			float GeneratedMagnitude = FMath::Clamp(FMath::Square((GetWorld()->TimeSeconds - TimeAtInit)), 0.1f, 1.0f);
 			if (bSecondary)
 				GeneratedMagnitude = GivenMagnitude;
 			AttackMagnitude = (FMath::FloorToFloat(GeneratedMagnitude * 10)) * 0.1f;
