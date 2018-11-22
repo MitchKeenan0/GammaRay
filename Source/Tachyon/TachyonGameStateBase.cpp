@@ -95,6 +95,19 @@ void ATachyonGameStateBase::RestartGame()
 		}
 	}
 
+	// Clear doomed actors
+	/*TArray<AActor*> Doomies;
+	UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("ResetKill"), Doomies);
+	if (Doomies.Num() > 0)
+	{
+		int DoomNum = Doomies.Num();
+		for (int i = 0; i < DoomNum; ++i)
+		{
+			AActor* ThisDoomie = Doomies[i];
+			ThisDoomie->Destroy();
+		}
+	}*/
+
 	// Reset player lifepoints
 	TArray<AActor*> Players;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ATachyonCharacter::StaticClass(), Players);
@@ -143,7 +156,7 @@ void ATachyonGameStateBase::UpdateGlobalTimescale(float DeltaTime)
 	float InterpSpeed = TimescaleRecoverySpeed + (1.0f / FactoredTimescale);
 	if (DesiredTimescale == 0.01f)
 	{
-		InterpSpeed *= 0.333f;
+		InterpSpeed *= 0.15f;
 	}
 	float InterpTime = FMath::FInterpConstantTo(CurrentTime, DesiredTimescale, DeltaTime, InterpSpeed);
 	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), InterpTime);

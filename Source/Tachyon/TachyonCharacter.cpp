@@ -257,6 +257,7 @@ void ATachyonCharacter::StartFire()
 	if (ActiveAttack != nullptr)
 	{
 		ActiveAttack->StartFire();
+		GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed / 2.0f;
 	}
 }
 
@@ -265,6 +266,7 @@ void ATachyonCharacter::EndFire()
 	if (ActiveAttack != nullptr)
 	{
 		ActiveAttack->EndFire();
+		GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed;
 	}
 }
 
@@ -295,8 +297,30 @@ void ATachyonCharacter::ModifyHealth(float Value)
 		UParticleSystemComponent* NearDeathParticles = UGameplayStatics::SpawnEmitterAttached(NearDeathEffect, GetRootComponent(), NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
 		if (NearDeathParticles != nullptr)
 		{
-			
+			NearDeathParticles->ComponentTags.Add("ResetKill");
 			NearDeathParticles->SetIsReplicated(true);
+		}
+	}
+
+	// Clear old death if we're reviving
+	if (Value == 100.0f)
+	{
+		TArray<UActorComponent*> Particles = GetComponentsByClass(UParticleSystemComponent::StaticClass());
+		if (Particles.Num() > 0)
+		{
+			// Could be our ambient particles, so check by tag
+			int NumParticles = Particles.Num();
+			for (int i = 0; i < NumParticles; ++i)
+			{
+				UParticleSystemComponent* MyDeath = Cast<UParticleSystemComponent>(Particles[i]);
+				if (MyDeath != nullptr)
+				{
+					if (MyDeath->ComponentHasTag("ResetKill"))
+					{
+						MyDeath->DestroyComponent();
+					}
+				}
+			}
 		}
 	}
 }
