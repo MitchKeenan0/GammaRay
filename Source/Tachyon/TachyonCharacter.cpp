@@ -257,7 +257,9 @@ void ATachyonCharacter::StartFire()
 	if (ActiveAttack != nullptr)
 	{
 		ActiveAttack->StartFire();
-		GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed / 2.0f;
+		
+		GetCharacterMovement()->MaxAcceleration = MoveSpeed * AttackDrag;
+		GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed * AttackDrag;
 	}
 }
 
@@ -266,6 +268,8 @@ void ATachyonCharacter::EndFire()
 	if (ActiveAttack != nullptr)
 	{
 		ActiveAttack->EndFire();
+		
+		GetCharacterMovement()->MaxAcceleration = MoveSpeed;
 		GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed;
 	}
 }
@@ -291,7 +295,7 @@ void ATachyonCharacter::ModifyHealth(float Value)
 		ServerModifyHealth(Value);
 	}
 
-	if ((MaxHealth <= 10.0f) && 
+	if ((MaxHealth <= 0.0f) && 
 		(Role == ROLE_Authority) && (NearDeathEffect != nullptr))
 	{
 		UParticleSystemComponent* NearDeathParticles = UGameplayStatics::SpawnEmitterAttached(NearDeathEffect, GetRootComponent(), NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);

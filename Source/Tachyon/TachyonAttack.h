@@ -293,6 +293,9 @@ protected:
 	class AActor* HitActor = nullptr;
 	UPROPERTY(BlueprintReadWrite)
 	float DynamicLifetime = 0.0f;
+
+	UPROPERTY(BlueprintReadWrite)
+	class AActor* KilledActor = nullptr;
 	
 	UPROPERTY(BlueprintReadWrite)
 	float HitTimer = 0.0f;

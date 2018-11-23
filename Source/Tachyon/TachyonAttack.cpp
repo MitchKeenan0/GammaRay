@@ -424,8 +424,15 @@ void ATachyonAttack::Tick(float DeltaTime)
 // Update life-cycle
 void ATachyonAttack::UpdateLifeTime(float DeltaT)
 {
+	float GlobalTime = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+
+	if (GlobalTime <= 0.1f)
+	{
+		GetWorldTimerManager().ClearTimer(TimerHandle_Raycast);
+	}
+	
 	// Catch lost game ender
-	if (bGameEnder && (UGameplayStatics::GetGlobalTimeDilation(GetWorld()) != 0.01f))
+	if (bGameEnder && (GlobalTime != 0.01f))
 	{
 		CallForTimescale(this, true, 0.01f);
 	}
@@ -688,17 +695,15 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 				}
 			}
 		}
+
+		HitTachyon->ModifyHealth(-ActualAttackDamage);
 		
 		// Call it in
 		float TachyonHealth = HitTachyon->GetHealth();
-		if (TachyonHealth <= 0.0f)
+		if ((TachyonHealth - ActualAttackDamage) <= 0.0f)
 		{
-			// Deadly blow
-			if ((GetWorld()->TimeSeconds - TimeAtInit) > 0.1f)
-			{
-				CallForTimescale(Mark, false, 0.01f); /// 0.01 is Terminal timescale
-				bGameEnder = true;
-			}
+			CallForTimescale(Mark, false, 0.01f); /// 0.01 is Terminal timescale
+			bGameEnder = true;
 		}
 		else
 		{
@@ -714,8 +719,6 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		// Modify Health of Mark
 		if (!bGameEnder) /// && Role == ROLE_Authority
 		{
-			HitTachyon->ModifyHealth(-ActualAttackDamage);
-
 			// Scale intensity for next hit
 			NumHits += 1;
 			ActualAttackDamage += NumHits;

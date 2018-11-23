@@ -111,6 +111,9 @@ public:
 	float AttackRecoil = 2100.0f;
 
 	UPROPERTY(EditDefaultsOnly)
+	float AttackDrag = 0.5f;
+
+	UPROPERTY(EditDefaultsOnly)
 	float WindupTime = 0.1f;
 
 	UPROPERTY(EditDefaultsOnly, Replicated)

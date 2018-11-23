@@ -96,7 +96,7 @@ void ATachyonGameStateBase::RestartGame()
 	}
 
 	// Clear doomed actors
-	/*TArray<AActor*> Doomies;
+	TArray<AActor*> Doomies;
 	UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("ResetKill"), Doomies);
 	if (Doomies.Num() > 0)
 	{
@@ -106,7 +106,7 @@ void ATachyonGameStateBase::RestartGame()
 			AActor* ThisDoomie = Doomies[i];
 			ThisDoomie->Destroy();
 		}
-	}*/
+	}
 
 	// Reset player lifepoints
 	TArray<AActor*> Players;
