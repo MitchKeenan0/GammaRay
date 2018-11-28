@@ -90,6 +90,9 @@ public:
 	float MoveSpeed = 100.0f;
 
 	UPROPERTY(EditDefaultsOnly)
+	float FightSpeedInfluence = 2.1f;
+
+	UPROPERTY(EditDefaultsOnly)
 	float BoostSpeed = 1.0f;
 
 	UPROPERTY(EditDefaultsOnly)

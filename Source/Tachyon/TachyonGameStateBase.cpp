@@ -128,6 +128,8 @@ void ATachyonGameStateBase::RestartGame()
 						Player->NewTimescale(1.0f);
 						Player->ForceNetUpdate();
 					}
+
+					Player->GetCharacterMovement()->Velocity *= 0.1f;
 				}
 			}
 		}

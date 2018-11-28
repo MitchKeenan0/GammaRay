@@ -426,15 +426,15 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 {
 	float GlobalTime = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
 
-	if (GlobalTime <= 0.1f)
-	{
-		GetWorldTimerManager().ClearTimer(TimerHandle_Raycast);
-	}
-	
 	// Catch lost game ender
 	if (bGameEnder && (GlobalTime != 0.01f))
 	{
 		CallForTimescale(this, true, 0.01f);
+	}
+
+	if (GlobalTime <= 0.1f)
+	{
+		GetWorldTimerManager().ClearTimer(TimerHandle_Raycast);
 	}
 
 	// Fully charged 'timeout' to release attack
@@ -689,10 +689,8 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 			ATachyonCharacter* OwningTachyon = Cast<ATachyonCharacter>(MyOwner);
 			if (OwningTachyon != nullptr)
 			{
-				if (OwningTachyon->GetOpponent() != HitTachyon)
-				{
-					OwningTachyon->SetOpponent(HitTachyon);
-				}
+				OwningTachyon->SetOpponent(HitTachyon);
+				HitTachyon->SetOpponent(OwningTachyon);
 			}
 		}
 
@@ -721,7 +719,7 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		{
 			// Scale intensity for next hit
 			NumHits += 1;
-			ActualAttackDamage += NumHits;
+			//ActualAttackDamage += NumHits;
 			ActualLethalTime += TimeExtendOnHit;
 			ActualDurationTime += TimeExtendOnHit;
 		}

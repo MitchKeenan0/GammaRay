@@ -155,6 +155,29 @@ void ATachyonCharacter::Tick(float DeltaTime)
 
 		if (!ActorHasTag("Bot"))
 			UpdateBody(DeltaTime);
+
+		// Dynamic movespeed based on fight distance
+		if (Opponent != nullptr)
+		{
+			float ConsideredDistance = -1.0f;
+			FVector MyVelocityPosition = GetActorLocation() + GetCharacterMovement()->Velocity;
+			FVector OpponentVelPosition = Opponent->GetActorLocation() + Opponent->GetCharacterMovement()->Velocity;
+			float DistToOpponentVelocity = FVector::Dist(MyVelocityPosition, OpponentVelPosition);
+			float DistToOpponentPosition = FVector::Dist(GetActorLocation(), Opponent->GetActorLocation());
+			if (DistToOpponentPosition < DistToOpponentVelocity)
+			{
+				ConsideredDistance = DistToOpponentPosition;
+			}
+			else {
+				ConsideredDistance = DistToOpponentVelocity;
+			}
+			float FightSpeed = FMath::Clamp((1.0f / ConsideredDistance) * FightSpeedInfluence, FightSpeedInfluence * 0.00001f, FightSpeedInfluence);
+			float NewMaxAccel = MoveSpeed * (MoveSpeed * FMath::Clamp(FightSpeed, 0.0f, 10.0f));
+			NewMaxAccel = FMath::Clamp(NewMaxAccel, MoveSpeed, MaxMoveSpeed);
+			GetCharacterMovement()->MaxAcceleration = NewMaxAccel;
+
+			GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("MaxAcceleration: %f"), NewMaxAccel));
+		}
 	}
 
 	if (HasAuthority())
@@ -258,8 +281,10 @@ void ATachyonCharacter::StartFire()
 	{
 		ActiveAttack->StartFire();
 		
+		DisengageJump();
+		
 		GetCharacterMovement()->MaxAcceleration = MoveSpeed * AttackDrag;
-		GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed * AttackDrag;
+		//GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed * AttackDrag;
 	}
 }
 
@@ -270,7 +295,7 @@ void ATachyonCharacter::EndFire()
 		ActiveAttack->EndFire();
 		
 		GetCharacterMovement()->MaxAcceleration = MoveSpeed;
-		GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed;
+		//GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed;
 	}
 }
 
@@ -584,7 +609,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 					TargetLengthClamped, DeltaTime, (VelocityCameraSpeed * 0.5f) * InverseTimeSpeed);
 
 				// Narrowing and expanding camera FOV for closeup and outer zones
-				float ScalarSize = FMath::Clamp(DistBetweenActors * 0.005f, 0.05f, 1.0f);
+				float ScalarSize = FMath::Clamp(DistBetweenActors * 0.005f, 0.05f, 1.5f);
 				float FOVTimeScalar = FMath::Clamp(GlobalTimeScale, 0.1f, 1.0f);
 				float FOV = 23.0f;
 				float FOVSpeed = 1.0f;
