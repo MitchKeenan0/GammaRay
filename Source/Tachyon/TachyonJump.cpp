@@ -62,6 +62,12 @@ void ATachyonJump::EndJump()
 				JumpParticles->DeactivateSystem();
 				JumpParticles->Deactivate();
 			}
+
+			if (JumpParticles != nullptr)
+			{
+				JumpParticles->DestroyComponent();
+				JumpParticles = nullptr;
+			}
 		}
 
 		GetWorldTimerManager().ClearTimer(TimerHandle_TimeBetweenJumps);
@@ -144,6 +150,7 @@ void ATachyonJump::DoJumpVisuals_Implementation()
 		if (JumpParticles != nullptr)
 		{
 			JumpParticles->bAutoDestroy = true;
+			JumpParticles->SetIsReplicated(true);
 		}
 	}
 }

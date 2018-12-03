@@ -75,6 +75,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SetOpponent(ATachyonCharacter* NewTarget) { Opponent = NewTarget; }
 
+	UFUNCTION(BlueprintCallable)
+	void SetDynamicMoveSpeed();
+
 	/*UFUNCTION(BlueprintCallable)
 	void DonApparel();*/
 
@@ -231,10 +234,11 @@ protected:
 	void UpdateHealth(float DeltaTime);
 	void UpdateCamera(float DeltaTime);
 
-	// ATTACK & STUFF ///////////////////////////////////////////////////////////////
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TArray<AActor*> FramingActors;
 
+	// COMPONENTS ///////////////////////////////////////////////////////////////
 	UPROPERTY(EditDefaultsOnly)
 	class USceneComponent* AttackScene = nullptr;
 
@@ -243,6 +247,9 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly)
 	class UPointLightComponent* PointLight = nullptr;
+
+	UPROPERTY(EditDefaultsOnly)
+	class UAudioComponent* SoundComp = nullptr;
 
 
 

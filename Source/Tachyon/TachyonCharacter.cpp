@@ -56,6 +56,10 @@ ATachyonCharacter::ATachyonCharacter(const FObjectInitializer& ObjectInitializer
 	AmbientParticles = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("AmbientParticles"));
 	AmbientParticles->SetupAttachment(RootComponent);
 	AmbientParticles->bAbsoluteRotation = true;
+
+	SoundComp = CreateDefaultSubobject<UAudioComponent>(TEXT("SoundComp"));
+	SoundComp->SetupAttachment(RootComponent);
+	SoundComp->VolumeMultiplier = 0.1f;
 	
 	bReplicates = true;
 	bReplicateMovement = true;
@@ -137,7 +141,38 @@ void ATachyonCharacter::SpawnAbilities()
 				ActiveBoost->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
 			}
 		}
+
+		if (ActorHasTag("Bot"))
+		{
+			if (SoundComp != nullptr)
+			{
+				SoundComp->SetVolumeMultiplier(0.01f);
+			}
+		}
 	}
+}
+
+void ATachyonCharacter::SetDynamicMoveSpeed()
+{
+	float Result = -1.0f;
+	float ConsideredDistance = -1.0f;
+	FVector MyVelocityPosition = GetActorLocation() + GetCharacterMovement()->Velocity;
+	FVector OpponentVelPosition = Opponent->GetActorLocation() + Opponent->GetCharacterMovement()->Velocity;
+	float DistToOpponentVelocity = FVector::Dist(MyVelocityPosition, OpponentVelPosition);
+	float DistToOpponentPosition = FVector::Dist(GetActorLocation(), Opponent->GetActorLocation());
+	if (DistToOpponentPosition < DistToOpponentVelocity)
+	{
+		ConsideredDistance = DistToOpponentPosition;
+	}
+	else {
+		ConsideredDistance = DistToOpponentVelocity;
+	}
+	float FightSpeed = FMath::Clamp((1.0f / ConsideredDistance) * FightSpeedInfluence, FightSpeedInfluence * 0.00001f, FightSpeedInfluence);
+	float NewMaxAccel = MoveSpeed * (MoveSpeed * FMath::Clamp(FightSpeed, 0.0f, 10.0f));
+	NewMaxAccel = FMath::Clamp(NewMaxAccel, MoveSpeed, MaxMoveSpeed);
+	GetCharacterMovement()->MaxAcceleration = NewMaxAccel;
+
+	GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::White, FString::Printf(TEXT("MaxAcceleration: %f"), NewMaxAccel));
 }
 
 
@@ -155,29 +190,6 @@ void ATachyonCharacter::Tick(float DeltaTime)
 
 		if (!ActorHasTag("Bot"))
 			UpdateBody(DeltaTime);
-
-		// Dynamic movespeed based on fight distance
-		if (Opponent != nullptr)
-		{
-			float ConsideredDistance = -1.0f;
-			FVector MyVelocityPosition = GetActorLocation() + GetCharacterMovement()->Velocity;
-			FVector OpponentVelPosition = Opponent->GetActorLocation() + Opponent->GetCharacterMovement()->Velocity;
-			float DistToOpponentVelocity = FVector::Dist(MyVelocityPosition, OpponentVelPosition);
-			float DistToOpponentPosition = FVector::Dist(GetActorLocation(), Opponent->GetActorLocation());
-			if (DistToOpponentPosition < DistToOpponentVelocity)
-			{
-				ConsideredDistance = DistToOpponentPosition;
-			}
-			else {
-				ConsideredDistance = DistToOpponentVelocity;
-			}
-			float FightSpeed = FMath::Clamp((1.0f / ConsideredDistance) * FightSpeedInfluence, FightSpeedInfluence * 0.00001f, FightSpeedInfluence);
-			float NewMaxAccel = MoveSpeed * (MoveSpeed * FMath::Clamp(FightSpeed, 0.0f, 10.0f));
-			NewMaxAccel = FMath::Clamp(NewMaxAccel, MoveSpeed, MaxMoveSpeed);
-			GetCharacterMovement()->MaxAcceleration = NewMaxAccel;
-
-			GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("MaxAcceleration: %f"), NewMaxAccel));
-		}
 	}
 
 	if (HasAuthority())
@@ -281,10 +293,7 @@ void ATachyonCharacter::StartFire()
 	{
 		ActiveAttack->StartFire();
 		
-		DisengageJump();
-		
-		GetCharacterMovement()->MaxAcceleration = MoveSpeed * AttackDrag;
-		//GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed * AttackDrag;
+		GetCharacterMovement()->MaxFlySpeed *= AttackDrag;
 	}
 }
 
@@ -294,8 +303,7 @@ void ATachyonCharacter::EndFire()
 	{
 		ActiveAttack->EndFire();
 		
-		GetCharacterMovement()->MaxAcceleration = MoveSpeed;
-		//GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed;
+		GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed;
 	}
 }
 
@@ -718,13 +726,21 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 			}
 		}
 	}
+
+	// Soundcontrol
+	if (SoundComp != nullptr)
+	{
+		float Velo = FMath::Sqrt(GetCharacterMovement()->Velocity.Size() * 0.00000618f);
+		float SpeedVolume = FMath::Clamp(Velo, 0.033f, 1.0f);
+		SoundComp->SetVolumeMultiplier(SpeedVolume);
+	}
 }
 void ATachyonCharacter::ServerUpdateBody_Implementation(float DeltaTime)
 {
 	// Recover personal timescale if down
 	if (CustomTimeDilation < 1.0f)
 	{
-		float RecoverySpeed = 5.0f * (1.0f + CustomTimeDilation);
+		float RecoverySpeed = 5.1f * (1.0f + CustomTimeDilation);
 		float InterpTime = FMath::FInterpConstantTo(CustomTimeDilation, 1.0f, DeltaTime, RecoverySpeed);
 		NewTimescale(InterpTime);
 	}

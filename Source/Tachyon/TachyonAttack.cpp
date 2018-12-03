@@ -243,7 +243,7 @@ void ATachyonAttack::Lethalize()
 				CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 
 			// Shooter Recoil
-			if (RecoilForce > 0.0f)
+			if ((RecoilForce > 0.0f) && (Role == ROLE_Authority))
 			{
 				ATachyonCharacter* CharacterShooter = Cast<ATachyonCharacter>(MyOwner);
 				if (CharacterShooter != nullptr)
@@ -378,6 +378,10 @@ void ATachyonAttack::RedirectAttack()
 				ShooterAimDirection = FMath::Clamp(TachyonShooter->GetZ() * ShootingAngle, -1.0f, 1.0f);
 			}
 			float TargetPitch = ShootingAngle * ShooterAimDirection;
+			if (FMath::Abs(TargetPitch) <= 5.0f)
+			{
+				TargetPitch = 0.0f;
+			}
 			FRotator NewRotation = LocalForward.Rotation() + FRotator(TargetPitch, 0.0f, 0.0f);
 
 			// Clamp Angles

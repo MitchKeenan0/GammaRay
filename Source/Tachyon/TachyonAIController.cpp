@@ -29,8 +29,8 @@ void ATachyonAIController::FindOneself()
 			GEngine->AddOnScreenDebugMessage(-1, 10.5f, FColor::White, FString::Printf(TEXT("Bot MaxAccel: %f"), MyTachyonCharacter->GetCharacterMovement()->MaxAcceleration));
 			GEngine->AddOnScreenDebugMessage(-1, 10.5f, FColor::White, FString::Printf(TEXT("Bot FlySpeed: %f"), MyTachyonCharacter->GetCharacterMovement()->MaxFlySpeed));
 
-			MyTachyonCharacter->GetCharacterMovement()->MaxAcceleration = 9000.0f;
-			MyTachyonCharacter->GetCharacterMovement()->MaxFlySpeed = 1500.0f;
+			MyTachyonCharacter->GetCharacterMovement()->MaxAcceleration = 5000.0f;
+			MyTachyonCharacter->GetCharacterMovement()->MaxFlySpeed = 1000.0f;
 			MyTachyonCharacter->GetCharacterMovement()->bOrientRotationToMovement = true;
 			MyTachyonCharacter->GetCharacterMovement()->BrakingFrictionFactor = 50.0f;
 
@@ -204,16 +204,19 @@ void ATachyonAIController::NavigateTo(FVector TargetLocation)
 
 void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 {
-	// Aim - leads to attacks and secondaries////////////////////////
+	
 	FVector LocalForward = MyTachyonCharacter->GetAttackScene()->GetForwardVector();
 	FVector ToTarget = TargetActor->GetActorLocation() - MyTachyonCharacter->GetActorLocation();
 	FVector ForwardNorm = LocalForward.GetSafeNormal();
 	FVector ToPlayerNorm = ToTarget.GetSafeNormal();
+	
 	float VerticalNorm = FMath::FloorToFloat(FMath::Clamp((ToTarget.GetSafeNormal()).Z, -1.0f, 1.0f));
 	float DotToTarget = FVector::DotProduct(ForwardNorm, ToPlayerNorm);
 	float RangeToTarget = ToTarget.Size();
 	//float MyShootingAngle = MyTachyonCharacter
 
+
+	// Aim - leads to attacks and secondaries////////////////////////
 	if (RangeToTarget <= 2000.0f)
 	{
 
@@ -223,8 +226,6 @@ void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 		if (AngleToTarget <= 21.0f)  // && MyCharacter->WasRecentlyRendered(0.15f)
 		{
 			
-			// Attacking///////////////////////////////////////////////
-
 			/// initializing charge
 			if (ReactionTimeIsNow(DeltaTime) && (ShootingChargeTimer == 0.0f))
 			{
@@ -245,6 +246,12 @@ void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 				TimeAtLastShotFired = GetWorld()->TimeSeconds;
 			}
 		}
+	}
+
+	// Boost
+	if (ToTarget.Size() >= Aggression * FMath::FRand() * 500.0f)
+	{
+		MyTachyonCharacter->StartJump();
 	}
 }
 
