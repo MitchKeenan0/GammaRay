@@ -73,10 +73,7 @@ void ATachyonAttack::StartFire()
 
 void ATachyonAttack::EndFire()
 {
-	if (GetWorldTimerManager().IsTimerActive(TimerHandle_TimeBetweenShots))
-	{
-		GetWorldTimerManager().SetTimer(TimerHandle_DeliveryTime, this, &ATachyonAttack::Lethalize, DeliveryTime, false, DeliveryTime);
-	}
+	GetWorldTimerManager().SetTimer(TimerHandle_DeliveryTime, this, &ATachyonAttack::Lethalize, DeliveryTime, false, DeliveryTime);
 }
 
 void ATachyonAttack::Fire()
@@ -263,7 +260,7 @@ void ATachyonAttack::Lethalize()
 
 			GetWorldTimerManager().SetTimer(TimerHandle_Neutralize, this, &ATachyonAttack::Neutralize, ActualDurationTime, false, ActualDurationTime);
 
-			GetWorldTimerManager().ClearTimer(TimerHandle_TimeBetweenShots);
+			//GetWorldTimerManager().ClearTimer(TimerHandle_TimeBetweenShots);
 
 			// Clear burst object
 			if (CurrentBurstObject != nullptr)
@@ -596,6 +593,8 @@ void ATachyonAttack::SpawnHit(AActor* HitActor, FVector HitLocation)
 			if (HitSpawning != nullptr)
 			{
 				HitSpawning->AttachToActor(HitActor, FAttachmentTransformRules::KeepWorldTransform);
+				float DamageTimescale = FMath::Clamp((CustomTimeDilation * 5.0f), 0.15f, 1.0f);
+				HitSpawning->CustomTimeDilation = DamageTimescale;
 			}
 		}
 	}
@@ -605,9 +604,11 @@ void ATachyonAttack::SpawnHit(AActor* HitActor, FVector HitLocation)
 void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, float HitScalar)
 {
 	// Init intended force
-	FVector KnockDirection = GetActorForwardVector() + (HitActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+	//FVector KnockDirection = GetActorForwardVector() + (HitActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+	FVector KnockDirection = (HitActor->GetActorLocation() - HitLocation).GetSafeNormal();
 	FVector KnockVector = KnockDirection * (KineticForce * HitScalar * AttackMagnitude);
 	KnockVector.Y = 0.0f;
+	KnockVector = KnockVector.GetClampedToMaxSize(KineticForce / 2.0f);
 
 	// Adjust force size for time dilation
 	float GlobalDilationScalar = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
@@ -712,7 +713,7 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 			// Basic hits
 			if (!bFirstHitReported || bSecondary)
 			{
-				float ImpactScalar = (AttackMagnitude * 2.0f);
+				float ImpactScalar = (AttackMagnitude * TimescaleImpact);
 				float HitTimescale = FMath::Clamp((1.0f - ImpactScalar), 0.07f, 0.7f);
 				CallForTimescale(Mark, false, HitTimescale);
 			}
@@ -798,6 +799,8 @@ void ATachyonAttack::Neutralize()
 		}
 
 		GetWorldTimerManager().ClearTimer(TimerHandle_Raycast);
+		GetWorldTimerManager().ClearTimer(TimerHandle_DeliveryTime);
+		//GetWorldTimerManager().ClearTimer(TimerHandle_TimeBetweenShots);
 	}
 }
 void ATachyonAttack::ServerNeutralize_Implementation()

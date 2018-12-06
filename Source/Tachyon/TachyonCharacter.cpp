@@ -329,7 +329,7 @@ void ATachyonCharacter::ModifyHealth(float Value)
 	}
 
 	if ((MaxHealth <= 0.0f) && 
-		(Role == ROLE_Authority) && (NearDeathEffect != nullptr))
+		(NearDeathEffect != nullptr)) /// (Role == ROLE_Authority) && 
 	{
 		UParticleSystemComponent* NearDeathParticles = UGameplayStatics::SpawnEmitterAttached(NearDeathEffect, GetRootComponent(), NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
 		if (NearDeathParticles != nullptr)
@@ -388,6 +388,12 @@ bool ATachyonCharacter::ServerNewTimescale_Validate(float Value)
 void ATachyonCharacter::MulticastNewTimescale_Implementation(float Value)
 {
 	CustomTimeDilation = Value;
+	if (ActiveAttack != nullptr)
+		ActiveAttack->CustomTimeDilation = Value;
+	if (ActiveBoost != nullptr)
+		ActiveBoost->CustomTimeDilation = Value;
+	if (ActiveSecondary != nullptr)
+		ActiveSecondary->CustomTimeDilation = FMath::Clamp(CustomTimeDilation * 2.0f, 0.1f, 1.0f);
 	ForceNetUpdate();
 }
 
@@ -427,6 +433,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 		Actor1 = this;
 	}
 
+	// Focus target getting, Actor1 and Actor2
 	if ((Controller != nullptr) && (FramingActors.Num() >= 1))
 	{
 		
@@ -446,15 +453,15 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 			}
 		}
 
-		// Let's go
-		if ((Actor1 != nullptr)) ///  && IsValid(Actor1) && !Actor1->IsUnreachable()
+		// Camera Motion Header
+		if (Actor1 != nullptr)
 		{
 
 			float VelocityCameraSpeed = CameraMoveSpeed;
 			float CameraMaxSpeed = 10000.0f;
 			float ConsideredDistanceScalar = CameraDistanceScalar;
 
-			// Position by another actor
+			/// Position by another actor
 			float DistToActor2 = 99999.0f;
 			int LoopCount = FramingActors.Num();
 			AActor* CurrentActor = nullptr;
@@ -472,7 +479,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 					float DistToTemp = FVector::Dist(CurrentActor->GetActorLocation(), GetActorLocation());
 					if (DistToTemp < DistToActor2)
 					{
-						// Players get veto importance
+						/// Players get veto importance
 						if ((BestCandidate == nullptr)
 						|| (!BestCandidate->ActorHasTag("Player")))
 						{
@@ -619,19 +626,19 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				// Narrowing and expanding camera FOV for closeup and outer zones
 				float ScalarSize = FMath::Clamp(DistBetweenActors * 0.005f, 0.05f, 1.5f);
 				float FOVTimeScalar = FMath::Clamp(GlobalTimeScale, 0.1f, 1.0f);
-				float FOV = 23.0f;
+				float FOV = 50.0f;
 				float FOVSpeed = 1.0f;
 				float Verticality = FMath::Abs((PositionOne - PositionTwo).Z);
 
 				// Inner and Outer zones
 				if ((DistBetweenActors <= 90.0f) && !bAlone)
 				{
-					FOV = 19.0f;
+					FOV = 25.0f;
 				}
 				else if (((DistBetweenActors >= 555.0f) || (Verticality >= 250.0f))
 					&& !bAlone)
 				{
-					float WideAngleFOV = FMath::Clamp((0.025f * DistBetweenActors), 42.0f, 71.0f);
+					float WideAngleFOV = FMath::Clamp((0.025f * DistBetweenActors), 42.0f, 100.0f);
 					FOV = WideAngleFOV; // 40
 				}
 				// GGTime Timescale adjustment
@@ -727,11 +734,11 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 		}
 	}
 
-	// Soundcontrol
+	// Sound control
 	if (SoundComp != nullptr)
 	{
-		float Velo = FMath::Sqrt(GetCharacterMovement()->Velocity.Size() * 0.00000618f);
-		float SpeedVolume = FMath::Clamp(Velo, 0.033f, 1.0f);
+		float Velo = FMath::Sqrt(GetCharacterMovement()->Velocity.Size() * 0.000001f);
+		float SpeedVolume = FMath::Clamp(Velo, 0.01f, 1.0f);
 		SoundComp->SetVolumeMultiplier(SpeedVolume);
 	}
 }
@@ -740,7 +747,7 @@ void ATachyonCharacter::ServerUpdateBody_Implementation(float DeltaTime)
 	// Recover personal timescale if down
 	if (CustomTimeDilation < 1.0f)
 	{
-		float RecoverySpeed = 5.1f * (1.0f + CustomTimeDilation);
+		float RecoverySpeed = CustomTimeDilation * TimescaleRecoverySpeed;
 		float InterpTime = FMath::FInterpConstantTo(CustomTimeDilation, 1.0f, DeltaTime, RecoverySpeed);
 		NewTimescale(InterpTime);
 	}

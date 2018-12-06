@@ -177,6 +177,9 @@ protected:
 	float AttackDamage = 1.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	float TimescaleImpact = 10.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	float GivenMagnitude = 0.3f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)

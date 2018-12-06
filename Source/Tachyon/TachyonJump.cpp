@@ -39,7 +39,7 @@ void ATachyonJump::StartJump()
 {
 	float FirstDelay = FMath::Max(LastJumpTime + TimeBetweenJumps - GetWorld()->TimeSeconds, 0.0f);
 
-	GetWorldTimerManager().SetTimer(TimerHandle_TimeBetweenJumps, this, &ATachyonJump::Jump, TimeBetweenJumps, false, FirstDelay);
+	GetWorldTimerManager().SetTimer(TimerHandle_TimeBetweenJumps, this, &ATachyonJump::Jump, TimeBetweenJumps, true, FirstDelay);
 }
 
 void ATachyonJump::EndJump()
@@ -101,6 +101,7 @@ void ATachyonJump::Jump()
 		{
 			MyDude->EngageJump();
 
+			float JumpTimeScaledDuration = JumpDurationTime * (1.0f / MyDude->CustomTimeDilation);
 			GetWorldTimerManager().SetTimer(TimerHandle_EndJumpTimer, this, &ATachyonJump::EndJump, JumpDurationTime, false);
 
 			LastJumpTime = GetWorld()->TimeSeconds;

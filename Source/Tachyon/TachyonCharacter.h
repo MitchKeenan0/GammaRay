@@ -126,6 +126,9 @@ public:
 	float MaxHealth = 100.0f;
 
 	UPROPERTY(EditDefaultsOnly)
+	float TimescaleRecoverySpeed = 10.0f;
+
+	UPROPERTY(EditDefaultsOnly)
 	float CameraMoveSpeed = 1.0f;
 
 	UPROPERTY(EditDefaultsOnly)
