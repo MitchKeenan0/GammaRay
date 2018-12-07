@@ -64,17 +64,22 @@ void ATachyonAttack::BeginPlay()
 }
 
 
+// From Inputs
 void ATachyonAttack::StartFire()
 {
 	float FirstDelay = FMath::Max(LastFireTime + TimeBetweenShots - GetWorld()->TimeSeconds, 0.0f);
 
-	GetWorldTimerManager().SetTimer(TimerHandle_TimeBetweenShots, this, &ATachyonAttack::Fire, TimeBetweenShots, !bSecondary, FirstDelay);
+	GetWorldTimerManager().SetTimer(TimerHandle_TimeBetweenShots, this, &ATachyonAttack::Fire, TimeBetweenShots, false, FirstDelay); /// !bSecondary
 }
 
 void ATachyonAttack::EndFire()
 {
-	GetWorldTimerManager().SetTimer(TimerHandle_DeliveryTime, this, &ATachyonAttack::Lethalize, DeliveryTime, false, DeliveryTime);
+	if (!bLethal)
+	{
+		GetWorldTimerManager().SetTimer(TimerHandle_DeliveryTime, this, &ATachyonAttack::Lethalize, DeliveryTime, false, DeliveryTime);
+	}
 }
+
 
 void ATachyonAttack::Fire()
 {
@@ -110,9 +115,10 @@ void ATachyonAttack::Fire()
 			bInitialized = true;
 			bNeutralized = false;
 
-			// Used to determine magnitude at Lethalize
 			TimeAtInit = GetWorld()->TimeSeconds;
 
+			// Used to determine magnitude at Lethalize
+			// Start deliverytime timer
 			if (bSecondary && !(GetWorldTimerManager().IsTimerActive(TimerHandle_DeliveryTime)))
 			{
 				EndFire();
@@ -265,7 +271,7 @@ void ATachyonAttack::Lethalize()
 			// Clear burst object
 			if (CurrentBurstObject != nullptr)
 			{
-				CurrentBurstObject->SetLifeSpan(0.36f);
+				CurrentBurstObject->SetLifeSpan(0.1f);
 				//CurrentBurstObject->Destroy();
 			}
 
