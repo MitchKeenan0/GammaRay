@@ -145,7 +145,7 @@ void ATachyonAIController::NavigateTo(FVector TargetLocation)
 	FVector ToTarget = TargetLocation - MyLocation;
 
 	// Reached target already?
-	if (ToTarget.Size() < 10.0f)
+	if (ToTarget.Size() < 150.0f)
 	{
 		LocationTarget = FVector::ZeroVector;
 		bCourseLayedIn = false;
@@ -255,11 +255,20 @@ void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 		if (ToTarget.Size() >= (Aggression * FMath::FRand() * 1500.0f))
 		{
 			MyTachyonCharacter->StartJump();
-			GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::White, FString::Printf(TEXT("Bot jumping Z: %f"), 1.0f));
 			bJumping = true;
 		}
 	}
-	
+	else
+	{
+		// End jump
+		JumpTimer += DeltaTime;
+		if (JumpTimer >= ((1.0f + FMath::FRand()) * Aggression))
+		{
+			MyTachyonCharacter->EndJump();
+			JumpTimer = 0.0f;
+			bJumping = false;
+		}
+	}
 }
 
 

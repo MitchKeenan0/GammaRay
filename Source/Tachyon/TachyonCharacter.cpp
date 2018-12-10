@@ -690,11 +690,11 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				}
 				
 				// GGTime Timescale adjustment
-				if (GlobalTimeScale < 0.02f)
+				/*if (GlobalTimeScale < 0.02f)
 				{
 					FOV *= FOVTimeScalar;
 					FOVSpeed *= 0.5f;
-				}
+				}*/
 
 				// Set FOV
 				SideViewCameraComponent->FieldOfView = FMath::FInterpTo(
