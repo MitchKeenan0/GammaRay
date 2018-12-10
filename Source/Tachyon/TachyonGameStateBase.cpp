@@ -32,7 +32,7 @@ void ATachyonGameStateBase::Tick(float DeltaTime)
 
 	UpdateGlobalTimescale(DeltaTime);
 
-	if (!bGG && (DesiredTimescale == 0.01f) && !GameSound->IsPlaying())
+	if (!bGG && (DesiredTimescale == GGTimescale) && !GameSound->IsPlaying())
 	{
 		GameSound->Play();
 		bGG = true;
@@ -46,10 +46,11 @@ void ATachyonGameStateBase::Tick(float DeltaTime)
 
 void ATachyonGameStateBase::SetGlobalTimescale(float TargetTimescale)
 {
-	DesiredTimescale = TargetTimescale;
+	float IncomingTimeClamped = FMath::Clamp(TargetTimescale, GGTimescale, 1.0f);
+	DesiredTimescale = IncomingTimeClamped;
 	
 	// End-game vs recovery
-	if (DesiredTimescale == 0.01f)
+	if (DesiredTimescale <= GGTimescale)
 	{
 		bRecoverTimescale = false;
 	}
@@ -146,17 +147,16 @@ void ATachyonGameStateBase::RestartGame()
 void ATachyonGameStateBase::UpdateGlobalTimescale(float DeltaTime)
 {
 	float CurrentTime = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
-	if ((CurrentTime == DesiredTimescale)
-		&& (CurrentTime != 0.01f))
+	/*if ((CurrentTime == DesiredTimescale)
+		&& (CurrentTime != GGTimescale))
 	{
 		DesiredTimescale = 1.0f;
 		return;
-	}
-
+	}*/
 	// Interpolating to desired timescale
 	float FactoredTimescale = DesiredTimescale * 10.0f;
 	float InterpSpeed = TimescaleRecoverySpeed + (1.0f / FactoredTimescale);
-	if (DesiredTimescale == 0.01f)
+	if (DesiredTimescale == GGTimescale)
 	{
 		InterpSpeed *= 0.15f;
 	}

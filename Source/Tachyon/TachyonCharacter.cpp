@@ -199,6 +199,17 @@ void ATachyonCharacter::Tick(float DeltaTime)
 			ServerUpdateBody(DeltaTime);
 		}
 	}
+
+	if ((MaxHealth <= 0.0f) &&
+		(NearDeathEffect != nullptr)) /// (Role == ROLE_Authority) && 
+	{
+		UParticleSystemComponent* NearDeathParticles = UGameplayStatics::SpawnEmitterAttached(NearDeathEffect, GetRootComponent(), NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
+		if (NearDeathParticles != nullptr)
+		{
+			NearDeathParticles->ComponentTags.Add("ResetKill");
+			NearDeathParticles->GetOwner()->SetReplicates(true);
+		}
+	}
 }
 
 
@@ -370,16 +381,17 @@ void ATachyonCharacter::ModifyHealth(float Value)
 		ServerModifyHealth(Value);
 	}
 
-	if ((MaxHealth <= 0.0f) && 
-		(NearDeathEffect != nullptr)) /// (Role == ROLE_Authority) && 
+	/*if ((MaxHealth <= 0.0f) && 
+		(NearDeathEffect != nullptr)
+		 && (Role == ROLE_Authority)) /// (Role == ROLE_Authority) && 
 	{
 		UParticleSystemComponent* NearDeathParticles = UGameplayStatics::SpawnEmitterAttached(NearDeathEffect, GetRootComponent(), NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
 		if (NearDeathParticles != nullptr)
 		{
 			NearDeathParticles->ComponentTags.Add("ResetKill");
-			NearDeathParticles->SetIsReplicated(true);
+			NearDeathParticles->GetOwner()->SetReplicates(true);
 		}
-	}
+	}*/
 
 	// Clear old death if we're reviving
 	if (Value == 100.0f)
@@ -793,7 +805,9 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 void ATachyonCharacter::ServerUpdateBody_Implementation(float DeltaTime)
 {
 	// Recover personal timescale if down
-	if (CustomTimeDilation < 1.0f)
+	float GlobalTimescale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+	if ((GlobalTimescale > 0.11f)
+		&& (CustomTimeDilation < 1.0f))
 	{
 		float RecoverySpeed = CustomTimeDilation * TimescaleRecoverySpeed;
 		float InterpTime = FMath::FInterpConstantTo(CustomTimeDilation, 1.0f, DeltaTime, RecoverySpeed);

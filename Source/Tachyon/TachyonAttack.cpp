@@ -67,9 +67,14 @@ void ATachyonAttack::BeginPlay()
 // From Inputs
 void ATachyonAttack::StartFire()
 {
-	float FirstDelay = FMath::Max(LastFireTime + TimeBetweenShots - GetWorld()->TimeSeconds, 0.0f);
+	float GlobalTimeScale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+	if (GlobalTimeScale == 1.0f)
+	{
+		float FirstDelay = FMath::Max(LastFireTime + TimeBetweenShots - GetWorld()->TimeSeconds, 0.0f);
 
-	GetWorldTimerManager().SetTimer(TimerHandle_TimeBetweenShots, this, &ATachyonAttack::Fire, TimeBetweenShots, false, FirstDelay); /// !bSecondary
+		GetWorldTimerManager().SetTimer(TimerHandle_TimeBetweenShots, this, &ATachyonAttack::Fire, TimeBetweenShots, false, FirstDelay); /// !bSecondary
+	}
+	
 }
 
 void ATachyonAttack::EndFire()
@@ -245,8 +250,13 @@ void ATachyonAttack::Lethalize()
 			if (bSecondary)
 				CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 
+			if (AttackParticles != nullptr)
+			{
+				AttackParticles->RelativeScale3D *= (10.0f + AttackMagnitude);
+			}
+
 			// Shooter Recoil
-			if ((RecoilForce > 0.0f) && (Role == ROLE_Authority))
+			if ((RecoilForce != 0.0f) && (Role == ROLE_Authority))
 			{
 				ATachyonCharacter* CharacterShooter = Cast<ATachyonCharacter>(MyOwner);
 				if (CharacterShooter != nullptr)
@@ -602,8 +612,8 @@ void ATachyonAttack::SpawnHit(AActor* HitActor, FVector HitLocation)
 void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, float HitScalar)
 {
 	// Init intended force
-	//FVector KnockDirection = GetActorForwardVector() + (HitActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
-	FVector KnockDirection = (HitActor->GetActorLocation() - HitLocation).GetSafeNormal();
+	FVector KnockDirection = GetActorForwardVector() + (HitActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+	///FVector KnockDirection = (HitActor->GetActorLocation() - HitLocation).GetSafeNormal();
 	FVector KnockVector = KnockDirection * (KineticForce * HitScalar * AttackMagnitude);
 	KnockVector.Y = 0.0f;
 	KnockVector = KnockVector.GetClampedToMaxSize(KineticForce / 2.0f);

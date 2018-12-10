@@ -26,6 +26,9 @@ public:
 	float TimescaleRecoverySpeed = 10.0f;
 
 	UPROPERTY(EditDefaultsOnly)
+	float GGTimescale = 0.1f;
+
+	UPROPERTY(EditDefaultsOnly)
 	TArray<TSubclassOf<ATachyonCharacter>> Tachyons;
 
 	UPROPERTY(EditDefaultsOnly)
