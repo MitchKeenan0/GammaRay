@@ -262,17 +262,17 @@ void ATachyonAttack::Lethalize()
 			LastFireTime = GetWorld()->TimeSeconds;
 
 			if (HasAuthority())
-				GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, (1.0f / ActualHitsPerSecond), true, 0.0f);
+			{
+				float RefireTiming = (1.0f / ActualHitsPerSecond) * (1.0f / CustomTimeDilation);
+				GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, RefireTiming, true, 0.0f);
+			}
 
 			GetWorldTimerManager().SetTimer(TimerHandle_Neutralize, this, &ATachyonAttack::Neutralize, ActualDurationTime, false, ActualDurationTime);
-
-			//GetWorldTimerManager().ClearTimer(TimerHandle_TimeBetweenShots);
 
 			// Clear burst object
 			if (CurrentBurstObject != nullptr)
 			{
 				CurrentBurstObject->SetLifeSpan(0.1f);
-				//CurrentBurstObject->Destroy();
 			}
 
 			// Screen shake
@@ -354,14 +354,6 @@ void ATachyonAttack::SetInitVelocities()
 			ProjectileComponent->Velocity += ScalarVelocity;
 		}
 	}
-
-	// Slow shooter
-	/*FVector PostFireShooterVelocity = (ShooterVelocity * -HitSlow);
-	ATachyonCharacter* CharacterShooter = Cast<ATachyonCharacter>(OwningShooter);
-	if (CharacterShooter != nullptr)
-	{
-		CharacterShooter->ReceiveKnockback(PostFireShooterVelocity, true);
-	}*/
 }
 
 

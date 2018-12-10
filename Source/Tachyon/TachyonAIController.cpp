@@ -249,10 +249,17 @@ void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 	}
 
 	// Boost
-	if (ToTarget.Size() >= Aggression * FMath::FRand() * 500.0f)
+	if (!bJumping)
 	{
-		MyTachyonCharacter->StartJump();
+		// Start jump
+		if (ToTarget.Size() >= (Aggression * FMath::FRand() * 1500.0f))
+		{
+			MyTachyonCharacter->StartJump();
+			GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::White, FString::Printf(TEXT("Bot jumping Z: %f"), 1.0f));
+			bJumping = true;
+		}
 	}
+	
 }
 
 

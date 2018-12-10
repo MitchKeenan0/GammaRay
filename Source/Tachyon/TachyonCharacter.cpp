@@ -227,17 +227,59 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 ////////////////////////////////////////////////////////////////////////
 // MOVEMENT
 
+// Left / Right
 void ATachyonCharacter::MoveRight(float Value)
 {
-	AddMovementInput(FVector::ForwardVector, Value);
-	
 	InputX = Value;
+
+	FVector MyVelocity = GetCharacterMovement()->Velocity;
+	float MoveVal = Value;
+	
+	if (MyVelocity.Size() > 0.0f)
+	{
+		FVector MyInput = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
+		FVector VelNorm = MyVelocity.GetSafeNormal();
+		float InputDotToVelocity = FVector::DotProduct(MyInput, VelNorm);
+		float AngleToVelocity = FMath::Square(FMath::Clamp(FMath::Acos(InputDotToVelocity), 1.0f, 180.0f));
+
+		// Adjust acceleration based on angle to input velocity
+		if (GetCharacterMovement()->MaxAcceleration != BoostSpeed)
+		{
+			GetCharacterMovement()->MaxAcceleration = MoveSpeed * AngleToVelocity;
+		}
+		
+		MoveVal = (Value * AngleToVelocity);
+	}
+	
+	AddMovementInput(FVector::ForwardVector, MoveVal);
 }
+
+
+// Up / Down
 void ATachyonCharacter::MoveUp(float Value)
 {
-	AddMovementInput(FVector::UpVector, Value);
-	
 	InputZ = Value;
+
+	FVector MyVelocity = GetCharacterMovement()->Velocity;
+	float MoveVal = Value;
+	
+	if (MyVelocity.Size() > 0.0f)
+	{
+		FVector MyInput = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
+		FVector VelNorm = MyVelocity.GetSafeNormal();
+		float InputDotToVelocity = FVector::DotProduct(MyInput, VelNorm);
+		float AngleToVelocity = FMath::Square(FMath::Clamp(FMath::Acos(InputDotToVelocity), 1.0f, 180.0f));
+
+		// Adjust acceleration based on angle to input velocity
+		if (GetCharacterMovement()->MaxAcceleration != BoostSpeed)
+		{
+			GetCharacterMovement()->MaxAcceleration = MoveSpeed * AngleToVelocity;
+		}
+		
+		MoveVal = (Value * AngleToVelocity);
+	}
+
+	AddMovementInput(FVector::UpVector, MoveVal);
 }
 
 void ATachyonCharacter::BotMove(float X, float Z)
@@ -388,12 +430,14 @@ bool ATachyonCharacter::ServerNewTimescale_Validate(float Value)
 void ATachyonCharacter::MulticastNewTimescale_Implementation(float Value)
 {
 	CustomTimeDilation = Value;
+
+	float AttackTimescale = FMath::Clamp(CustomTimeDilation * 2.0f, 0.1f, 1.0f);
 	if (ActiveAttack != nullptr)
-		ActiveAttack->CustomTimeDilation = Value;
+		ActiveAttack->CustomTimeDilation = AttackTimescale;
 	if (ActiveBoost != nullptr)
-		ActiveBoost->CustomTimeDilation = Value;
+		ActiveBoost->CustomTimeDilation = AttackTimescale;
 	if (ActiveSecondary != nullptr)
-		ActiveSecondary->CustomTimeDilation = FMath::Clamp(CustomTimeDilation * 2.0f, 0.1f, 1.0f);
+		ActiveSecondary->CustomTimeDilation = AttackTimescale;
 	ForceNetUpdate();
 }
 
@@ -505,11 +549,14 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 
 			// Setting up distance and speed dynamics
 			float ChargeScalar = FMath::Clamp((FMath::Sqrt(Charge - 0.9f)), 1.0f, ChargeMax);
-			float SpeedScalar = 1.0f + FMath::Sqrt(Actor1Velocity.Size() + 0.01f) * 0.1f;
+			float PlayerSpeed = Actor1Velocity.Size();
+			float SpeedScalar = 1.0f;
+			if (PlayerSpeed > 0.0f)
+				SpeedScalar = FMath::Sqrt(PlayerSpeed) * 0.1f;
+
 			float PersonalScalar = 1.0f + (36.0f * ChargeScalar * SpeedScalar) * (FMath::Sqrt(SafeVelocitySize));
 			float CameraMinimumDistance = 3500.0f + (PersonalScalar * CameraDistanceScalar); // (1100.0f + PersonalScalar)
 			float CameraMaxDistance = 11551000.0f;
-
 
 			// If Actor2 is valid, make Pair Framing
 			bool bAlone = true;
@@ -641,6 +688,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 					float WideAngleFOV = FMath::Clamp((0.025f * DistBetweenActors), 42.0f, 100.0f);
 					FOV = WideAngleFOV; // 40
 				}
+				
 				// GGTime Timescale adjustment
 				if (GlobalTimeScale < 0.02f)
 				{
