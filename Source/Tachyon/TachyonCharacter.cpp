@@ -190,24 +190,21 @@ void ATachyonCharacter::Tick(float DeltaTime)
 
 		if (!ActorHasTag("Bot"))
 			UpdateBody(DeltaTime);
-	}
 
-	if (HasAuthority())
-	{
-		if (CustomTimeDilation < 1.0f)
+		if (HasAuthority() && (CustomTimeDilation < 1.0f))
 		{
 			ServerUpdateBody(DeltaTime);
 		}
-	}
 
-	if ((MaxHealth <= 0.0f) &&
-		(NearDeathEffect != nullptr)) /// (Role == ROLE_Authority) && 
-	{
-		UParticleSystemComponent* NearDeathParticles = UGameplayStatics::SpawnEmitterAttached(NearDeathEffect, GetRootComponent(), NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
-		if (NearDeathParticles != nullptr)
+		if ((MaxHealth <= 0.0f) &&
+			(NearDeathEffect != nullptr)) /// (Role == ROLE_Authority) && 
 		{
-			NearDeathParticles->ComponentTags.Add("ResetKill");
-			NearDeathParticles->GetOwner()->SetReplicates(true);
+			UParticleSystemComponent* NearDeathParticles = UGameplayStatics::SpawnEmitterAttached(NearDeathEffect, GetRootComponent(), NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
+			if (NearDeathParticles != nullptr)
+			{
+				NearDeathParticles->ComponentTags.Add("ResetKill");
+				NearDeathParticles->GetOwner()->SetReplicates(true);
+			}
 		}
 	}
 }
@@ -242,27 +239,8 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 void ATachyonCharacter::MoveRight(float Value)
 {
 	InputX = Value;
-
-	FVector MyVelocity = GetCharacterMovement()->Velocity;
-	float MoveVal = Value;
 	
-	if (MyVelocity.Size() > 0.0f)
-	{
-		FVector MyInput = FVector(InputX, 0.0f, InputZ).GetSafeNormal();
-		FVector VelNorm = MyVelocity.GetSafeNormal();
-		float InputDotToVelocity = FVector::DotProduct(MyInput, VelNorm);
-		float AngleToVelocity = FMath::Square(FMath::Clamp(FMath::Acos(InputDotToVelocity), 1.0f, 180.0f));
-
-		// Adjust acceleration based on angle to input velocity
-		if (GetCharacterMovement()->MaxAcceleration != BoostSpeed)
-		{
-			GetCharacterMovement()->MaxAcceleration = MoveSpeed * AngleToVelocity;
-		}
-		
-		MoveVal = (Value * AngleToVelocity);
-	}
-	
-	AddMovementInput(FVector::ForwardVector, MoveVal);
+	AddMovementInput(FVector::ForwardVector, Value);
 }
 
 
@@ -271,7 +249,12 @@ void ATachyonCharacter::MoveUp(float Value)
 {
 	InputZ = Value;
 
-	FVector MyVelocity = GetCharacterMovement()->Velocity;
+	AddMovementInput(FVector::UpVector, Value);
+}
+
+/*
+
+FVector MyVelocity = GetCharacterMovement()->Velocity;
 	float MoveVal = Value;
 	
 	if (MyVelocity.Size() > 0.0f)
@@ -290,8 +273,7 @@ void ATachyonCharacter::MoveUp(float Value)
 		MoveVal = (Value * AngleToVelocity);
 	}
 
-	AddMovementInput(FVector::UpVector, MoveVal);
-}
+*/
 
 void ATachyonCharacter::BotMove(float X, float Z)
 {
@@ -625,7 +607,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 			FVector TargetMidpoint = PositionOne + ((PositionTwo - PositionOne) * MidpointBias);
 			float MidpointInterpSpeed = 10.0f * FMath::Clamp(TargetMidpoint.Size() * 0.01f, 10.0f, 100.0f);
 			if (bAlone)
-				MidpointInterpSpeed *= 0.1f;
+				MidpointInterpSpeed *= 0.5f;
 
 			Midpoint = FMath::VInterpTo(Midpoint, TargetMidpoint, DeltaTime, MidpointInterpSpeed); /// TargetMidpoint; /// 
 			if (Midpoint.Size() > 0.0f)
@@ -685,19 +667,20 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				// Narrowing and expanding camera FOV for closeup and outer zones
 				float ScalarSize = FMath::Clamp(DistBetweenActors * 0.005f, 0.05f, 1.5f);
 				float FOVTimeScalar = FMath::Clamp(GlobalTimeScale, 0.1f, 1.0f);
-				float FOV = 50.0f;
+				float FOV = 21.0f;
 				float FOVSpeed = 1.0f;
 				float Verticality = FMath::Abs((PositionOne - PositionTwo).Z);
 
 				// Inner and Outer zones
-				if ((DistBetweenActors <= 90.0f) && !bAlone)
+				if ((DistBetweenActors <= 250.0f) && !bAlone)
 				{
-					FOV = 25.0f;
+					FOV = 17.5f;
 				}
-				else if (((DistBetweenActors >= 555.0f) || (Verticality >= 250.0f))
+				
+				if (((DistBetweenActors > 250.0f) || (Verticality >= 100.0f))
 					&& !bAlone)
 				{
-					float WideAngleFOV = FMath::Clamp((0.025f * DistBetweenActors), 42.0f, 100.0f);
+					float WideAngleFOV = FMath::Clamp((0.03f * DistBetweenActors), 15.0f, 100.0f);
 					FOV = WideAngleFOV; // 40
 				}
 				
@@ -744,8 +727,11 @@ bool ATachyonCharacter::ServerReceiveKnockback_Validate(FVector Knockback, bool 
 }
 void ATachyonCharacter::MulticastReceiveKnockback_Implementation(FVector Knockback, bool bOverrideVelocity)
 {
-	GetCharacterMovement()->AddImpulse(Knockback, bOverrideVelocity);
-	ForceNetUpdate();
+	if (Controller != nullptr)
+	{
+		GetCharacterMovement()->AddImpulse(Knockback, bOverrideVelocity);
+		ForceNetUpdate();
+	}
 }
 
 void ATachyonCharacter::UpdateBody(float DeltaTime)

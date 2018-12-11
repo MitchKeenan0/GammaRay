@@ -52,6 +52,7 @@ void ATachyonAttack::BeginPlay()
 	Super::BeginPlay();
 	
 	TimeBetweenShots = RefireTime;
+	ActualAttackDamage = AttackDamage;
 
 	if (bSecondary)
 		CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -224,7 +225,7 @@ void ATachyonAttack::Lethalize()
 	{
 		if (bInitialized)
 		{
-			RedirectAttack();
+			///RedirectAttack();
 
 			if (AttackRadial != nullptr)
 			{
@@ -259,12 +260,13 @@ void ATachyonAttack::Lethalize()
 			if ((RecoilForce != 0.0f) && (Role == ROLE_Authority))
 			{
 				ATachyonCharacter* CharacterShooter = Cast<ATachyonCharacter>(MyOwner);
-				if (CharacterShooter != nullptr)
+				if ((CharacterShooter != nullptr) && (CharacterShooter->GetController() != nullptr))
 				{
 					FVector RecoilVector = GetActorRotation().Vector().GetSafeNormal();
 					float ClampedMagnitude = FMath::Clamp(AttackMagnitude, 0.5f, 1.0f);
 					RecoilVector *= (RecoilForce * -ClampedMagnitude);
-					CharacterShooter->ReceiveKnockback(RecoilVector, true);
+					CharacterShooter->ReceiveKnockback(RecoilVector, bAbsoluteHitForce);
+					GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::White, FString::Printf(TEXT("RECOIL   : %f"), 1.0f));
 				}
 			}
 
@@ -400,9 +402,9 @@ void ATachyonAttack::RedirectAttack()
 			NewRotation.Pitch = FMath::Clamp(NewRotation.Pitch, -ShootingAngle, ShootingAngle);
 			SetActorRotation(NewRotation);
 
-			FVector EmitLocation;
-			FRotator EmitRotation;
-			OwningShooter->GetActorEyesViewPoint(EmitLocation, EmitRotation);
+			FVector EmitLocation = TachyonShooter->GetAttackScene()->GetComponentLocation();
+			//FRotator EmitRotation;
+			//OwningShooter->GetActorEyesViewPoint(EmitLocation, EmitRotation);
 			SetActorLocation(EmitLocation);
 		}
 
@@ -410,6 +412,8 @@ void ATachyonAttack::RedirectAttack()
 		{
 			AttackRadial->SetWorldLocation(GetActorLocation());
 		}
+
+		ForceNetUpdate();
 	}
 }
 
@@ -772,7 +776,10 @@ void ATachyonAttack::Neutralize()
 	if (MyOwner != nullptr)
 	{
 		if (AttackParticles != nullptr)
+		{
+			AttackParticles->Deactivate();
 			AttackParticles = nullptr;
+		}
 
 		// Reset variables
 		bNeutralized = true;

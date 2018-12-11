@@ -76,19 +76,23 @@ void ATachyonAIController::Tick(float DeltaTime)
 	{
 		if (Player != nullptr)
 		{
-			// Movement
-			if ((LocationTarget == FVector::ZeroVector) || (TravelTimer > 2.0f))
+			float GlobalTime = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+			if (GlobalTime > 0.5f)
 			{
-				LocationTarget = GetNewLocationTarget();
-				TravelTimer = 0.0f;
+				// Movement
+				if ((LocationTarget == FVector::ZeroVector) || (TravelTimer > 2.0f))
+				{
+					LocationTarget = GetNewLocationTarget();
+					TravelTimer = 0.0f;
+				}
+				else if (LocationTarget != FVector::ZeroVector)
+				{
+					NavigateTo(LocationTarget);
+					TravelTimer += DeltaTime;
+				}
+
+				Combat(Player, DeltaTime);
 			}
-			else if (LocationTarget != FVector::ZeroVector)
-			{
-				NavigateTo(LocationTarget);
-				TravelTimer += DeltaTime;
-			}
-			
-			Combat(Player, DeltaTime);
 		}
 		else
 		{
