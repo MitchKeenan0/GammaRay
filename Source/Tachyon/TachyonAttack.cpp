@@ -275,7 +275,7 @@ void ATachyonAttack::Lethalize()
 
 			if (HasAuthority())
 			{
-				float RefireTiming = (1.0f / ActualHitsPerSecond) * (1.0f / CustomTimeDilation);
+				float RefireTiming = (1.0f / ActualHitsPerSecond) * CustomTimeDilation;
 				GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, RefireTiming, true, 0.0f);
 			}
 
@@ -605,7 +605,7 @@ void ATachyonAttack::SpawnHit(AActor* HitActor, FVector HitLocation)
 			if (HitSpawning != nullptr)
 			{
 				HitSpawning->AttachToActor(HitActor, FAttachmentTransformRules::KeepWorldTransform);
-				float DamageTimescale = FMath::Clamp((CustomTimeDilation * 5.0f), 0.15f, 1.0f);
+				float DamageTimescale = FMath::Clamp(CustomTimeDilation, 0.0f, 1.0f);
 				HitSpawning->CustomTimeDilation = DamageTimescale;
 			}
 		}
@@ -665,9 +665,10 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 	// Smashy fx
 	if (Role == ROLE_Authority)
 	{
+		SpawnHit(HitActor, HitLocation);
+
 		if (!bGameEnder)
 		{
-			SpawnHit(HitActor, HitLocation);
 			ApplyKnockForce(HitActor, HitLocation, 1.0f);
 		}
 		
@@ -816,6 +817,8 @@ void ATachyonAttack::Neutralize()
 		GetWorldTimerManager().ClearTimer(TimerHandle_Raycast);
 		GetWorldTimerManager().ClearTimer(TimerHandle_DeliveryTime);
 		//GetWorldTimerManager().ClearTimer(TimerHandle_TimeBetweenShots);
+
+		CustomTimeDilation = 1.0f;
 	}
 }
 void ATachyonAttack::ServerNeutralize_Implementation()
