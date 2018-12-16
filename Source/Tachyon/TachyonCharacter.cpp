@@ -433,8 +433,9 @@ void ATachyonCharacter::MulticastNewTimescale_Implementation(float Value)
 {
 	CustomTimeDilation = Value;
 
-	float AttackTimescale = FMath::Clamp(CustomTimeDilation * 0.2f, 0.0f, 1.0f);
-	float JumpTimescale = FMath::Clamp(CustomTimeDilation * 1.2f, 0.0f, 1.0f);
+	float TimeSqrt = FMath::Sqrt(Value);
+	float AttackTimescale = FMath::Clamp(TimeSqrt, 0.0f, 1.0f);
+	float JumpTimescale = FMath::Clamp(TimeSqrt, 0.0f, 1.0f);
 
 	if (ActiveAttack != nullptr)
 		ActiveAttack->CustomTimeDilation = AttackTimescale;

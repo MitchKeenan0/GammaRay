@@ -238,7 +238,7 @@ void ATachyonAttack::Lethalize()
 				GeneratedMagnitude = GivenMagnitude;
 			AttackMagnitude = (FMath::FloorToFloat(GeneratedMagnitude * 10)) * 0.1f;
 
-			float NewHitRate = FMath::Clamp((HitsPerSecond * (AttackMagnitude * 2.1f)), 1.0f, HitsPerSecond);
+			float NewHitRate = FMath::Clamp((HitsPerSecond * AttackMagnitude), 1.0f, HitsPerSecond);
 			ActualHitsPerSecond = NewHitRate;
 			ActualAttackDamage *= (1.0f + AttackMagnitude);
 
@@ -275,7 +275,7 @@ void ATachyonAttack::Lethalize()
 
 			if (HasAuthority())
 			{
-				float RefireTiming = (1.0f / ActualHitsPerSecond) * CustomTimeDilation;
+				float RefireTiming = (1.0f / ActualHitsPerSecond); // *CustomTimeDilation;
 				GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, RefireTiming, true, 0.0f);
 			}
 
