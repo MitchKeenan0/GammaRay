@@ -197,14 +197,16 @@ void ATachyonCharacter::Tick(float DeltaTime)
 		}
 
 		// Hacky stuff
-		if ((MaxHealth <= 0.0f) &&
+		if ((MaxHealth <= 0.0f) && !bSpawnedDeath &&
 			(NearDeathEffect != nullptr)) /// (Role == ROLE_Authority) && 
 		{
 			UParticleSystemComponent* NearDeathParticles = UGameplayStatics::SpawnEmitterAttached(NearDeathEffect, GetRootComponent(), NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
 			if (NearDeathParticles != nullptr)
 			{
+				NearDeathParticles->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
 				NearDeathParticles->ComponentTags.Add("ResetKill");
 				NearDeathParticles->GetOwner()->SetReplicates(true);
+				bSpawnedDeath = true;
 			}
 		}
 
@@ -363,7 +365,7 @@ void ATachyonCharacter::Shield()
 void ATachyonCharacter::ModifyHealth(float Value)
 {
 	MaxHealth = FMath::Clamp(Health + Value, -1.0f, 100.0f);
-
+	
 	if (Role < ROLE_Authority)
 	{
 		ServerModifyHealth(Value);
@@ -386,6 +388,8 @@ void ATachyonCharacter::ModifyHealth(float Value)
 	// Clear old death if we're reviving
 	if (Value == 100.0f)
 	{
+		bSpawnedDeath = false;
+
 		TArray<UActorComponent*> Particles = GetComponentsByClass(UParticleSystemComponent::StaticClass());
 		if (Particles.Num() > 0)
 		{
@@ -433,9 +437,15 @@ void ATachyonCharacter::MulticastNewTimescale_Implementation(float Value)
 {
 	CustomTimeDilation = Value;
 
-	float TimeSqrt = FMath::Sqrt(Value);
-	float AttackTimescale = FMath::Clamp(TimeSqrt, 0.0f, 1.0f);
-	float JumpTimescale = FMath::Clamp(TimeSqrt, 0.0f, 1.0f);
+	float AttackTimescale, JumpTimescale;
+	if (Value > 0.2f)
+	{
+		float TimeSqrt = FMath::Sqrt(Value);
+		AttackTimescale = FMath::Clamp(TimeSqrt, 0.0f, 1.0f);
+		JumpTimescale = FMath::Clamp(TimeSqrt, 0.0f, 1.0f);
+	} else {
+		AttackTimescale = JumpTimescale = 0.01f;
+	}
 
 	if (ActiveAttack != nullptr)
 		ActiveAttack->CustomTimeDilation = AttackTimescale;
@@ -443,6 +453,7 @@ void ATachyonCharacter::MulticastNewTimescale_Implementation(float Value)
 		ActiveSecondary->CustomTimeDilation = AttackTimescale;
 	if (ActiveBoost != nullptr)
 		ActiveBoost->CustomTimeDilation = JumpTimescale;
+	
 	
 	ForceNetUpdate();
 }
@@ -677,22 +688,22 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 					TargetLengthClamped, DeltaTime, (VelocityCameraSpeed * 0.5f) * InverseTimeSpeed);
 
 				// Narrowing and expanding camera FOV for closeup and outer zones
-				float ScalarSize = FMath::Clamp(DistBetweenActors * 0.005f, 0.05f, 1.5f);
+				float ScalarSize = FMath::Clamp(DistBetweenActors * 0.005f, 0.05f, 5.5f);
 				float FOVTimeScalar = FMath::Clamp(GlobalTimeScale, 0.1f, 1.0f);
 				float FOV = 21.0f;
 				float FOVSpeed = 1.0f;
 				float Verticality = FMath::Abs((PositionOne - PositionTwo).Z);
 
 				// Inner and Outer zones
-				if ((DistBetweenActors <= 250.0f) && !bAlone)
+				if ((DistBetweenActors <= 150.0f) && !bAlone)
 				{
 					FOV = 20.0f;
 				}
 				
-				if (((DistBetweenActors > 250.0f) || (Verticality >= 100.0f))
+				if (((DistBetweenActors > 150.0f) || (Verticality >= 100.0f))
 					&& !bAlone)
 				{
-					float WideAngleFOV = FMath::Clamp((0.035f * DistBetweenActors), 15.0f, 100.0f);
+					float WideAngleFOV = FMath::Clamp((0.03f * DistBetweenActors), 22.0f, 120.0f);
 					FOV = WideAngleFOV; // 40
 				}
 				

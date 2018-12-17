@@ -251,11 +251,6 @@ void ATachyonAttack::Lethalize()
 			if (bSecondary)
 				CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 
-			if (AttackParticles != nullptr)
-			{
-				AttackParticles->RelativeScale3D *= (10.0f + AttackMagnitude);
-			}
-
 			// Shooter Recoil
 			if ((RecoilForce != 0.0f) && (Role == ROLE_Authority))
 			{
@@ -280,6 +275,8 @@ void ATachyonAttack::Lethalize()
 			}
 
 			GetWorldTimerManager().SetTimer(TimerHandle_Neutralize, this, &ATachyonAttack::Neutralize, ActualDurationTime, false, ActualDurationTime);
+
+			ActivateEffects();
 
 			// Clear burst object
 			if (CurrentBurstObject != nullptr)
@@ -580,7 +577,7 @@ void ATachyonAttack::RaycastForHit()
 			}
 		}
 
-		ActivateEffects();
+		//ActivateEffects();
 	}
 }
 void ATachyonAttack::ServerRaycastForHit_Implementation()
@@ -758,7 +755,8 @@ void ATachyonAttack::CallForTimescale(AActor* TargetActor, bool bGlobal, float N
 		else
 		{
 			TGState->SetActorTimescale(TargetActor, NewTimescale);
-			TGState->SetActorTimescale(OwningShooter, NewTimescale);
+			float ShooterTimescale = FMath::Clamp(NewTimescale + 0.5f, 0.5f, 1.0f);
+			TGState->SetActorTimescale(OwningShooter, ShooterTimescale);
 		}
 
 		TGState->ForceNetUpdate();

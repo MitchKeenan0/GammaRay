@@ -26,13 +26,10 @@ void ATachyonAIController::FindOneself()
 
 			MyTachyonCharacter->Tags.Add("FramingActor");
 
-			GEngine->AddOnScreenDebugMessage(-1, 10.5f, FColor::White, FString::Printf(TEXT("Bot MaxAccel: %f"), MyTachyonCharacter->GetCharacterMovement()->MaxAcceleration));
-			GEngine->AddOnScreenDebugMessage(-1, 10.5f, FColor::White, FString::Printf(TEXT("Bot FlySpeed: %f"), MyTachyonCharacter->GetCharacterMovement()->MaxFlySpeed));
-
-			MyTachyonCharacter->GetCharacterMovement()->MaxAcceleration = 5000.0f;
-			MyTachyonCharacter->GetCharacterMovement()->MaxFlySpeed = 1000.0f;
-			MyTachyonCharacter->GetCharacterMovement()->bOrientRotationToMovement = true;
-			MyTachyonCharacter->GetCharacterMovement()->BrakingFrictionFactor = 50.0f;
+			//MyTachyonCharacter->GetCharacterMovement()->MaxAcceleration = 5000.0f;
+			//MyTachyonCharacter->GetCharacterMovement()->MaxFlySpeed = 1000.0f;
+			//MyTachyonCharacter->GetCharacterMovement()->bOrientRotationToMovement = true;
+			//MyTachyonCharacter->GetCharacterMovement()->BrakingFrictionFactor = 50.0f;
 
 			MyTachyonCharacter->bUseControllerRotationPitch = true;
 			MyTachyonCharacter->bUseControllerRotationPitch = true;
@@ -72,7 +69,8 @@ void ATachyonAIController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (MyTachyonCharacter != nullptr)
+	if ((MyTachyonCharacter != nullptr)
+		&& (MyTachyonCharacter->GetHealth() > 0.0f))
 	{
 		if (Player != nullptr)
 		{

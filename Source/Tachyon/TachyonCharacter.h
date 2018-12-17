@@ -35,6 +35,8 @@ class TACHYON_API ATachyonCharacter : public ACharacter
 	UPROPERTY()
 	float MoveTimer = 0.0f;
 	UPROPERTY()
+	bool bSpawnedDeath = false;
+	UPROPERTY()
 	FVector PositionOne = FVector::ZeroVector;
 	UPROPERTY()
 	FVector PositionTwo = FVector::ZeroVector;
