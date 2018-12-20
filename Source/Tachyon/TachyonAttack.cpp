@@ -261,7 +261,6 @@ void ATachyonAttack::Lethalize()
 					float ClampedMagnitude = FMath::Clamp(AttackMagnitude, 0.5f, 1.0f);
 					RecoilVector *= (RecoilForce * -ClampedMagnitude);
 					CharacterShooter->ReceiveKnockback(RecoilVector, bAbsoluteHitForce);
-					GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::White, FString::Printf(TEXT("RECOIL   : %f"), 1.0f));
 				}
 			}
 
@@ -655,6 +654,7 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 			if (PotentialAttack->ActorHasTag("Shield"))
 			{
 				GEngine->AddOnScreenDebugMessage(-1, 10.5f, FColor::White, TEXT("OHH get shielded on"));
+				CustomTimeDilation *= 0.1f;
 			}
 		}
 	}

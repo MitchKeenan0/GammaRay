@@ -59,19 +59,13 @@ void ATachyonJump::EndJump()
 		ATachyonCharacter* MyDude = Cast<ATachyonCharacter>(MyOwner);
 		if (MyDude != nullptr)
 		{
-			MyDude->DisengageJump();
-			
 			if (JumpParticles != nullptr)
 			{
 				JumpParticles->DeactivateSystem();
 				JumpParticles->Deactivate();
 			}
 
-			if (JumpParticles != nullptr)
-			{
-				JumpParticles->DestroyComponent();
-				JumpParticles = nullptr;
-			}
+			MyDude->DisengageJump();
 		}
 
 		GetWorldTimerManager().ClearTimer(TimerHandle_TimeBetweenJumps);
@@ -103,7 +97,12 @@ void ATachyonJump::Jump()
 		ATachyonCharacter* MyDude = Cast<ATachyonCharacter>(MyOwner);
 		if (MyDude != nullptr)
 		{
+			// Movement
 			MyDude->EngageJump();
+
+			// Angle
+			FRotator VectorRotator = (MyDude->GetVelocity() + MyDude->GetActorForwardVector()).Rotation();
+			SetActorRotation(VectorRotator);
 
 			float JumpTimeScaledDuration = JumpDurationTime * (1.0f / MyDude->CustomTimeDilation);
 			GetWorldTimerManager().SetTimer(TimerHandle_EndJumpTimer, this, &ATachyonJump::EndJump, JumpDurationTime, false);
@@ -154,7 +153,7 @@ void ATachyonJump::DoJumpVisuals_Implementation()
 		JumpParticles = UGameplayStatics::SpawnEmitterAttached(JumpEffect, GetRootComponent(), NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
 		if (JumpParticles != nullptr)
 		{
-			JumpParticles->bAutoDestroy = true;
+			//JumpParticles->bAutoDestroy = true;
 			JumpParticles->SetIsReplicated(true);
 		}
 	}
