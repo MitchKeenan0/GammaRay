@@ -695,7 +695,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				// Narrowing and expanding camera FOV for closeup and outer zones
 				float ScalarSize = FMath::Clamp(DistBetweenActors * 0.005f, 0.05f, 5.5f);
 				float FOVTimeScalar = FMath::Clamp(GlobalTimeScale, 0.1f, 1.0f);
-				float FOV = 21.0f;
+				float FOV = 19.9f;
 				float FOVSpeed = 1.0f;
 				float Verticality = FMath::Abs((PositionOne - PositionTwo).Z);
 
@@ -708,7 +708,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				if (((DistBetweenActors > 150.0f) || (Verticality >= 100.0f))
 					&& !bAlone)
 				{
-					float WideAngleFOV = FMath::Clamp((0.03f * DistBetweenActors), 22.0f, 120.0f);
+					float WideAngleFOV = FMath::Clamp((0.03f * DistBetweenActors), 30.0f, 120.0f);
 					FOV = WideAngleFOV; // 40
 				}
 				
