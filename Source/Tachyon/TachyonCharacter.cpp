@@ -949,15 +949,9 @@ void ATachyonCharacter::OnShieldBeginOverlap(UPrimitiveComponent* OverlappedComp
 
 void ATachyonCharacter::Collide(AActor* OtherActor)
 {
-	CustomTimeDilation *= 0.5f;
-
-	if (CustomTimeDilation < 0.3f)
+	if (ActiveAttack != nullptr)
 	{
-		ForceComp->ForceStrength = -351000.0f; // this does nothing lol
-	}
-	else
-	{
-		CustomTimeDilation = FMath::FInterpTo(CustomTimeDilation, 1.0f, GetWorld()->DeltaTimeSeconds, 5.0f);
+		ActiveAttack->RemoteHit(OtherActor, 1.0f);
 	}
 }
 

@@ -613,7 +613,7 @@ void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, floa
 	// Init intended force
 	FVector KnockDirection = GetActorForwardVector() + (HitActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
 	///FVector KnockDirection = (HitActor->GetActorLocation() - HitLocation).GetSafeNormal();
-	FVector KnockVector = KnockDirection * (KineticForce * HitScalar * AttackMagnitude);
+	FVector KnockVector = KnockDirection * KineticForce * HitScalar;
 	KnockVector.Y = 0.0f;
 	KnockVector = KnockVector.GetClampedToMaxSize(KineticForce / 2.0f);
 
@@ -690,6 +690,21 @@ bool ATachyonAttack::ServerMainHit_Validate(AActor* HitActor, FVector HitLocatio
 	return true;
 }
 
+
+void ATachyonAttack::RemoteHit(AActor* Target, float Damage)
+{
+	if ((OwningShooter != nullptr) && (Role == ROLE_Authority))
+	{
+		ATachyonCharacter* HitTachyon = Cast<ATachyonCharacter>(Target);
+		if ((HitTachyon != nullptr) && (HitTachyon != OwningShooter))
+		{
+			HitTachyon->ModifyHealth(-Damage);
+			CallForTimescale(HitTachyon, false, 0.01f);
+			ApplyKnockForce(OwningShooter, HitTachyon->GetActorLocation(), RecoilForce * 1000000.0f);
+			GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("WHAMMMM"));
+		}
+	}
+}
 
 void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 {

@@ -28,6 +28,8 @@ public:
 
 	void EndFire();
 
+	void RemoteHit(AActor* Target, float Damage);
+
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
