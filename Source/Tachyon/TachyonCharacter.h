@@ -256,6 +256,27 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	class UAudioComponent* SoundComp = nullptr;
 
+	UPROPERTY(EditDefaultsOnly)
+	class URadialForceComponent* ForceComp = nullptr;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	class USphereComponent* OuterTouchCollider;
+
+	// Shield collision
+	UFUNCTION()
+	void OnShieldBeginOverlap
+	(
+		UPrimitiveComponent* OverlappedComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex,
+		bool bFromSweep,
+		const FHitResult& SweepResult
+	);
+
+	UFUNCTION(BlueprintCallable)
+	void Collide(AActor* OtherActor);
+
 
 
 	// REPLICATED VARIABLES ///////////////////////////////////////////////////////////////

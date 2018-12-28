@@ -568,8 +568,7 @@ void ATachyonAttack::RaycastForHit()
 			{
 				HitActor = Hits[i].GetActor();
 
-				if ((HitActor != nullptr)
-					&& (HitActor->WasRecentlyRendered(0.2f)))
+				if (HitActor != nullptr)
 				{
 					MainHit(HitActor, Hits[i].ImpactPoint);
 				}
@@ -716,7 +715,10 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		if ((TachyonHealth - ActualAttackDamage) <= 0.0f)
 		{
 			CallForTimescale(Mark, false, 0.01f); /// 0.01 is Terminal timescale
+			CustomTimeDilation = 0.001f;
 			bGameEnder = true;
+
+			ActivateEffects();
 		}
 		else
 		{
@@ -834,8 +836,8 @@ void ATachyonAttack::OnAttackBeginOverlap(UPrimitiveComponent* OverlappedCompone
 {
 	bool bTime = !bFirstHitReported || (HitTimer >= (1 / ActualHitsPerSecond));
 	bool bActors = (OwningShooter != nullptr) && (OtherActor != nullptr) && (OtherActor != OwningShooter);
-	float TimeSc = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
-	if (bTime && bActors && (bLethal && !bDoneLethal) && (TimeSc > 0.05f))
+	bool TimeSc = UGameplayStatics::GetGlobalTimeDilation(GetWorld()) >= 0.05f;
+	if (bTime && bActors && (bLethal && !bDoneLethal) && TimeSc)
 	{
 		FVector DamageLocation = GetActorLocation() + (OwningShooter->GetActorForwardVector() * RaycastHitRange);
 		if (ActorHasTag("Obstacle"))

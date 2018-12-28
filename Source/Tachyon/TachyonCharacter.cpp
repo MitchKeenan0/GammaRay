@@ -60,6 +60,14 @@ ATachyonCharacter::ATachyonCharacter(const FObjectInitializer& ObjectInitializer
 	SoundComp = CreateDefaultSubobject<UAudioComponent>(TEXT("SoundComp"));
 	SoundComp->SetupAttachment(RootComponent);
 	SoundComp->VolumeMultiplier = 0.1f;
+
+	ForceComp = CreateDefaultSubobject<URadialForceComponent>(TEXT("ForceComp"));
+	ForceComp->SetupAttachment(RootComponent);
+	ForceComp->SetIsReplicated(true);
+
+	OuterTouchCollider = CreateDefaultSubobject<USphereComponent>(TEXT("OuterTouchCollider"));
+	OuterTouchCollider->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
+	OuterTouchCollider->OnComponentBeginOverlap.AddDynamic(this, &ATachyonCharacter::OnShieldBeginOverlap);
 	
 	bReplicates = true;
 	bReplicateMovement = true;
@@ -336,7 +344,10 @@ void ATachyonCharacter::StartFire()
 	{
 		ActiveAttack->StartFire();
 		
-		GetCharacterMovement()->MaxFlySpeed *= AttackDrag;
+		if (Role == ROLE_Authority)
+		{
+			GetCharacterMovement()->MaxFlySpeed *= AttackDrag;
+		}
 	}
 }
 
@@ -346,7 +357,10 @@ void ATachyonCharacter::EndFire()
 	{
 		ActiveAttack->EndFire();
 		
-		GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed;
+		if (Role == ROLE_Authority)
+		{
+			GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed;
+		}
 	}
 }
 
@@ -370,20 +384,6 @@ void ATachyonCharacter::ModifyHealth(float Value)
 	{
 		ServerModifyHealth(Value);
 	}
-
-	
-
-	/*if ((MaxHealth <= 0.0f) && 
-		(NearDeathEffect != nullptr)
-		 && (Role == ROLE_Authority)) /// (Role == ROLE_Authority) && 
-	{
-		UParticleSystemComponent* NearDeathParticles = UGameplayStatics::SpawnEmitterAttached(NearDeathEffect, GetRootComponent(), NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
-		if (NearDeathParticles != nullptr)
-		{
-			NearDeathParticles->ComponentTags.Add("ResetKill");
-			NearDeathParticles->GetOwner()->SetReplicates(true);
-		}
-	}*/
 
 	// Clear old death if we're reviving
 	if (Value == 100.0f)
@@ -693,8 +693,8 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 					TargetLengthClamped, DeltaTime, (VelocityCameraSpeed * 0.5f) * InverseTimeSpeed);
 
 				// Narrowing and expanding camera FOV for closeup and outer zones
-				float ScalarSize = FMath::Clamp(DistBetweenActors * 0.005f, 0.05f, 5.5f);
-				float FOVTimeScalar = FMath::Clamp(GlobalTimeScale, 0.1f, 1.0f);
+				float ScalarSize = FMath::Clamp(DistBetweenActors * 0.005f, 0.05f, 52.5f);
+				float FOVTimeScalar = FMath::Clamp(GlobalTimeScale, 0.5f, 1.0f);
 				float FOV = 19.9f;
 				float FOVSpeed = 1.0f;
 				float Verticality = FMath::Abs((PositionOne - PositionTwo).Z);
@@ -702,21 +702,25 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				// Inner and Outer zones
 				if ((DistBetweenActors <= 150.0f) && !bAlone)
 				{
-					FOV = 20.0f;
+					FOV = 21.5f;
 				}
 				
 				if (((DistBetweenActors > 150.0f) || (Verticality >= 100.0f))
 					&& !bAlone)
 				{
 					float WideAngleFOV = FMath::Clamp((0.03f * DistBetweenActors), 30.0f, 120.0f);
-					FOV = WideAngleFOV; // 40
+					FOV = WideAngleFOV;
 				}
 				
 				// GGTime Timescale adjustment
-				/*if (GlobalTimeScale < 0.02f)
+				if (GlobalTimeScale < 1.0f)
 				{
 					FOV *= FOVTimeScalar;
-					FOVSpeed *= 0.5f;
+				}
+				/*else if (CustomTimeDilation < 1.0f)
+				{
+					float AverageTimeDilation = (Actor1->CustomTimeDilation + Actor2->CustomTimeDilation) / 2.0f;
+					FOV *= AverageTimeDilation;
 				}*/
 
 				// Set FOV
@@ -894,11 +898,15 @@ bool ATachyonCharacter::ServerUpdateBody_Validate(float DeltaTime)
 
 void ATachyonCharacter::RequestBots()
 {
-	ATachyonGameStateBase* TachyonGame = Cast<ATachyonGameStateBase>(GetWorld()->GetGameState());
-	if (TachyonGame != nullptr)
+	AActor* MyOwner = GetOwner();
+	if (MyOwner != nullptr)
 	{
-		FVector IntendedLocation = GetActorForwardVector() * 1000.0f;
-		TachyonGame->SpawnBot(IntendedLocation);
+		ATachyonGameStateBase* TachyonGame = Cast<ATachyonGameStateBase>(GetWorld()->GetGameState());
+		if (TachyonGame != nullptr)
+		{
+			FVector IntendedLocation = GetActorForwardVector() * 1000.0f;
+			TachyonGame->SpawnBot(IntendedLocation);
+		}
 	}
 }
 
@@ -924,6 +932,33 @@ void ATachyonCharacter::MulticastRestartGame_Implementation()
 	}
 
 	ForceNetUpdate();
+}
+
+
+/////////////////////////////////////////////////////////////////////
+// BODY COLLISION 
+void ATachyonCharacter::OnShieldBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	if (OtherActor->ActorHasTag("Player"))
+	{
+		Collide(OtherActor);
+	}
+
+	// attack should check for shield to make reflect fx
+}
+
+void ATachyonCharacter::Collide(AActor* OtherActor)
+{
+	CustomTimeDilation *= 0.5f;
+
+	if (CustomTimeDilation < 0.3f)
+	{
+		ForceComp->ForceStrength = -351000.0f; // this does nothing lol
+	}
+	else
+	{
+		CustomTimeDilation = FMath::FInterpTo(CustomTimeDilation, 1.0f, GetWorld()->DeltaTimeSeconds, 5.0f);
+	}
 }
 
 
