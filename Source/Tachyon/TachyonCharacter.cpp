@@ -204,23 +204,23 @@ void ATachyonCharacter::Tick(float DeltaTime)
 			ServerUpdateBody(DeltaTime);
 		}
 
-		// Hacky stuff
-		if ((MaxHealth <= 0.0f) && !bSpawnedDeath &&
-			(NearDeathEffect != nullptr)) /// (Role == ROLE_Authority) && 
-		{
-			UParticleSystemComponent* NearDeathParticles = UGameplayStatics::SpawnEmitterAttached(NearDeathEffect, GetRootComponent(), NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
-			if (NearDeathParticles != nullptr)
-			{
-				NearDeathParticles->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
-				NearDeathParticles->ComponentTags.Add("ResetKill");
-				NearDeathParticles->GetOwner()->SetReplicates(true);
-				bSpawnedDeath = true;
-			}
-		}
-
 		if (UGameplayStatics::GetGlobalTimeDilation(GetWorld()) < 0.1f)
 		{
 			NewTimescale(1.0f);
+		}
+	}
+
+	// Hacky stuff
+	if ((MaxHealth <= 0.0f) && !bSpawnedDeath &&
+		(NearDeathEffect != nullptr)) ///  && 
+	{
+		UParticleSystemComponent* NearDeathParticles = UGameplayStatics::SpawnEmitterAttached(NearDeathEffect, GetRootComponent(), NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
+		if (NearDeathParticles != nullptr)
+		{
+			NearDeathParticles->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
+			NearDeathParticles->ComponentTags.Add("ResetKill");
+			NearDeathParticles->GetOwner()->SetReplicates(true);
+			bSpawnedDeath = true;
 		}
 	}
 }
