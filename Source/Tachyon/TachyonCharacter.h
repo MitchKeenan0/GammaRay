@@ -137,6 +137,9 @@ public:
 	float CameraDistanceScalar = 1.0f;
 
 	UPROPERTY(EditDefaultsOnly)
+	float CameraFOVScalar = 1.0f;
+
+	UPROPERTY(EditDefaultsOnly)
 	float CameraVelocityChase = 10.0f;
 
 	UPROPERTY(EditDefaultsOnly)

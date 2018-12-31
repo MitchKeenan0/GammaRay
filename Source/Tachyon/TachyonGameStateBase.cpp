@@ -195,6 +195,8 @@ void ATachyonGameStateBase::SpawnBot(FVector SpawnLocation)
 			NewTachyon->Tags.Add("Bot");
 		}
 	}
+
+	GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("ran SpawnBot"));
 }
 
 

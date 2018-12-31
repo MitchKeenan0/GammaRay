@@ -577,7 +577,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				SpeedScalar = FMath::Sqrt(PlayerSpeed) * 0.1f;
 
 			float PersonalScalar = 1.0f + (36.0f * ChargeScalar * SpeedScalar) * (FMath::Sqrt(SafeVelocitySize));
-			float CameraMinimumDistance = 3500.0f + (PersonalScalar * CameraDistanceScalar); // (1100.0f + PersonalScalar)
+			float CameraMinimumDistance = (3500.0f * CameraDistanceScalar) + (PersonalScalar * CameraDistanceScalar); // (1100.0f + PersonalScalar)
 			float CameraMaxDistance = 11551000.0f;
 
 			// If Actor2 is valid, make Pair Framing
@@ -619,7 +619,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 			if (bAlone || (FramingActors.Num() == 1))
 			{
 				// Framing lone player by their velocity
-				Actor1Velocity = Actor1->GetVelocity();
+				Actor1Velocity = Actor1->GetVelocity() + GetActorForwardVector();
 
 				// Declare Position Two
 				FVector VelocityFraming = Actor1->GetActorLocation() + (Actor1Velocity * DeltaTime * CameraSoloVelocityChase);
@@ -715,13 +715,10 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				// GGTime Timescale adjustment
 				if (GlobalTimeScale < 1.0f)
 				{
-					FOV *= FOVTimeScalar;
+					FOV -= 5.f;
 				}
-				/*else if (CustomTimeDilation < 1.0f)
-				{
-					float AverageTimeDilation = (Actor1->CustomTimeDilation + Actor2->CustomTimeDilation) / 2.0f;
-					FOV *= AverageTimeDilation;
-				}*/
+				
+				FOV *= CameraFOVScalar;
 
 				// Set FOV
 				SideViewCameraComponent->FieldOfView = FMath::FInterpTo(
@@ -783,7 +780,7 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 		float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
 		float ClimbDirection = FMath::Clamp(InputZ * 5.0f, -5.0f, 5.0f);
 		float Roll = FMath::Clamp(InputZ * -25.1f, -25.1f, 25.1f);
-		float RotatoeSpeed = 15.0f;
+		float RotatoeSpeed = 36.0f;
 
 		if (TravelDirection < 0.0f)
 		{
@@ -898,15 +895,11 @@ bool ATachyonCharacter::ServerUpdateBody_Validate(float DeltaTime)
 
 void ATachyonCharacter::RequestBots()
 {
-	AActor* MyOwner = GetOwner();
-	if (MyOwner != nullptr)
+	ATachyonGameStateBase* TachyonGame = Cast<ATachyonGameStateBase>(GetWorld()->GetGameState());
+	if (TachyonGame != nullptr)
 	{
-		ATachyonGameStateBase* TachyonGame = Cast<ATachyonGameStateBase>(GetWorld()->GetGameState());
-		if (TachyonGame != nullptr)
-		{
-			FVector IntendedLocation = GetActorForwardVector() * 1000.0f;
-			TachyonGame->SpawnBot(IntendedLocation);
-		}
+		FVector IntendedLocation = GetActorForwardVector() * 1000.0f;
+		TachyonGame->SpawnBot(IntendedLocation);
 	}
 }
 
