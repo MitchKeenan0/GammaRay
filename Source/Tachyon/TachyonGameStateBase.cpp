@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "TachyonGameStateBase.h"
+//#include "PostProcessVolume.h"
 
 
 ATachyonGameStateBase::ATachyonGameStateBase()
@@ -68,6 +69,7 @@ void ATachyonGameStateBase::SetActorTimescale(AActor* TargetActor, float TargetT
 	ATachyonCharacter* TargetTachyon = Cast<ATachyonCharacter>(TargetActor);
 	if (TargetTachyon != nullptr)
 	{
+		
 		TargetTachyon->NewTimescale(TargetTimescale);
 	}
 }

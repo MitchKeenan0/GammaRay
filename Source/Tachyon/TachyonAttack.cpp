@@ -272,7 +272,7 @@ void ATachyonAttack::Lethalize()
 			if (HasAuthority())
 			{
 				float RefireTiming = (1.0f / ActualHitsPerSecond); // *CustomTimeDilation;
-				GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, RefireTiming, true, ActualDeliveryTime);
+				GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, 0.001f, true, ActualDeliveryTime);
 			}
 
 			GetWorldTimerManager().SetTimer(TimerHandle_Neutralize, this, &ATachyonAttack::Neutralize, ActualDurationTime, false, ActualDurationTime);
@@ -383,7 +383,7 @@ void ATachyonAttack::RedirectAttack()
 		ShooterAimDirection = FMath::Clamp(TachyonShooter->GetActorForwardVector().Z * ShootingAngle, -1.0f, 1.0f);
 		}*/
 		float TargetPitch = 2.0f * ShootingAngle * ShooterAimDirection;
-		if (FMath::Abs(ShooterAimDirection) <= 0.5f)
+		if (FMath::Abs(ShooterAimDirection) <= 0.05f)
 		{
 			TargetPitch = 0.0f;
 		}
@@ -398,11 +398,14 @@ void ATachyonAttack::RedirectAttack()
 		}
 		NewRotation.Yaw = Yaw;
 		NewRotation.Pitch = FMath::Clamp(NewRotation.Pitch, -ShootingAngle, ShootingAngle);
+
+		float PitchInterpSpeed = 500.0f - (1.0f / CustomTimeDilation);
+		PitchInterpSpeed = FMath::Clamp(PitchInterpSpeed, 1.0f, 500.0f);
 		FRotator InterpRotation = FMath::RInterpConstantTo(
 			GetActorRotation(),
 			NewRotation,
 			GetWorld()->DeltaTimeSeconds,
-			55.0f * (1.0f / CustomTimeDilation));
+			PitchInterpSpeed);
 		SetActorRotation(InterpRotation);
 
 		FVector EmitLocation = TachyonShooter->GetAttackScene()->GetComponentLocation();
@@ -514,6 +517,15 @@ void ATachyonAttack::RaycastForHit()
 	if (MyOwner != nullptr)
 	{
 		RedirectAttack();
+
+		if (!bFirstHitReported)
+		{
+			if (HasAuthority())
+			{
+				float RefireTiming = (1.0f / ActualHitsPerSecond); // *CustomTimeDilation;
+				GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, RefireTiming, true, ActualDeliveryTime);
+			}
+		}
 
 		// Linecast ingredients
 		TArray<TEnumAsByte<EObjectTypeQuery>> TraceObjects;

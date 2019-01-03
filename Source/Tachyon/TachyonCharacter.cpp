@@ -48,7 +48,7 @@ ATachyonCharacter::ATachyonCharacter(const FObjectInitializer& ObjectInitializer
 	bUseControllerRotationRoll = true;
 
 	GetCharacterMovement()->bOrientRotationToMovement = true;
-	GetCharacterMovement()->BrakingFrictionFactor = 50.0f;
+	//GetCharacterMovement()->BrakingFrictionFactor = 50.0f;
 
 	AttackScene = CreateDefaultSubobject<USceneComponent>(TEXT("AttackScene"));
 	AttackScene->SetupAttachment(RootComponent);
@@ -97,7 +97,7 @@ void ATachyonCharacter::BeginPlay()
 	GetCharacterMovement()->MaxAcceleration = MoveSpeed;
 	GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed;
 	//GetCharacterMovement()->bOrientRotationToMovement = true;
-	GetCharacterMovement()->BrakingFrictionFactor = 50.0f;
+	//GetCharacterMovement()->BrakingFrictionFactor = 50.0f;
 
 	// Spawn player's weapon & jump objects
 	SpawnAbilities();
@@ -648,7 +648,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				// If paired, widescreen edges are vulnerable to overshoot
 				if (!bAlone)
 				{
-					VerticalDist *= 1.5f;
+					VerticalDist *= 2.1f;
 				}
 				else
 				{
@@ -719,6 +719,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				}
 				
 				FOV *= CameraFOVScalar;
+				FOV = FMath::Clamp(FOV, 19.0f, 120.0f);
 
 				// Set FOV
 				SideViewCameraComponent->FieldOfView = FMath::FInterpTo(
