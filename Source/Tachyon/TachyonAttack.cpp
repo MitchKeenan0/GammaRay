@@ -720,7 +720,6 @@ void ATachyonAttack::RemoteHit(AActor* Target, float Damage)
 			HitTachyon->ModifyHealth(-Damage);
 			CallForTimescale(HitTachyon, false, 0.5f);
 			ApplyKnockForce(OwningShooter, HitTachyon->GetActorLocation(), RecoilForce * 1000000.0f);
-			GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("WHAMMMM"));
 		}
 	}
 }
