@@ -112,7 +112,6 @@ void ATachyonAttack::Fire()
 
 			// Movement and VFX
 			RedirectAttack();
-			SetInitVelocities();
 			
 			if (Role == ROLE_Authority)
 			{
@@ -253,16 +252,23 @@ void ATachyonAttack::Lethalize()
 			if (bSecondary)
 				CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 
-			// Shooter Recoil
-			if ((RecoilForce != 0.0f) && (Role == ROLE_Authority))
+			SetInitVelocities();
+
+			// Shooter Slow & Recoil
+			if (Role == ROLE_Authority)
 			{
-				ATachyonCharacter* CharacterShooter = Cast<ATachyonCharacter>(MyOwner);
-				if ((CharacterShooter != nullptr) && (CharacterShooter->GetController() != nullptr))
+				MyOwner->GetVelocity() *= HitSlow;
+
+				if (RecoilForce != 0.0f)
 				{
-					FVector RecoilVector = GetActorRotation().Vector().GetSafeNormal();
-					float ClampedMagnitude = FMath::Clamp(AttackMagnitude, 0.5f, 1.0f);
-					RecoilVector *= (RecoilForce * -ClampedMagnitude);
-					CharacterShooter->ReceiveKnockback(RecoilVector, bAbsoluteHitForce);
+					ATachyonCharacter* CharacterShooter = Cast<ATachyonCharacter>(MyOwner);
+					if ((CharacterShooter != nullptr) && (CharacterShooter->GetController() != nullptr))
+					{
+						FVector RecoilVector = GetActorRotation().Vector().GetSafeNormal();
+						float ClampedMagnitude = FMath::Clamp(AttackMagnitude, 0.5f, 1.0f);
+						RecoilVector *= (RecoilForce * -ClampedMagnitude);
+						CharacterShooter->ReceiveKnockback(RecoilVector, bAbsoluteHitForce);
+					}
 				}
 			}
 

@@ -131,7 +131,7 @@ FVector ATachyonAIController::GetNewLocationTarget()
 
 		FVector RandomOffset = FMath::VRand() * VelocityScalar;
 		RandomOffset.Y = 0.0f;
-		RandomOffset.Z *= 0.3f;
+		RandomOffset.Z *= 0.15f;
 
 		Result = PlayerTargetPostion + RandomOffset;
 		bCourseLayedIn = true;

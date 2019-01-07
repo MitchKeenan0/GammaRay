@@ -37,12 +37,16 @@ void ATachyonJump::BeginPlay()
 
 void ATachyonJump::StartJump()
 {
-	float GlobalTimeScale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
-	if (GlobalTimeScale == 1.0f)
+	if (GetOwner() != nullptr)
 	{
-		float FirstDelay = FMath::Max(LastJumpTime + TimeBetweenJumps - GetWorld()->TimeSeconds, 0.0f);
+		float GlobalTimeScale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+		bool bCanJump = !GetWorldTimerManager().IsTimerPending(TimerHandle_TimeBetweenJumps) && !GetWorldTimerManager().IsTimerActive(TimerHandle_TimeBetweenJumps);
+		if ((GlobalTimeScale == 1.0f) && bCanJump)
+		{
+			float FirstDelay = FMath::Max(LastJumpTime + TimeBetweenJumps - GetWorld()->TimeSeconds, 0.0f);
 
-		GetWorldTimerManager().SetTimer(TimerHandle_TimeBetweenJumps, this, &ATachyonJump::Jump, TimeBetweenJumps, true, FirstDelay);
+			GetWorldTimerManager().SetTimer(TimerHandle_TimeBetweenJumps, this, &ATachyonJump::Jump, TimeBetweenJumps, false, FirstDelay);
+		}
 	}
 }
 

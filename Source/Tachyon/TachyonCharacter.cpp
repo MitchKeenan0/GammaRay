@@ -254,18 +254,34 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 // Left / Right
 void ATachyonCharacter::MoveRight(float Value)
 {
-	InputX = Value;
-	
 	AddMovementInput(FVector::ForwardVector, Value);
+
+	if (InputX != Value)
+	{
+		if (ActiveBoost != nullptr)
+		{
+			ActiveBoost->StartJump();
+		}
+		
+		InputX = Value;
+	}
 }
 
 
 // Up / Down
 void ATachyonCharacter::MoveUp(float Value)
 {
-	InputZ = Value;
-
 	AddMovementInput(FVector::UpVector, Value);
+
+	if (InputZ != Value)
+	{
+		if (ActiveBoost != nullptr)
+		{
+			ActiveBoost->StartJump();
+		}
+
+		InputZ = Value;
+	}
 }
 
 /*
@@ -343,11 +359,6 @@ void ATachyonCharacter::StartFire()
 	if (ActiveAttack != nullptr)
 	{
 		ActiveAttack->StartFire();
-		
-		if (Role == ROLE_Authority)
-		{
-			GetCharacterMovement()->MaxFlySpeed *= AttackDrag;
-		}
 	}
 }
 
@@ -356,11 +367,6 @@ void ATachyonCharacter::EndFire()
 	if (ActiveAttack != nullptr)
 	{
 		ActiveAttack->EndFire();
-		
-		if (Role == ROLE_Authority)
-		{
-			GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed;
-		}
 	}
 }
 
