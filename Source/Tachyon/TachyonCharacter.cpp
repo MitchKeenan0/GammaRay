@@ -271,7 +271,7 @@ void ATachyonCharacter::MoveRight(float Value)
 // Up / Down
 void ATachyonCharacter::MoveUp(float Value)
 {
-	AddMovementInput(FVector::UpVector, Value);
+	AddMovementInput(FVector::UpVector, Value * 0.618f);
 
 	if (InputZ != Value)
 	{

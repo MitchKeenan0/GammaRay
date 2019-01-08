@@ -286,7 +286,9 @@ void ATachyonAttack::Lethalize()
 
 			RedirectAttack();
 			ActivateEffects();
-			ApplyKnockForce(MyOwner, GetActorLocation(), RecoilForce);
+
+			FVector RecoilLocation = MyOwner->GetActorLocation() - GetActorLocation();
+			ApplyKnockForce(MyOwner, RecoilLocation, RecoilForce);
 
 			// Clear burst object
 			if (CurrentBurstObject != nullptr)
@@ -367,7 +369,7 @@ void ATachyonAttack::SetInitVelocities()
 		{
 			float ScalarProjectileSpeed = ProjectileSpeed;
 			if (bSecondary)
-				ScalarProjectileSpeed *= 0.0f;
+				ScalarProjectileSpeed *= 0.001f;
 			FVector ScalarVelocity = ShooterVelocity.GetSafeNormal() * FMath::Sqrt(VelSize) * ScalarProjectileSpeed;
 			ScalarVelocity.Z *= 0.21f;
 			ProjectileComponent->Velocity += ScalarVelocity;
@@ -405,21 +407,30 @@ void ATachyonAttack::RedirectAttack()
 		NewRotation.Yaw = Yaw;
 		NewRotation.Pitch = FMath::Clamp(NewRotation.Pitch, -ShootingAngle, ShootingAngle);
 
-		float PitchInterpSpeed = 500.0f - (1.0f / CustomTimeDilation);
-		PitchInterpSpeed = FMath::Clamp(PitchInterpSpeed, 1.0f, 500.0f);
-		FRotator InterpRotation = FMath::RInterpConstantTo(
-			GetActorRotation(),
-			NewRotation,
-			GetWorld()->DeltaTimeSeconds,
-			PitchInterpSpeed);
-		SetActorRotation(InterpRotation);
+		if (!bSecondary)
+		{
+			float PitchInterpSpeed = 500.0f - (1.0f / CustomTimeDilation);
+			PitchInterpSpeed = FMath::Clamp(PitchInterpSpeed, 1.0f, 500.0f);
+			FRotator InterpRotation = FMath::RInterpConstantTo(
+				GetActorRotation(),
+				NewRotation,
+				GetWorld()->DeltaTimeSeconds,
+				PitchInterpSpeed);
+			SetActorRotation(InterpRotation);
+		}
+		else
+		{
+			SetActorRotation(NewRotation);
+		}
 
 		FVector EmitLocation = TachyonShooter->GetAttackScene()->GetComponentLocation();
-		//FRotator EmitRotation;
-		//OwningShooter->GetActorEyesViewPoint(EmitLocation, EmitRotation);
+		if (bSecondary)
+		{
+			EmitLocation = TachyonShooter->GetActorLocation() + TachyonShooter->GetActorForwardVector();
+		}
+		
 		SetActorLocation(EmitLocation);
 			
-
 		if (AttackRadial != nullptr)
 		{
 			AttackRadial->SetWorldLocation(GetActorLocation());
@@ -522,7 +533,8 @@ void ATachyonAttack::RaycastForHit()
 	AActor* MyOwner = GetOwner();
 	if (MyOwner != nullptr)
 	{
-		RedirectAttack();
+		if (!bSecondary)
+			RedirectAttack();
 
 		if (!bFirstHitReported)
 		{
