@@ -689,8 +689,8 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 			// Check for shield here...
 			if (PotentialAttack->ActorHasTag("Shield"))
 			{
-				GEngine->AddOnScreenDebugMessage(-1, 10.5f, FColor::White, TEXT("OHH get shielded on"));
-				CustomTimeDilation *= 0.1f;
+				CustomTimeDilation *= 0.01f;
+				PotentialAttack->CustomTimeDilation *= 0.09f;
 			}
 		}
 	}
