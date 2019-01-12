@@ -442,30 +442,29 @@ bool ATachyonCharacter::ServerNewTimescale_Validate(float Value)
 void ATachyonCharacter::MulticastNewTimescale_Implementation(float Value)
 {
 	CustomTimeDilation = Value;
-
-	float AttackTimescale = 1.0f;
-	float JumpTimescale = 1.0f;
-
-	// Cases for Regular or GG value
-	if (Value > 0.2f)
+	
+	if (ActiveAttack != nullptr)
 	{
-		float ValueSqrt = FMath::Sqrt(Value);
-		AttackTimescale = FMath::Clamp(ValueSqrt, 0.0f, 1.0f);
-		JumpTimescale = Value; ///FMath::Clamp(ValueSqrt, 0.0f, 1.0f);
-	} 
-	else {
-		AttackTimescale = JumpTimescale 
-			= 0.5f;
+		float AttackTimescale = FMath::FInterpConstantTo(ActiveAttack->CustomTimeDilation, Value, GetWorld()->DeltaTimeSeconds, TimescaleRecoverySpeed);
+		
+		if (ActiveAttack->CustomTimeDilation > Value)
+		{
+			ActiveAttack->CustomTimeDilation = AttackTimescale;
+		}
+
+		if (ActiveSecondary != nullptr)
+		{
+			ActiveSecondary->CustomTimeDilation = AttackTimescale;
+		}
+		
+		if (ActiveBoost != nullptr)
+		{
+			float JumpTimescale = Value;
+
+			ActiveBoost->CustomTimeDilation = JumpTimescale;
+		}
 	}
 
-	if (ActiveAttack != nullptr)
-		ActiveAttack->CustomTimeDilation = AttackTimescale;
-	if (ActiveSecondary != nullptr)
-		ActiveSecondary->CustomTimeDilation = AttackTimescale;
-	if (ActiveBoost != nullptr)
-		ActiveBoost->CustomTimeDilation = JumpTimescale;
-	
-	
 	ForceNetUpdate();
 }
 

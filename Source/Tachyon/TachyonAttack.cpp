@@ -409,7 +409,7 @@ void ATachyonAttack::RedirectAttack()
 
 		if (!bSecondary)
 		{
-			float PitchInterpSpeed = 500.0f - (1.0f / CustomTimeDilation);
+			float PitchInterpSpeed = 300.0f + (0.5f / CustomTimeDilation);
 			PitchInterpSpeed = FMath::Clamp(PitchInterpSpeed, 1.0f, 500.0f);
 			FRotator InterpRotation = FMath::RInterpConstantTo(
 				GetActorRotation(),
@@ -637,8 +637,12 @@ void ATachyonAttack::SpawnHit(AActor* HitActor, FVector HitLocation)
 			if (HitSpawning != nullptr)
 			{
 				HitSpawning->AttachToActor(HitActor, FAttachmentTransformRules::KeepWorldTransform);
-				float DamageTimescale = FMath::Clamp(CustomTimeDilation, 0.0f, 1.0f);
+				
+				float DamageTimescale = FMath::Clamp(HitActor->CustomTimeDilation, 0.05f, 1.0f);
 				HitSpawning->CustomTimeDilation = DamageTimescale;
+				
+				float HitLifespan = HitSpawning->GetLifeSpan() + (0.015f / DamageTimescale);
+				HitSpawning->SetLifeSpan(HitLifespan);
 			}
 		}
 	}
@@ -698,8 +702,6 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 	// Smashy fx
 	if (Role == ROLE_Authority)
 	{
-		SpawnHit(HitActor, HitLocation);
-
 		if (!bGameEnder)
 		{
 			ApplyKnockForce(HitActor, HitLocation, 1.0f);
@@ -711,6 +713,8 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 		ActualHitsPerSecond *= HitsPerSecondDecay;
 
 		ProjectileComponent->Velocity *= (1.0f - ProjectileDrag);
+
+		SpawnHit(HitActor, HitLocation);
 
 		if (!bFirstHitReported)
 			bFirstHitReported = true;
@@ -776,8 +780,9 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 			// Basic hits
 			if (!bFirstHitReported || bSecondary)
 			{
-				float ImpactScalar = (AttackMagnitude * TimescaleImpact);
-				float HitTimescale = FMath::Clamp((1.0f - ImpactScalar), 0.07f, 0.7f);
+				float MarkTimescale = Mark->CustomTimeDilation;
+				float NewTimescale = MarkTimescale - (AttackMagnitude * TimescaleImpact);
+				float HitTimescale = FMath::Clamp(NewTimescale, 0.1f, 0.5f);
 				CallForTimescale(Mark, false, HitTimescale);
 			}
 		}
