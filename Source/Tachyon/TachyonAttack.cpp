@@ -278,7 +278,7 @@ void ATachyonAttack::Lethalize()
 			if (HasAuthority())
 			{
 				float RefireTiming = (1.0f / ActualHitsPerSecond); // *CustomTimeDilation;
-				GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, 0.001f, true, ActualDeliveryTime);
+				GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, RefireTiming, true, ActualDeliveryTime);
 			}
 
 			GetWorldTimerManager().SetTimer(TimerHandle_Neutralize, this, &ATachyonAttack::Neutralize, ActualDurationTime, false, ActualDurationTime);
@@ -409,7 +409,7 @@ void ATachyonAttack::RedirectAttack()
 
 		if (!bSecondary)
 		{
-			float PitchInterpSpeed = 300.0f + (0.5f / CustomTimeDilation);
+			float PitchInterpSpeed = 150.0f * CustomTimeDilation;
 			PitchInterpSpeed = FMath::Clamp(PitchInterpSpeed, 1.0f, 500.0f);
 			FRotator InterpRotation = FMath::RInterpConstantTo(
 				GetActorRotation(),
@@ -536,15 +536,6 @@ void ATachyonAttack::RaycastForHit()
 		if (!bSecondary)
 			RedirectAttack();
 
-		if (!bFirstHitReported)
-		{
-			if (HasAuthority())
-			{
-				float RefireTiming = (1.0f / ActualHitsPerSecond); // *CustomTimeDilation;
-				GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, RefireTiming, true, ActualDeliveryTime);
-			}
-		}
-
 		// Linecast ingredients
 		TArray<TEnumAsByte<EObjectTypeQuery>> TraceObjects;
 		TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_Pawn));
@@ -651,29 +642,36 @@ void ATachyonAttack::SpawnHit(AActor* HitActor, FVector HitLocation)
 
 void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, float HitScalar)
 {
-	// Init intended force
-	FVector KnockDirection = GetActorForwardVector() + (HitActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
-	///FVector KnockDirection = (HitActor->GetActorLocation() - HitLocation).GetSafeNormal();
-	FVector KnockVector = KnockDirection * KineticForce * HitScalar;
-	KnockVector.Y = 0.0f;
-	KnockVector = KnockVector.GetClampedToMaxSize(KineticForce / 2.0f);
-
-	// Adjust force size for time dilation
-	float GlobalDilationScalar = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
-	if (GlobalDilationScalar <= 0.05f)
-		GlobalDilationScalar = 0.0f;
-	else
-		GlobalDilationScalar = (1.0f / GlobalDilationScalar);
-	KnockVector *= GlobalDilationScalar;
-
-	// Character case
-	ATachyonCharacter* Chara = Cast<ATachyonCharacter>(HitActor);
-	if (Chara != nullptr)
+	AActor* MyOwner = GetOwner();
+	if (MyOwner != nullptr)
 	{
-		FVector CharaVelocity = Chara->GetMovementComponent()->Velocity;
-		FVector KnockbackVector = CharaVelocity + KnockVector;
+		// Init intended force
+		FVector KnockDirection = GetActorForwardVector() + (HitActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+		///FVector KnockDirection = (HitActor->GetActorLocation() - HitLocation).GetSafeNormal();
+		FVector KnockVector = KnockDirection * KineticForce * HitScalar;
+		KnockVector.Y = 0.0f;
+		KnockVector = KnockVector.GetClampedToMaxSize(KineticForce / 2.0f);
 
-		Chara->ReceiveKnockback(KnockVector, true);
+		// Adjust force size for time dilation
+		float GlobalDilationScalar = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+		if (GlobalDilationScalar <= 0.05f)
+			GlobalDilationScalar = 0.0f;
+		else
+			GlobalDilationScalar = (1.0f / GlobalDilationScalar);
+		KnockVector *= GlobalDilationScalar;
+
+		float TimescaleAverage = (HitActor->CustomTimeDilation + MyOwner->CustomTimeDilation) / 2.0f;
+		KnockVector *= TimescaleAverage;
+
+		// Character case
+		ATachyonCharacter* Chara = Cast<ATachyonCharacter>(HitActor);
+		if (Chara != nullptr)
+		{
+			FVector CharaVelocity = Chara->GetMovementComponent()->Velocity;
+			FVector KnockbackVector = CharaVelocity + KnockVector;
+
+			Chara->ReceiveKnockback(KnockVector, true);
+		}
 	}
 }
 
@@ -784,6 +782,13 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 				float NewTimescale = MarkTimescale - (AttackMagnitude * TimescaleImpact);
 				float HitTimescale = FMath::Clamp(NewTimescale, 0.1f, 0.5f);
 				CallForTimescale(Mark, false, HitTimescale);
+				
+				// A little slow for the shooter
+				AActor* MyOwner = GetOwner();
+				if (MyOwner != nullptr)
+				{
+					CallForTimescale(MyOwner, false, HitTimescale * 1.618f);
+				}
 			}
 		}
 
@@ -901,6 +906,5 @@ void ATachyonAttack::OnAttackBeginOverlap(UPrimitiveComponent* OverlappedCompone
 		}
 
 		MainHit(OtherActor, DamageLocation);
-		HitTimer = 0.0f;
 	}
 }

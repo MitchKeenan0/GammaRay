@@ -258,7 +258,7 @@ void ATachyonCharacter::MoveRight(float Value)
 
 	if (InputX != Value)
 	{
-		if (ActiveBoost != nullptr)
+		if ((ActiveBoost != nullptr) && (Value != 0.0f))
 		{
 			ActiveBoost->StartJump();
 		}
@@ -275,7 +275,7 @@ void ATachyonCharacter::MoveUp(float Value)
 
 	if (InputZ != Value)
 	{
-		if (ActiveBoost != nullptr)
+		if ((ActiveBoost != nullptr) && (Value != 0.0f))
 		{
 			ActiveBoost->StartJump();
 		}
@@ -340,8 +340,8 @@ void ATachyonCharacter::EndJump()
 
 void ATachyonCharacter::EngageJump()
 {
-	GetCharacterMovement()->MaxAcceleration = BoostSpeed;
-	GetCharacterMovement()->MaxFlySpeed = BoostSustain;
+	GetCharacterMovement()->MaxAcceleration = BoostSpeed * CustomTimeDilation;
+	GetCharacterMovement()->MaxFlySpeed = BoostSustain * CustomTimeDilation;
 }
 
 void ATachyonCharacter::DisengageJump()
@@ -385,7 +385,7 @@ void ATachyonCharacter::Shield()
 void ATachyonCharacter::ModifyHealth(float Value)
 {
 	MaxHealth = FMath::Clamp(Health + Value, -1.0f, 100.0f);
-	
+
 	if (Role < ROLE_Authority)
 	{
 		ServerModifyHealth(Value);
@@ -786,7 +786,7 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 		float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
 		float ClimbDirection = FMath::Clamp(InputZ * 5.0f, -5.0f, 5.0f);
 		float Roll = FMath::Clamp(InputZ * -25.1f, -25.1f, 25.1f);
-		float RotatoeSpeed = 36.0f;
+		float RotatoeSpeed = 15.0f;
 
 		if (TravelDirection < 0.0f)
 		{
