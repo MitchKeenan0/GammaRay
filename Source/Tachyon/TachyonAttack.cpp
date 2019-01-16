@@ -244,7 +244,7 @@ void ATachyonAttack::Lethalize()
 
 			ActualLethalTime = LethalTime + AttackMagnitude;
 			ActualDeliveryTime *= AttackMagnitude;
-			ActualDurationTime = ActualDeliveryTime + DurationTime;
+			ActualDurationTime = ActualDeliveryTime + (DurationTime * AttackMagnitude);
 			DynamicLifetime = (ActualDeliveryTime + ActualDurationTime);
 			HitTimer = (1.0f / ActualHitsPerSecond);
 			RefireTime = 0.1f + AttackMagnitude;
@@ -381,7 +381,7 @@ void ATachyonAttack::SetInitVelocities()
 void ATachyonAttack::RedirectAttack()
 {
 	ATachyonCharacter* TachyonShooter = Cast<ATachyonCharacter>(OwningShooter);
-	if (TachyonShooter != nullptr)
+	if (!bGameEnder && (TachyonShooter != nullptr))
 	{
 		FVector LocalForward = TachyonShooter->GetActorForwardVector();
 		LocalForward.Y = 0.0f;
@@ -409,7 +409,7 @@ void ATachyonAttack::RedirectAttack()
 
 		if (!bSecondary)
 		{
-			float PitchInterpSpeed = 150.0f * CustomTimeDilation;
+			float PitchInterpSpeed = 100.0f + (115.0f * CustomTimeDilation * AttackMagnitude);
 			PitchInterpSpeed = FMath::Clamp(PitchInterpSpeed, 1.0f, 500.0f);
 			FRotator InterpRotation = FMath::RInterpConstantTo(
 				GetActorRotation(),
@@ -670,7 +670,7 @@ void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, floa
 			FVector CharaVelocity = Chara->GetMovementComponent()->Velocity;
 			FVector KnockbackVector = CharaVelocity + KnockVector;
 
-			Chara->ReceiveKnockback(KnockVector, true);
+			Chara->ReceiveKnockback(KnockVector, false);
 		}
 	}
 }
@@ -770,6 +770,7 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 			CallForTimescale(Mark, false, 0.01f); /// 0.01 is Terminal timescale
 			CustomTimeDilation = 0.001f;
 			bGameEnder = true;
+			SetLifeSpan(2.0f);
 
 			ActivateEffects();
 		}
@@ -780,14 +781,17 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 			{
 				float MarkTimescale = Mark->CustomTimeDilation;
 				float NewTimescale = MarkTimescale - (AttackMagnitude * TimescaleImpact);
-				float HitTimescale = FMath::Clamp(NewTimescale, 0.1f, 0.5f);
-				CallForTimescale(Mark, false, HitTimescale);
-				
-				// A little slow for the shooter
-				AActor* MyOwner = GetOwner();
-				if (MyOwner != nullptr)
+				if (MarkTimescale > NewTimescale)
 				{
-					CallForTimescale(MyOwner, false, HitTimescale * 1.618f);
+					float HitTimescale = FMath::Clamp(NewTimescale, 0.1f, 0.5f);
+					CallForTimescale(Mark, false, HitTimescale);
+
+					// A little slow for the shooter
+					AActor* MyOwner = GetOwner();
+					if (MyOwner != nullptr)
+					{
+						CallForTimescale(MyOwner, false, HitTimescale * 1.618f);
+					}
 				}
 			}
 		}

@@ -254,16 +254,19 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 // Left / Right
 void ATachyonCharacter::MoveRight(float Value)
 {
-	AddMovementInput(FVector::ForwardVector, Value);
-
-	if (InputX != Value)
+	if (UGameplayStatics::GetGlobalTimeDilation(GetWorld()) > 0.5f)
 	{
-		if ((ActiveBoost != nullptr) && (Value != 0.0f))
+		AddMovementInput(FVector::ForwardVector, Value);
+
+		if (InputX != Value)
 		{
-			ActiveBoost->StartJump();
+			if ((ActiveBoost != nullptr) && (Value != 0.0f))
+			{
+				ActiveBoost->StartJump();
+			}
+
+			InputX = Value;
 		}
-		
-		InputX = Value;
 	}
 }
 
@@ -271,16 +274,19 @@ void ATachyonCharacter::MoveRight(float Value)
 // Up / Down
 void ATachyonCharacter::MoveUp(float Value)
 {
-	AddMovementInput(FVector::UpVector, Value * 0.618f);
-
-	if (InputZ != Value)
+	if (UGameplayStatics::GetGlobalTimeDilation(GetWorld()) > 0.5f)
 	{
-		if ((ActiveBoost != nullptr) && (Value != 0.0f))
-		{
-			ActiveBoost->StartJump();
-		}
+		AddMovementInput(FVector::UpVector, Value * 0.618f);
 
-		InputZ = Value;
+		if (InputZ != Value)
+		{
+			if ((ActiveBoost != nullptr) && (Value != 0.0f))
+			{
+				ActiveBoost->StartJump();
+			}
+
+			InputZ = Value;
+		}
 	}
 }
 
@@ -786,7 +792,7 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 		float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
 		float ClimbDirection = FMath::Clamp(InputZ * 5.0f, -5.0f, 5.0f);
 		float Roll = FMath::Clamp(InputZ * -25.1f, -25.1f, 25.1f);
-		float RotatoeSpeed = 15.0f;
+		float RotatoeSpeed = 50.0f * CustomTimeDilation;
 
 		if (TravelDirection < 0.0f)
 		{
