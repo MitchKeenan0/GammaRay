@@ -242,8 +242,8 @@ void ATachyonAttack::Lethalize()
 			ActualHitsPerSecond = NewHitRate;
 			ActualAttackDamage *= (1.0f + AttackMagnitude);
 
-			ActualLethalTime = LethalTime + AttackMagnitude;
-			ActualDeliveryTime *= AttackMagnitude;
+			ActualLethalTime = LethalTime * AttackMagnitude;
+			ActualDeliveryTime = DeliveryTime * AttackMagnitude;
 			ActualDurationTime = ActualDeliveryTime + (DurationTime * AttackMagnitude);
 			DynamicLifetime = (ActualDeliveryTime + ActualDurationTime);
 			HitTimer = (1.0f / ActualHitsPerSecond);
@@ -267,6 +267,7 @@ void ATachyonAttack::Lethalize()
 						FVector RecoilVector = GetActorRotation().Vector().GetSafeNormal();
 						float ClampedMagnitude = FMath::Clamp(AttackMagnitude, 0.5f, 1.0f);
 						RecoilVector *= (RecoilForce * -ClampedMagnitude);
+						RecoilVector *= CharacterShooter->CustomTimeDilation;
 						CharacterShooter->ReceiveKnockback(RecoilVector, bAbsoluteHitForce);
 					}
 				}

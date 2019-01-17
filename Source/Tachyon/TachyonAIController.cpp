@@ -225,7 +225,7 @@ void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 		// Only fire if a) we're on screen & b) angle looks good
 		float AngleToTarget = FMath::RadiansToDegrees(FMath::Acos(DotToTarget));
 
-		if (AngleToTarget <= 21.0f)  // && MyCharacter->WasRecentlyRendered(0.15f)
+		if (AngleToTarget <= 50.0f)  // && MyCharacter->WasRecentlyRendered(0.15f)
 		{
 			
 			/// initializing charge
