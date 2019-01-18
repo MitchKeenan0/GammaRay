@@ -80,10 +80,14 @@ void ATachyonAttack::StartFire()
 
 void ATachyonAttack::EndFire()
 {
-	if (!bLethal)
+	float GlobalTimeScale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+	if (GlobalTimeScale == 1.0f)
 	{
-		GetWorldTimerManager().SetTimer(TimerHandle_DeliveryTime, this, &ATachyonAttack::Lethalize, DeliveryTime, false, DeliveryTime);
-		GetWorldTimerManager().ClearTimer(TimerHandle_TimeBetweenShots);
+		if (!bLethal)
+		{
+			GetWorldTimerManager().SetTimer(TimerHandle_DeliveryTime, this, &ATachyonAttack::Lethalize, DeliveryTime, false, DeliveryTime);
+			GetWorldTimerManager().ClearTimer(TimerHandle_TimeBetweenShots);
+		}
 	}
 }
 
@@ -288,7 +292,7 @@ void ATachyonAttack::Lethalize()
 			RedirectAttack();
 			ActivateEffects();
 
-			FVector RecoilLocation = MyOwner->GetActorLocation() - GetActorLocation();
+			FVector RecoilLocation = GetActorForwardVector() * 100.0f;
 			ApplyKnockForce(MyOwner, RecoilLocation, RecoilForce);
 
 			// Clear burst object
@@ -384,39 +388,56 @@ void ATachyonAttack::RedirectAttack()
 	ATachyonCharacter* TachyonShooter = Cast<ATachyonCharacter>(OwningShooter);
 	if (!bGameEnder && (TachyonShooter != nullptr))
 	{
+		
 		FVector LocalForward = TachyonShooter->GetActorForwardVector();
-		LocalForward.Y = 0.0f;
-		float ShooterAimDirection = FMath::Clamp(TachyonShooter->GetActorForwardVector().Z * ShootingAngle, -1.0f, 1.0f);
-		/*if (ShooterAimDirection == 0.0f)
-		{
-		ShooterAimDirection = FMath::Clamp(TachyonShooter->GetActorForwardVector().Z * ShootingAngle, -1.0f, 1.0f);
-		}*/
-		float TargetPitch = 2.0f * ShootingAngle * ShooterAimDirection;
+		float ShooterAimDirection = FMath::Clamp(
+			TachyonShooter->GetActorForwardVector().Z * ShootingAngle, 
+			-1.0f, 1.0f);
+		
+		float TargetPitch = ShootingAngle * ShooterAimDirection;
 		if (FMath::Abs(ShooterAimDirection) <= 0.05f)
 		{
 			TargetPitch = 0.0f;
 		}
+		TargetPitch = FMath::Clamp(TargetPitch, -ShootingAngle, ShootingAngle);
+		
 		FRotator NewRotation = LocalForward.Rotation() + FRotator(TargetPitch, 0.0f, 0.0f);
 
-		// Clamp Angles
-		float ShooterYaw = FMath::Abs(OwningShooter->GetActorRotation().Yaw);
-		float Yaw = 0.0f;
-		if ((ShooterYaw > 50.0f))
-		{
-			Yaw = 180.0f;
-		}
-		NewRotation.Yaw = Yaw;
-		NewRotation.Pitch = FMath::Clamp(NewRotation.Pitch, -ShootingAngle, ShootingAngle);
 
+		// Interp to Rotation
 		if (!bSecondary)
 		{
-			float PitchInterpSpeed = 100.0f + (115.0f * CustomTimeDilation * AttackMagnitude);
+			float PitchInterpSpeed = (50.0f * AttackMagnitude) + (200.0f * CustomTimeDilation);
 			PitchInterpSpeed = FMath::Clamp(PitchInterpSpeed, 1.0f, 500.0f);
+			
 			FRotator InterpRotation = FMath::RInterpConstantTo(
 				GetActorRotation(),
 				NewRotation,
 				GetWorld()->DeltaTimeSeconds,
 				PitchInterpSpeed);
+
+			// Clamp Angles
+			float ShooterYaw = FMath::Abs(OwningShooter->GetActorRotation().Yaw);
+			if ((ShooterYaw > 50.0f))
+			{
+				InterpRotation.Yaw = 180.0f;
+			}
+			else
+			{
+				InterpRotation.Yaw = 0.0f;
+			}
+
+
+			if (ShooterAimDirection < 0.1f)
+			{
+				InterpRotation.Pitch = FMath::Clamp(InterpRotation.Pitch, -ShootingAngle, -5.0f);
+			}
+			else if (ShooterAimDirection > 0.1f)
+			{
+				InterpRotation.Pitch = FMath::Clamp(InterpRotation.Pitch, 5.0f, ShootingAngle);
+			}
+			
+
 			SetActorRotation(InterpRotation);
 		}
 		else
@@ -424,6 +445,7 @@ void ATachyonAttack::RedirectAttack()
 			SetActorRotation(NewRotation);
 		}
 
+		// Update Location
 		FVector EmitLocation = TachyonShooter->GetAttackScene()->GetComponentLocation();
 		if (bSecondary)
 		{
@@ -432,6 +454,7 @@ void ATachyonAttack::RedirectAttack()
 		
 		SetActorLocation(EmitLocation);
 			
+
 		if (AttackRadial != nullptr)
 		{
 			AttackRadial->SetWorldLocation(GetActorLocation());
