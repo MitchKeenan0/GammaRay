@@ -58,7 +58,7 @@ public:
 	void Neutralize();
 
 	UFUNCTION()
-	void ReceiveTimescale(float InTimescale) { CustomTimeDilation = InTimescale; }
+	void ReceiveTimescale(float InTimescale);
 
 
 protected:

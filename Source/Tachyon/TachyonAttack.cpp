@@ -53,6 +53,7 @@ void ATachyonAttack::BeginPlay()
 	
 	TimeBetweenShots = RefireTime;
 	ActualAttackDamage = AttackDamage;
+	ActualDeliveryTime = DeliveryTime;
 
 	if (bSecondary)
 		CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -71,7 +72,7 @@ void ATachyonAttack::StartFire()
 	float GlobalTimeScale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
 	if (GlobalTimeScale == 1.0f)
 	{
-		float FirstDelay = FMath::Max(LastFireTime + TimeBetweenShots - GetWorld()->TimeSeconds, 0.0f);
+		float FirstDelay = (FMath::Max(LastFireTime + TimeBetweenShots - GetWorld()->TimeSeconds, 0.0f));
 
 		GetWorldTimerManager().SetTimer(TimerHandle_TimeBetweenShots, this, &ATachyonAttack::Fire, TimeBetweenShots, false, FirstDelay); /// !bSecondary
 	}
@@ -248,34 +249,14 @@ void ATachyonAttack::Lethalize()
 
 			ActualLethalTime = LethalTime * AttackMagnitude;
 			ActualDeliveryTime = DeliveryTime * AttackMagnitude;
-			ActualDurationTime = ActualDeliveryTime + (DurationTime * AttackMagnitude);
-			DynamicLifetime = (ActualDeliveryTime + ActualDurationTime);
+			ActualDurationTime = (ActualDeliveryTime + (DurationTime * AttackMagnitude));
 			HitTimer = (1.0f / ActualHitsPerSecond);
-			RefireTime = 0.1f + AttackMagnitude;
+			RefireTime = 0.1f + (AttackMagnitude);
+
+			GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("ActualDurationTime: %f"), ActualDurationTime));
 
 			if (bSecondary)
 				CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-
-			SetInitVelocities();
-
-			// Shooter Slow & Recoil
-			if (Role == ROLE_Authority)
-			{
-				MyOwner->GetVelocity() *= HitSlow;
-
-				if (RecoilForce != 0.0f)
-				{
-					ATachyonCharacter* CharacterShooter = Cast<ATachyonCharacter>(MyOwner);
-					if ((CharacterShooter != nullptr) && (CharacterShooter->GetController() != nullptr))
-					{
-						FVector RecoilVector = GetActorRotation().Vector().GetSafeNormal();
-						float ClampedMagnitude = FMath::Clamp(AttackMagnitude, 0.5f, 1.0f);
-						RecoilVector *= (RecoilForce * -ClampedMagnitude);
-						RecoilVector *= CharacterShooter->CustomTimeDilation;
-						CharacterShooter->ReceiveKnockback(RecoilVector, bAbsoluteHitForce);
-					}
-				}
-			}
 
 			// Start shooting and timeout process
 			LastFireTime = GetWorld()->TimeSeconds;
@@ -290,6 +271,9 @@ void ATachyonAttack::Lethalize()
 			//GetWorldTimerManager().ClearTimer(TimerHandle_TimeBetweenShots);
 
 			RedirectAttack();
+			
+			SetInitVelocities();
+
 			ActivateEffects();
 
 			FVector RecoilLocation = GetActorForwardVector() * 100.0f;
@@ -407,7 +391,9 @@ void ATachyonAttack::RedirectAttack()
 		// Interp to Rotation
 		if (!bSecondary)
 		{
-			float PitchInterpSpeed = (50.0f * AttackMagnitude) + (200.0f * CustomTimeDilation);
+			float ShooterTimeDilation = TachyonShooter->CustomTimeDilation;
+			float PitchInterpSpeed = 10.0f + (25.0f * AttackMagnitude) + (25.0f * ShooterTimeDilation);
+			PitchInterpSpeed /= (NumHits * 2.0f);
 			PitchInterpSpeed = FMath::Clamp(PitchInterpSpeed, 1.0f, 500.0f);
 			
 			FRotator InterpRotation = FMath::RInterpConstantTo(
@@ -427,14 +413,18 @@ void ATachyonAttack::RedirectAttack()
 				InterpRotation.Yaw = 0.0f;
 			}
 
-
-			if (ShooterAimDirection < 0.1f)
+			if (FMath::Abs(ShooterAimDirection) < 0.0f)
 			{
-				InterpRotation.Pitch = FMath::Clamp(InterpRotation.Pitch, -ShootingAngle, -5.0f);
+				InterpRotation.Pitch *= 0.5f;
+			}
+
+			if (ShooterAimDirection < -0.1f)
+			{
+				InterpRotation.Pitch = FMath::Clamp(InterpRotation.Pitch, -ShootingAngle, -2.0f);
 			}
 			else if (ShooterAimDirection > 0.1f)
 			{
-				InterpRotation.Pitch = FMath::Clamp(InterpRotation.Pitch, 5.0f, ShootingAngle);
+				InterpRotation.Pitch = FMath::Clamp(InterpRotation.Pitch, 2.0f, ShootingAngle);
 			}
 			
 
@@ -473,7 +463,7 @@ void ATachyonAttack::Tick(float DeltaTime)
 	AActor* MyOwner = GetOwner();
 	if (MyOwner != nullptr)
 	{
-		if (bInitialized && !bNeutralized)
+		if (bLethal && !bNeutralized)
 		{
 			UpdateLifeTime(DeltaTime);
 		}
@@ -653,10 +643,10 @@ void ATachyonAttack::SpawnHit(AActor* HitActor, FVector HitLocation)
 			{
 				HitSpawning->AttachToActor(HitActor, FAttachmentTransformRules::KeepWorldTransform);
 				
-				float DamageTimescale = FMath::Clamp(HitActor->CustomTimeDilation, 0.05f, 1.0f);
-				HitSpawning->CustomTimeDilation = DamageTimescale;
+				//float DamageTimescale = FMath::Clamp(HitActor->CustomTimeDilation, 0.05f, 1.0f);
+				HitSpawning->CustomTimeDilation = HitActor->CustomTimeDilation;
 				
-				float HitLifespan = HitSpawning->GetLifeSpan() + (0.015f / DamageTimescale);
+				float HitLifespan = HitSpawning->GetLifeSpan() + (0.015f / HitActor->CustomTimeDilation);
 				HitSpawning->SetLifeSpan(HitLifespan);
 			}
 		}
@@ -794,7 +784,6 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 			CallForTimescale(Mark, false, 0.01f); /// 0.01 is Terminal timescale
 			CustomTimeDilation = 0.001f;
 			bGameEnder = true;
-			SetLifeSpan(2.0f);
 
 			ActivateEffects();
 		}
@@ -852,6 +841,28 @@ void ATachyonAttack::CallForTimescale(AActor* TargetActor, bool bGlobal, float N
 
 		TGState->ForceNetUpdate();
 	}
+}
+
+void ATachyonAttack::ReceiveTimescale(float InTimescale)
+{
+	CustomTimeDilation = InTimescale;
+
+	float InverseScalar = FMath::Clamp((1.0f / CustomTimeDilation), 0.1f, 1.0f);
+
+	if (bLethal)
+	{
+		ActualDurationTime *= InverseScalar;
+
+		GetWorldTimerManager().ClearTimer(TimerHandle_Neutralize);
+		GetWorldTimerManager().SetTimer(TimerHandle_Neutralize, this, &ATachyonAttack::Neutralize, ActualDurationTime, false, ActualDurationTime);
+	}
+	/*else
+	{
+		ActualDeliveryTime *= InverseScalar;
+
+		GetWorldTimerManager().ClearTimer(TimerHandle_DeliveryTime);
+		GetWorldTimerManager().SetTimer(TimerHandle_DeliveryTime, this, &ATachyonAttack::Lethalize, ActualDeliveryTime, false, ActualDeliveryTime);
+	}*/
 }
 
 

@@ -451,18 +451,18 @@ void ATachyonCharacter::MulticastNewTimescale_Implementation(float Value)
 	
 	if (ActiveAttack != nullptr)
 	{
-		float AttackTimescale = FMath::FInterpConstantTo(ActiveAttack->CustomTimeDilation, Value, GetWorld()->DeltaTimeSeconds, TimescaleRecoverySpeed);
-		
-		if (ActiveAttack->CustomTimeDilation > Value)
+		float AttackTimescale = FMath::FInterpConstantTo(ActiveAttack->CustomTimeDilation, Value, GetWorld()->DeltaTimeSeconds, TimescaleRecoverySpeed * 5.0f);
+
+		if (ActiveAttack != nullptr)
 		{
-			ActiveAttack->CustomTimeDilation = AttackTimescale;
+			ActiveAttack->ReceiveTimescale(AttackTimescale);
 		}
 
 		if (ActiveSecondary != nullptr)
 		{
-			ActiveSecondary->CustomTimeDilation = AttackTimescale;
+			ActiveSecondary->ReceiveTimescale(AttackTimescale);
 		}
-		
+
 		if (ActiveBoost != nullptr)
 		{
 			float JumpTimescale = Value;
@@ -575,7 +575,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 			FVector Actor1Velocity = Actor1->GetVelocity();
 			float SafeVelocitySize = FMath::Clamp(Actor1Velocity.Size() * 0.005f, 0.01f, 10.0f);
 			VelocityCameraSpeed = CameraMoveSpeed * SafeVelocitySize * FMath::Sqrt(1.0f / GlobalTimeScale);
-			VelocityCameraSpeed = FMath::Clamp(VelocityCameraSpeed, 1.0f, CameraMaxSpeed * 0.1f);
+			VelocityCameraSpeed = FMath::Clamp(VelocityCameraSpeed, 1.0f, CameraMaxSpeed * 0.1f) * (1.0f / CustomTimeDilation);
 
 			FVector LocalPos = Actor1->GetActorLocation() + (Actor1Velocity * DeltaTime * CameraVelocityChase);
 			PositionOne = FMath::VInterpTo(PositionOne, LocalPos, DeltaTime, VelocityCameraSpeed);
@@ -644,7 +644,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 			// Find the midpoint
 			float MidpointBias = 0.5f;
 			FVector TargetMidpoint = PositionOne + ((PositionTwo - PositionOne) * MidpointBias);
-			float MidpointInterpSpeed = 10.0f * FMath::Clamp(TargetMidpoint.Size() * 0.01f, 10.0f, 100.0f);
+			float MidpointInterpSpeed = 10.0f * FMath::Clamp(TargetMidpoint.Size() * 0.01f, 10.0f, 100.0f) * (1.0f / CustomTimeDilation);
 			if (bAlone)
 				MidpointInterpSpeed *= 0.5f;
 
@@ -833,10 +833,10 @@ void ATachyonCharacter::ServerUpdateBody_Implementation(float DeltaTime)
 {
 	// Recover personal timescale if down
 	float GlobalTimescale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
-	if ((GlobalTimescale > 0.11f)
+	if ((GlobalTimescale == 1.0f)
 		&& (CustomTimeDilation < 1.0f))
 	{
-		float RecoverySpeed = CustomTimeDilation * TimescaleRecoverySpeed;
+		float RecoverySpeed = FMath::Square(CustomTimeDilation) * TimescaleRecoverySpeed * GlobalTimescale;
 		float InterpTime = FMath::FInterpConstantTo(CustomTimeDilation, 1.0f, DeltaTime, RecoverySpeed);
 		NewTimescale(InterpTime);
 	}
