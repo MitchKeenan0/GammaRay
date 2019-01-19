@@ -204,10 +204,10 @@ void ATachyonCharacter::Tick(float DeltaTime)
 			ServerUpdateBody(DeltaTime);
 		}
 
-		if (UGameplayStatics::GetGlobalTimeDilation(GetWorld()) < 0.1f)
+		/*if (UGameplayStatics::GetGlobalTimeDilation(GetWorld()) < 0.1f)
 		{
 			NewTimescale(1.0f);
-		}
+		}*/
 	}
 
 	// Hacky stuff
@@ -483,9 +483,10 @@ void ATachyonCharacter::UpdateHealth(float DeltaTime)
 	// Update smooth health value
 	if (MaxHealth != Health)
 	{
-		float Timescalar = 1.0f / CustomTimeDilation;
-		float HealthDifference = FMath::Abs(Health - MaxHealth) * 50.0f;
-		float InterpSpeed = Timescalar * FMath::Clamp(HealthDifference, 10.0f, 100.0f);
+		float GlobalTime = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+		float Timescalar = (1.0f / GlobalTime) + (1.0f / CustomTimeDilation);
+		float HealthDifference = FMath::Abs(Health - MaxHealth) * 100.0f;
+		float InterpSpeed = Timescalar * FMath::Clamp(HealthDifference, 100.0f, 10000.0f);
 		Health = FMath::FInterpConstantTo(Health, MaxHealth, DeltaTime, InterpSpeed);
 	}
 
@@ -792,7 +793,7 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 		float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
 		float ClimbDirection = FMath::Clamp(InputZ * 5.0f, -5.0f, 5.0f);
 		float Roll = FMath::Clamp(InputZ * -25.1f, -25.1f, 25.1f);
-		float RotatoeSpeed = 50.0f * CustomTimeDilation;
+		float RotatoeSpeed = 15.0f;
 
 		if (TravelDirection < 0.0f)
 		{

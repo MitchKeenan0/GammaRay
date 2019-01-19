@@ -115,9 +115,8 @@ void ATachyonAttack::Fire()
 				AttackParticles->SetVisibility(false, true);
 			}
 
-			// Movement and VFX
 			RedirectAttack();
-			
+
 			if (Role == ROLE_Authority)
 			{
 				SpawnBurst();
@@ -253,8 +252,6 @@ void ATachyonAttack::Lethalize()
 			HitTimer = (1.0f / ActualHitsPerSecond);
 			RefireTime = 0.1f + (AttackMagnitude);
 
-			GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("ActualDurationTime: %f"), ActualDurationTime));
-
 			if (bSecondary)
 				CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 
@@ -263,7 +260,7 @@ void ATachyonAttack::Lethalize()
 
 			if (HasAuthority())
 			{
-				float RefireTiming = (1.0f / ActualHitsPerSecond); // *CustomTimeDilation;
+				float RefireTiming = (1.0f / ActualHitsPerSecond) * (1.0f / CustomTimeDilation);
 				GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, RefireTiming, true, ActualDeliveryTime);
 			}
 
@@ -292,6 +289,8 @@ void ATachyonAttack::Lethalize()
 				if (FireShake != nullptr)
 					UGameplayStatics::PlayWorldCameraShake(GetWorld(), FireShake, GetActorLocation(), 0.0f, 9999.0f, 1.0f, false);
 			}
+
+			CustomTimeDilation = AttackMagnitude;
 
 			bLethal = true;
 			bDoneLethal = false;
@@ -392,7 +391,7 @@ void ATachyonAttack::RedirectAttack()
 		if (!bSecondary)
 		{
 			float ShooterTimeDilation = TachyonShooter->CustomTimeDilation;
-			float PitchInterpSpeed = 10.0f + (25.0f * AttackMagnitude) + (25.0f * ShooterTimeDilation);
+			float PitchInterpSpeed = 1.0f + (5.0f * AttackMagnitude) + (5.0f * ShooterTimeDilation);
 			PitchInterpSpeed /= (NumHits * 2.0f);
 			PitchInterpSpeed = FMath::Clamp(PitchInterpSpeed, 1.0f, 500.0f);
 			
@@ -415,16 +414,16 @@ void ATachyonAttack::RedirectAttack()
 
 			if (FMath::Abs(ShooterAimDirection) < 0.0f)
 			{
-				InterpRotation.Pitch *= 0.5f;
+				InterpRotation.Pitch *= 0.9f;
 			}
 
 			if (ShooterAimDirection < -0.1f)
 			{
-				InterpRotation.Pitch = FMath::Clamp(InterpRotation.Pitch, -ShootingAngle, -2.0f);
+				InterpRotation.Pitch = FMath::Clamp(InterpRotation.Pitch, -ShootingAngle, -0.1f);
 			}
 			else if (ShooterAimDirection > 0.1f)
 			{
-				InterpRotation.Pitch = FMath::Clamp(InterpRotation.Pitch, 2.0f, ShootingAngle);
+				InterpRotation.Pitch = FMath::Clamp(InterpRotation.Pitch, 0.1f, ShootingAngle);
 			}
 			
 
@@ -706,7 +705,8 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 			if (PotentialAttack->ActorHasTag("Shield"))
 			{
 				CustomTimeDilation *= 0.01f;
-				PotentialAttack->CustomTimeDilation *= 0.09f;
+				PotentialAttack->CustomTimeDilation *= 0.3f;
+				CallForTimescale(PotentialAttack->OwningShooter, false, 0.3f);
 			}
 		}
 	}
@@ -722,14 +722,11 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 		// Update GameState
 		ReportHitToMatch(GetOwner(), HitActor);
 
-		ActualHitsPerSecond *= HitsPerSecondDecay;
+		ActualHitsPerSecond *= (HitsPerSecondDecay * CustomTimeDilation);
 
 		ProjectileComponent->Velocity *= (1.0f - ProjectileDrag);
 
 		SpawnHit(HitActor, HitLocation);
-
-		if (!bFirstHitReported)
-			bFirstHitReported = true;
 	}
 }
 
@@ -792,18 +789,24 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 			// Basic hits
 			if (!bFirstHitReported || bSecondary)
 			{
+				
+				// Slow the target
 				float MarkTimescale = Mark->CustomTimeDilation;
-				float NewTimescale = MarkTimescale - (AttackMagnitude * TimescaleImpact);
+				float NewTimescale = MarkTimescale - ((AttackMagnitude * TimescaleImpact) / 10.0f);
+				float HitTimescale = FMath::Clamp(NewTimescale, 0.05f, 0.5f);
+
 				if (MarkTimescale > NewTimescale)
 				{
-					float HitTimescale = FMath::Clamp(NewTimescale, 0.1f, 0.5f);
 					CallForTimescale(Mark, false, HitTimescale);
+				}
 
-					// A little slow for the shooter
-					AActor* MyOwner = GetOwner();
-					if (MyOwner != nullptr)
+				// A little slow for the shooter
+				if (Shooter != nullptr)
+				{
+					float ShooterTimescale = (HitTimescale * 1.15f);
+					if (ShooterTimescale > Shooter->CustomTimeDilation)
 					{
-						CallForTimescale(MyOwner, false, HitTimescale * 1.618f);
+						CallForTimescale(Shooter, false, ShooterTimescale);
 					}
 				}
 			}
@@ -818,6 +821,9 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 			ActualLethalTime += TimeExtendOnHit;
 			ActualDurationTime += TimeExtendOnHit;
 		}
+
+		if (!bFirstHitReported)
+			bFirstHitReported = true;
 	}
 }
 
