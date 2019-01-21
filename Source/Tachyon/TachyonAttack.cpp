@@ -108,12 +108,12 @@ void ATachyonAttack::Fire()
 			OwningShooter = MyOwner;
 
 			// strangeley dense way to prevent particle ghosting
-			if (AttackParticles != nullptr)
+			/*if (AttackParticles != nullptr)
 			{
 				AttackParticles->DeactivateSystem();
 				AttackParticles->Deactivate();
 				AttackParticles->SetVisibility(false, true);
-			}
+			}*/
 
 			RedirectAttack();
 
@@ -129,10 +129,10 @@ void ATachyonAttack::Fire()
 
 			// Used to determine magnitude at Lethalize
 			// Start deliverytime timer
-			if (bSecondary && !(GetWorldTimerManager().IsTimerActive(TimerHandle_DeliveryTime)))
+			/*if (bSecondary && !(GetWorldTimerManager().IsTimerActive(TimerHandle_DeliveryTime)))
 			{
 				EndFire();
-			}
+			}*/
 
 			// Debug bank
 			///GEngine->AddOnScreenDebugMessage(-1, 5.5f, FColor::White, FString::Printf(TEXT("AttackMagnitude: %f"), AttackMagnitude));
@@ -242,15 +242,21 @@ void ATachyonAttack::Lethalize()
 				GeneratedMagnitude = GivenMagnitude;
 			AttackMagnitude = (FMath::FloorToFloat(GeneratedMagnitude * 10)) * 0.1f;
 
+			// Timing numbers
 			float NewHitRate = FMath::Clamp((HitsPerSecond * AttackMagnitude), 1.0f, HitsPerSecond);
 			ActualHitsPerSecond = NewHitRate;
 			ActualAttackDamage *= (1.0f + AttackMagnitude);
 
-			ActualLethalTime = LethalTime * AttackMagnitude;
 			ActualDeliveryTime = DeliveryTime * AttackMagnitude;
-			ActualDurationTime = (ActualDeliveryTime + (DurationTime * AttackMagnitude));
-			HitTimer = (1.0f / ActualHitsPerSecond);
+			ActualDurationTime = DurationTime * AttackMagnitude;
+			ActualLethalTime = LethalTime * AttackMagnitude;
+			HitTimer = (1.0f / ActualHitsPerSecond) * CustomTimeDilation;
 			RefireTime = 0.1f + (AttackMagnitude);
+
+
+			GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("ActualDeliveryTime: %f"), ActualDeliveryTime));
+			GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("ActualDurationTime: %f"), ActualDurationTime));
+
 
 			if (bSecondary)
 				CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
@@ -260,7 +266,7 @@ void ATachyonAttack::Lethalize()
 
 			if (HasAuthority())
 			{
-				float RefireTiming = (1.0f / ActualHitsPerSecond) * (1.0f / CustomTimeDilation);
+				float RefireTiming = (1.0f / ActualHitsPerSecond); // *(1.0f / CustomTimeDilation);
 				GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, RefireTiming, true, ActualDeliveryTime);
 			}
 
@@ -271,7 +277,9 @@ void ATachyonAttack::Lethalize()
 			
 			SetInitVelocities();
 
-			ActivateEffects();
+			FTimerHandle EffectsTimer;
+			GetWorldTimerManager().SetTimer(EffectsTimer, this, &ATachyonAttack::ActivateEffects, ActualDeliveryTime, false, ActualDeliveryTime);
+			///ActivateEffects();
 
 			FVector RecoilLocation = GetActorForwardVector() * 100.0f;
 			ApplyKnockForce(MyOwner, RecoilLocation, RecoilForce);
@@ -419,11 +427,11 @@ void ATachyonAttack::RedirectAttack()
 
 			if (ShooterAimDirection < -0.1f)
 			{
-				InterpRotation.Pitch = FMath::Clamp(InterpRotation.Pitch, -ShootingAngle, -0.1f);
+				InterpRotation.Pitch = FMath::Clamp(InterpRotation.Pitch, -ShootingAngle, -1.0f);
 			}
 			else if (ShooterAimDirection > 0.1f)
 			{
-				InterpRotation.Pitch = FMath::Clamp(InterpRotation.Pitch, 0.1f, ShootingAngle);
+				InterpRotation.Pitch = FMath::Clamp(InterpRotation.Pitch, 1.0f, ShootingAngle);
 			}
 			
 
@@ -600,7 +608,7 @@ void ATachyonAttack::RaycastForHit()
 			EDrawDebugTrace::None,
 			Hits,
 			true,
-			FLinearColor::Black, FLinearColor::Red, 5.0f);
+			FLinearColor::White, FLinearColor::Red, 5.0f);
 
 		if (HitResult)
 		{
@@ -782,7 +790,7 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 			CustomTimeDilation = 0.001f;
 			bGameEnder = true;
 
-			ActivateEffects();
+			//ActivateEffects();
 		}
 		else
 		{
