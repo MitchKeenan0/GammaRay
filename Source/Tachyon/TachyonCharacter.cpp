@@ -320,6 +320,9 @@ void ATachyonCharacter::BotMove(float X, float Z)
 		MoveRight(X);
 		MoveUp(Z);
 
+		InputX = X;
+		InputZ = Z;
+
 		SetX(X);
 		SetZ(Z);
 	}
@@ -346,8 +349,28 @@ void ATachyonCharacter::EndJump()
 
 void ATachyonCharacter::EngageJump()
 {
-	GetCharacterMovement()->MaxAcceleration = BoostSpeed * CustomTimeDilation;
-	GetCharacterMovement()->MaxFlySpeed = BoostSustain * CustomTimeDilation;
+	float JumpSpeed = BoostSpeed * CustomTimeDilation;
+	float JumpTopSpeed = BoostSustain * CustomTimeDilation;
+
+	if (Opponent != nullptr)
+	{
+		FVector ToOpponent = Opponent->GetActorLocation() - GetActorLocation();
+		float DistToOpponent = FVector::Dist(GetActorLocation(), Opponent->GetActorLocation());
+
+		FVector Norm1 = GetCharacterMovement()->Velocity.GetSafeNormal();
+		FVector Norm2 = ToOpponent.GetSafeNormal();
+		float DotToOpponent = -FVector::DotProduct(Norm1, Norm2);
+		DotToOpponent = FMath::Clamp(DotToOpponent, 0.55f, 1.1f);
+		//float DotReductiveScalar = FMath::Clamp((1.0f / DotToOpponent), 0.01f, 1.0f);
+
+		GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::White, FString::Printf(TEXT("DotToOpponent: %f"), DotToOpponent));
+
+		JumpSpeed *= DotToOpponent;
+		JumpTopSpeed *= DotToOpponent;
+	}
+
+	GetCharacterMovement()->MaxAcceleration = JumpSpeed;
+	GetCharacterMovement()->MaxFlySpeed = JumpTopSpeed;
 }
 
 void ATachyonCharacter::DisengageJump()

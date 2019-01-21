@@ -31,7 +31,7 @@ void ATachyonAIController::FindOneself()
 			//MyTachyonCharacter->GetCharacterMovement()->bOrientRotationToMovement = true;
 			//MyTachyonCharacter->GetCharacterMovement()->BrakingFrictionFactor = 50.0f;
 
-			MyTachyonCharacter->bUseControllerRotationPitch = true;
+			MyTachyonCharacter->bUseControllerRotationYaw = true;
 			MyTachyonCharacter->bUseControllerRotationPitch = true;
 			MyTachyonCharacter->bUseControllerRotationRoll = true;
 		}
@@ -158,8 +158,8 @@ void ATachyonAIController::NavigateTo(FVector TargetLocation)
 		float VerticalDistance = ToTarget.Z;
 		float LateralDistance = ToTarget.X;
 
-		MyInputX = FMath::Clamp(LateralDistance, -1.0f, 1.0f);
-		MyInputZ = FMath::Clamp(VerticalDistance, -1.0f, 1.0f);
+		MyInputX = FMath::Clamp(LateralDistance * 100000.0f, -1.0f, 1.0f);
+		MyInputZ = FMath::Clamp(VerticalDistance * 100000.0f, -1.0f, 1.0f);
 
 		MyTachyonCharacter->BotMove(MyInputX, MyInputZ);
 
@@ -168,9 +168,9 @@ void ATachyonAIController::NavigateTo(FVector TargetLocation)
 
 		// Set rotation so character faces direction of travel
 		float TravelDirection = FMath::Clamp(MyInputX, -1.0f, 1.0f);
-		float ClimbDirection = FMath::Clamp(MyInputZ * 20.0f, -5.0f, 5.0f);
-		float Roll = FMath::Clamp(MyInputZ * 11.1f, -11.1f, 11.1f);
-		float RotatoeSpeed = 50.0f;
+		float ClimbDirection = FMath::Clamp(MyInputZ * 5.0f, -5.0f, 5.0f);
+		float Roll = FMath::Clamp(MyInputZ * 25.1, -25.1, 25.1);
+		float RotatoeSpeed = 15.0f;
 
 		if (TravelDirection < 0.0f)
 		{
@@ -217,9 +217,11 @@ void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 	float RangeToTarget = ToTarget.Size();
 	//float MyShootingAngle = MyTachyonCharacter
 
+	MyInputZ = VerticalNorm;
+
 
 	// Aim - leads to attacks and secondaries////////////////////////
-	if (RangeToTarget <= 2000.0f)
+	if (RangeToTarget <= 3000.0f)
 	{
 
 		// Only fire if a) we're on screen & b) angle looks good
@@ -231,6 +233,7 @@ void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 			/// initializing charge
 			if (ReactionTimeIsNow(DeltaTime) && (ShootingChargeTimer == 0.0f))
 			{
+				MyTachyonCharacter->BotMove(MyInputX, MyInputZ);
 				MyTachyonCharacter->StartFire();
 				ShootingChargeTimer += 0.001f;
 			}
@@ -241,7 +244,6 @@ void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 			/// release attack
 			if (ShootingChargeTimer >= (ReactionTime + (1.0f / Aggression) * 0.1f))
 			{
-				
 				MyTachyonCharacter->EndFire();
 				
 				ShootingChargeTimer = 0.0f;
