@@ -55,7 +55,7 @@ void ATachyonGameStateBase::SetGlobalTimescale(float TargetTimescale)
 	{
 		bRecoverTimescale = false;
 	}
-	else if (DesiredTimescale <= 1.0f)
+	else if (DesiredTimescale == 1.0f)
 	{
 		bRecoverTimescale = true;
 	}
@@ -69,7 +69,6 @@ void ATachyonGameStateBase::SetActorTimescale(AActor* TargetActor, float TargetT
 	ATachyonCharacter* TargetTachyon = Cast<ATachyonCharacter>(TargetActor);
 	if (TargetTachyon != nullptr)
 	{
-		
 		TargetTachyon->NewTimescale(TargetTimescale);
 	}
 }
@@ -149,12 +148,7 @@ void ATachyonGameStateBase::RestartGame()
 void ATachyonGameStateBase::UpdateGlobalTimescale(float DeltaTime)
 {
 	float CurrentTime = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
-	/*if ((CurrentTime == DesiredTimescale)
-		&& (CurrentTime != GGTimescale))
-	{
-		DesiredTimescale = 1.0f;
-		return;
-	}*/
+	
 	// Interpolating to desired timescale
 	float FactoredTimescale = DesiredTimescale * 10.0f;
 	float InterpSpeed = TimescaleRecoverySpeed + (1.0f / FactoredTimescale);

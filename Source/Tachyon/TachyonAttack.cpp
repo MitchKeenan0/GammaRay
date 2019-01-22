@@ -248,7 +248,7 @@ void ATachyonAttack::Lethalize()
 			ActualAttackDamage *= (1.0f + AttackMagnitude);
 
 			ActualDeliveryTime = DeliveryTime * AttackMagnitude;
-			ActualDurationTime = DurationTime * AttackMagnitude;
+			ActualDurationTime = FMath::Clamp(DurationTime * AttackMagnitude, 0.1f, DurationTime);
 			ActualLethalTime = LethalTime * AttackMagnitude;
 			HitTimer = (1.0f / ActualHitsPerSecond) * CustomTimeDilation;
 			RefireTime = 0.1f + (AttackMagnitude);
@@ -405,7 +405,7 @@ void ATachyonAttack::RedirectAttack()
 			PitchInterpSpeed /= (NumHits * 2.0f);
 			PitchInterpSpeed = FMath::Clamp(PitchInterpSpeed, 1.0f, 500.0f);
 			
-			FRotator InterpRotation = FMath::RInterpConstantTo(
+			FRotator InterpRotation = FMath::RInterpTo(
 				GetActorRotation(),
 				NewRotation,
 				GetWorld()->DeltaTimeSeconds,
@@ -423,11 +423,13 @@ void ATachyonAttack::RedirectAttack()
 				InterpRotation.Yaw = 0.0f;
 			}
 
+			// Shot angle return to zero
 			if (FMath::Abs(ShooterAimDirection) < 0.0f)
 			{
 				InterpRotation.Pitch *= 0.9f;
 			}
 
+			// Quick-snap to angle shot
 			if (ShooterAimDirection < -0.1f)
 			{
 				InterpRotation.Pitch = FMath::Clamp(InterpRotation.Pitch, -ShootingAngle, -1.0f);
@@ -487,40 +489,15 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 	float GlobalTime = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
 
 	// Catch lost game ender
-	if (bGameEnder && (GlobalTime != 0.01f))
+	if (bGameEnder && (GlobalTime >= 0.9f))
 	{
-		CallForTimescale(this, true, 0.01f);
-		ReceiveTimescale(0.01f);
+		CallForTimescale(OwningShooter, true, 0.01f);
+		GetWorldTimerManager().ClearTimer(TimerHandle_Raycast);
 	}
 	else if (!bSecondary)
 	{
 		RedirectAttack();
 	}
-
-	if (GlobalTime <= 0.1f)
-	{
-		GetWorldTimerManager().ClearTimer(TimerHandle_Raycast);
-	}
-
-	// Fully charged 'timeout' to release attack
-	/*if (!bSecondary && !bDoneLethal 
-		&& ((GetWorld()->TimeSeconds - TimeAtInit) >= 2.0f))
-	{
-		Lethalize();
-	}*/
-
-	// Attack main line
-	//if (bLethal || bDoneLethal)
-	//{
-	//	float CustomDeltaTime = (1.0f / CustomTimeDilation) * DeltaT;
-	//	LifeTimer += CustomDeltaTime;
-
-	//	// Responsive aim for flex shots
-	//	if (LifeTimer <= RedirectionTime)
-	//	{
-	//		RedirectAttack();
-	//	}
-	//}
 }
 
 
@@ -627,7 +604,19 @@ void ATachyonAttack::RaycastForHit()
 
 				if (HitActor != nullptr)
 				{
-					MainHit(HitActor, Hits[i].ImpactPoint);
+					if (AttackParticles != nullptr)
+					{
+						MainHit(HitActor, Hits[i].ImpactPoint);
+						float ParticleSpeed = AttackParticles->CustomTimeDilation * 0.5f;
+						if (ParticleSpeed > 0.00001f)
+						{
+							AttackParticles->CustomTimeDilation = ParticleSpeed;
+						}
+						else if (!bGameEnder)
+						{
+							Neutralize();
+						}
+					}
 				}
 			}
 		}
@@ -652,8 +641,19 @@ void ATachyonAttack::SpawnHit(AActor* HitActor, FVector HitLocation)
 		if (DamageClass != nullptr)
 		{
 			FActorSpawnParameters SpawnParams;
-			FVector ToHitLocation = (HitLocation - GetActorLocation()).GetSafeNormal();
-			AActor* HitSpawning = GetWorld()->SpawnActor<AActor>(DamageClass, HitLocation, ToHitLocation.Rotation(), SpawnParams);
+			FVector ActualHitLocation = HitLocation;
+			
+			// Closest point on bound
+			/*UPrimitiveComponent* HitPrimitive = Cast<UPrimitiveComponent>(HitActor->GetRootComponent());
+			if (HitPrimitive != nullptr)
+			{
+				FVector OutPoint;
+				float HitOnBounds = HitPrimitive->GetClosestPointOnCollision(GetActorLocation(), OutPoint);
+				ActualHitLocation = OutPoint;
+			}*/
+			
+			FVector ToHitLocation = (ActualHitLocation - GetActorLocation()).GetSafeNormal();
+			AActor* HitSpawning = GetWorld()->SpawnActor<AActor>(DamageClass, ActualHitLocation, ToHitLocation.Rotation(), SpawnParams);
 			if (HitSpawning != nullptr)
 			{
 				HitSpawning->AttachToActor(HitActor, FAttachmentTransformRules::KeepWorldTransform);
@@ -798,11 +798,18 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		float TachyonHealth = HitTachyon->GetHealth();
 		if ((TachyonHealth - ActualAttackDamage) <= 0.0f)
 		{
-			CallForTimescale(HitTachyon, false, 0.1f); /// 0.01 is Terminal timescale
-			CallForTimescale(MyOwner, false, 0.1f);
-			CustomTimeDilation = 0.001f;
+			CallForTimescale(HitTachyon, false, 0.1f);
+			CallForTimescale(MyOwner, false, 0.05f);
 			bGameEnder = true;
 
+			if (AttackParticles != nullptr)
+			{
+				AttackParticles->CustomTimeDilation = 0.0f;
+			}
+
+			GetWorldTimerManager().ClearTimer(TimerHandle_Neutralize);
+			float NewNeutTime = GetWorld()->TimeSeconds + 1.0f;
+			GetWorldTimerManager().SetTimer(TimerHandle_Neutralize, this, &ATachyonAttack::Neutralize, ActualDurationTime, false, ActualDurationTime);
 			//ActivateEffects();
 		}
 		else

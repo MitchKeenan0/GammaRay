@@ -158,6 +158,9 @@ public:
 	float GetHealth() { return Health; }
 
 	UFUNCTION(BlueprintCallable)
+	float GetMaxHealth() { return MaxHealth; }
+
+	UFUNCTION(BlueprintCallable)
 	float GetHealthDelta() { return FMath::Clamp(FMath::Abs(Health - MaxHealth), 0.1f, 50.0f); }
 
 	UFUNCTION(BlueprintCallable)

@@ -170,7 +170,7 @@ void ATachyonAIController::NavigateTo(FVector TargetLocation)
 		float TravelDirection = FMath::Clamp(MyInputX, -1.0f, 1.0f);
 		float ClimbDirection = FMath::Clamp(MyInputZ * 5.0f, -5.0f, 5.0f);
 		float Roll = FMath::Clamp(MyInputZ * 25.1, -25.1, 25.1);
-		float RotatoeSpeed = 1500.0f;
+		float RotatoeSpeed = 1500.0f * CustomTimeDilation;
 
 		if (TravelDirection < 0.0f)
 		{

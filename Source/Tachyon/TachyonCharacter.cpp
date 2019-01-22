@@ -213,7 +213,7 @@ void ATachyonCharacter::Tick(float DeltaTime)
 	}
 
 	// Hacky stuff
-	if ((MaxHealth <= 0.0f) && !bSpawnedDeath &&
+	if ((Health <= 0.0f) && !bSpawnedDeath &&
 		(NearDeathEffect != nullptr)) ///  && 
 	{
 		UParticleSystemComponent* NearDeathParticles = UGameplayStatics::SpawnEmitterAttached(NearDeathEffect, GetRootComponent(), NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
@@ -819,7 +819,7 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 		float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
 		float ClimbDirection = FMath::Clamp(InputZ * 5.0f, -5.0f, 5.0f);
 		float Roll = FMath::Clamp(InputZ * -25.1f, -25.1f, 25.1f);
-		float RotatoeSpeed = 1500.0f;
+		float RotatoeSpeed = 1500.0f * CustomTimeDilation;
 
 		if (TravelDirection < 0.0f)
 		{
@@ -864,6 +864,7 @@ void ATachyonCharacter::ServerUpdateBody_Implementation(float DeltaTime)
 		&& (CustomTimeDilation < 1.0f))
 	{
 		float RecoverySpeed = FMath::Square(CustomTimeDilation) * TimescaleRecoverySpeed * GlobalTimescale;
+		RecoverySpeed = FMath::Clamp(RecoverySpeed, 1.0f, TimescaleRecoverySpeed);
 		float InterpTime = FMath::FInterpConstantTo(CustomTimeDilation, 1.0f, DeltaTime, RecoverySpeed);
 		NewTimescale(InterpTime);
 	}
