@@ -204,10 +204,12 @@ void ATachyonCharacter::Tick(float DeltaTime)
 			ServerUpdateBody(DeltaTime);
 		}
 
-		/*if (UGameplayStatics::GetGlobalTimeDilation(GetWorld()) < 0.1f)
+		FVector ToCentre = FVector::ZeroVector - GetActorLocation();
+		if (ToCentre.Size() >= 2000.0f)
 		{
-			NewTimescale(1.0f);
-		}*/
+			float CurrentV = GetCharacterMovement()->Velocity.Size();
+			GetCharacterMovement()->Velocity = ToCentre.GetSafeNormal() * CurrentV;
+		}
 	}
 
 	// Hacky stuff
@@ -220,6 +222,7 @@ void ATachyonCharacter::Tick(float DeltaTime)
 			NearDeathParticles->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
 			NearDeathParticles->ComponentTags.Add("ResetKill");
 			NearDeathParticles->GetOwner()->SetReplicates(true);
+			NearDeathParticles->CustomTimeDilation = CustomTimeDilation;
 			bSpawnedDeath = true;
 		}
 	}
@@ -360,10 +363,10 @@ void ATachyonCharacter::EngageJump()
 		FVector Norm1 = GetCharacterMovement()->Velocity.GetSafeNormal();
 		FVector Norm2 = ToOpponent.GetSafeNormal();
 		float DotToOpponent = -FVector::DotProduct(Norm1, Norm2);
-		DotToOpponent = FMath::Clamp(DotToOpponent, 0.55f, 1.1f);
+		DotToOpponent = FMath::Clamp(DotToOpponent, 0.77f, 1.1f);
 		//float DotReductiveScalar = FMath::Clamp((1.0f / DotToOpponent), 0.01f, 1.0f);
 
-		GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::White, FString::Printf(TEXT("DotToOpponent: %f"), DotToOpponent));
+		//GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::White, FString::Printf(TEXT("DotToOpponent: %f"), DotToOpponent));
 
 		JumpSpeed *= DotToOpponent;
 		JumpTopSpeed *= DotToOpponent;
@@ -816,16 +819,16 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 		float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
 		float ClimbDirection = FMath::Clamp(InputZ * 5.0f, -5.0f, 5.0f);
 		float Roll = FMath::Clamp(InputZ * -25.1f, -25.1f, 25.1f);
-		float RotatoeSpeed = 15.0f;
+		float RotatoeSpeed = 1500.0f;
 
 		if (TravelDirection < 0.0f)
 		{
-			FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, Roll), DeltaTime, RotatoeSpeed);
+			FRotator Fint = FMath::RInterpConstantTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, Roll), DeltaTime, RotatoeSpeed);
 			Controller->SetControlRotation(Fint);
 		}
 		else if (TravelDirection > 0.0f)
 		{
-			FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, -Roll), DeltaTime, RotatoeSpeed);
+			FRotator Fint = FMath::RInterpConstantTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, -Roll), DeltaTime, RotatoeSpeed);
 			Controller->SetControlRotation(Fint);
 		}
 
@@ -834,12 +837,12 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 		{
 			if (FMath::Abs(Controller->GetControlRotation().Yaw) > 90.0f)
 			{
-				FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, -Roll), DeltaTime, RotatoeSpeed);
+				FRotator Fint = FMath::RInterpConstantTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, -Roll), DeltaTime, RotatoeSpeed);
 				Controller->SetControlRotation(Fint);
 			}
 			else if (FMath::Abs(Controller->GetControlRotation().Yaw) < 90.0f)
 			{
-				FRotator Fint = FMath::RInterpTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, Roll), DeltaTime, RotatoeSpeed);
+				FRotator Fint = FMath::RInterpConstantTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, Roll), DeltaTime, RotatoeSpeed);
 				Controller->SetControlRotation(Fint);
 			}
 		}

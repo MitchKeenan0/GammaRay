@@ -170,16 +170,16 @@ void ATachyonAIController::NavigateTo(FVector TargetLocation)
 		float TravelDirection = FMath::Clamp(MyInputX, -1.0f, 1.0f);
 		float ClimbDirection = FMath::Clamp(MyInputZ * 5.0f, -5.0f, 5.0f);
 		float Roll = FMath::Clamp(MyInputZ * 25.1, -25.1, 25.1);
-		float RotatoeSpeed = 15.0f;
+		float RotatoeSpeed = 1500.0f;
 
 		if (TravelDirection < 0.0f)
 		{
-			FRotator Fint = FMath::RInterpTo(GetControlRotation(), FRotator(ClimbDirection, 180.0f, Roll), DeltaTime, RotatoeSpeed);
+			FRotator Fint = FMath::RInterpConstantTo(GetControlRotation(), FRotator(ClimbDirection, 180.0f, Roll), DeltaTime, RotatoeSpeed);
 			SetControlRotation(Fint);
 		}
 		else if (TravelDirection > 0.0f)
 		{
-			FRotator Fint = FMath::RInterpTo(GetControlRotation(), FRotator(ClimbDirection, 0.0f, -Roll), DeltaTime, RotatoeSpeed);
+			FRotator Fint = FMath::RInterpConstantTo(GetControlRotation(), FRotator(ClimbDirection, 0.0f, -Roll), DeltaTime, RotatoeSpeed);
 			SetControlRotation(Fint);
 		}
 
@@ -188,12 +188,12 @@ void ATachyonAIController::NavigateTo(FVector TargetLocation)
 		{
 			if (FMath::Abs(GetControlRotation().Yaw) > 90.0f)
 			{
-				FRotator Fint = FMath::RInterpTo(GetControlRotation(), FRotator(ClimbDirection, 180.0f, -Roll), DeltaTime, RotatoeSpeed);
+				FRotator Fint = FMath::RInterpConstantTo(GetControlRotation(), FRotator(ClimbDirection, 180.0f, -Roll), DeltaTime, RotatoeSpeed);
 				SetControlRotation(Fint);
 			}
 			else if (FMath::Abs(GetControlRotation().Yaw) < 90.0f)
 			{
-				FRotator Fint = FMath::RInterpTo(GetControlRotation(), FRotator(ClimbDirection, 0.0f, Roll), DeltaTime, RotatoeSpeed);
+				FRotator Fint = FMath::RInterpConstantTo(GetControlRotation(), FRotator(ClimbDirection, 0.0f, Roll), DeltaTime, RotatoeSpeed);
 				SetControlRotation(Fint);
 			}
 		}
