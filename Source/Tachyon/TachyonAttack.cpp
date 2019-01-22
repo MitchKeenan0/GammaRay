@@ -248,7 +248,7 @@ void ATachyonAttack::Lethalize()
 			ActualAttackDamage *= (1.0f + AttackMagnitude);
 
 			ActualDeliveryTime = DeliveryTime * AttackMagnitude;
-			ActualDurationTime = FMath::Clamp(DurationTime * AttackMagnitude, 0.1f, DurationTime);
+			ActualDurationTime = FMath::Clamp(DurationTime * AttackMagnitude, 0.1f, DurationTime) + 0.05f;
 			ActualLethalTime = LethalTime * AttackMagnitude;
 			HitTimer = (1.0f / ActualHitsPerSecond) * CustomTimeDilation;
 			RefireTime = 0.1f + (AttackMagnitude);
