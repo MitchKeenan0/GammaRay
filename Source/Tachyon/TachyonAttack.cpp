@@ -343,10 +343,14 @@ void ATachyonAttack::ActivateParticles()
 	if (AttackEffect != nullptr)
 	{
 		AttackParticles = UGameplayStatics::SpawnEmitterAttached(AttackEffect, GetRootComponent(), NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
+		
 		if (AttackParticles != nullptr)
 		{
 			AttackParticles->bAutoDestroy = true;
+			AttackParticles->ComponentTags.Add("ResetKill");
 		}
+
+		ForceNetUpdate();
 	}
 }
 
@@ -423,10 +427,11 @@ void ATachyonAttack::RedirectAttack()
 				InterpRotation.Yaw = 0.0f;
 			}
 
+			
 			// Shot angle return to zero
-			if (FMath::Abs(ShooterAimDirection) < 0.0f)
+			if (FMath::Abs(ShooterAimDirection) <= 5.0f)
 			{
-				InterpRotation.Pitch *= 0.9f;
+				InterpRotation.Pitch *= 0.99f;
 			}
 
 			// Quick-snap to angle shot
@@ -607,7 +612,7 @@ void ATachyonAttack::RaycastForHit()
 					if (AttackParticles != nullptr)
 					{
 						MainHit(HitActor, Hits[i].ImpactPoint);
-						float ParticleSpeed = AttackParticles->CustomTimeDilation * 0.5f;
+						float ParticleSpeed = AttackParticles->CustomTimeDilation * 0.618f;
 						if (ParticleSpeed > 0.00001f)
 						{
 							AttackParticles->CustomTimeDilation = ParticleSpeed;
@@ -815,26 +820,28 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		else
 		{
 			// Basic hits
-			if (!bFirstHitReported || bSecondary)
+			if (bSecondary)
 			{
 				
 				// Slow the target
 				float MarkTimescale = Mark->CustomTimeDilation;
-				float NewTimescale = MarkTimescale - ((AttackMagnitude * TimescaleImpact) / 10.0f);
+				float NewTimescale = MarkTimescale - (AttackMagnitude * TimescaleImpact);
 				float HitTimescale = FMath::Clamp(NewTimescale, 0.05f, 0.5f);
 
-				if (MarkTimescale > NewTimescale)
+				if (NewTimescale <= MarkTimescale)
 				{
 					CallForTimescale(Mark, false, HitTimescale);
 				}
 
 				// A little slow for the shooter
-				if (Shooter != nullptr)
+				if (OwningShooter != nullptr)
 				{
-					float ShooterTimescale = (HitTimescale * 1.15f);
-					if (ShooterTimescale > Shooter->CustomTimeDilation)
+					float ShooterTimescale = HitTimescale * 1.618f; ///1.0f - (AttackMagnitude * TimescaleImpact * 0.01f);
+					ShooterTimescale = FMath::Clamp(ShooterTimescale, 0.05f, 0.5f);
+					if (ShooterTimescale < CustomTimeDilation)
 					{
-						CallForTimescale(Shooter, false, ShooterTimescale);
+						GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::White, FString::Printf(TEXT("ShooterTimescale: %f"), ShooterTimescale));
+						CallForTimescale(OwningShooter, false, ShooterTimescale);
 					}
 				}
 			}
