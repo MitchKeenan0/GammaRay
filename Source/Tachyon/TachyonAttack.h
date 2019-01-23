@@ -194,6 +194,9 @@ protected:
 	float HitsPerSecondDecay = 0.333f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	float ShooterSlow = 0.8f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	float HitSlow = 0.5f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)

@@ -127,6 +127,14 @@ void ATachyonAttack::Fire()
 
 			TimeAtInit = GetWorld()->TimeSeconds;
 
+			ATachyonCharacter* ShooterCharacter = Cast<ATachyonCharacter>(OwningShooter);
+			if (ShooterCharacter != nullptr)
+			{
+				float ShooterTimeDilation = OwningShooter->CustomTimeDilation * ShooterSlow;
+				ShooterCharacter->NewTimescale(ShooterTimeDilation);
+			}
+
+
 			// Used to determine magnitude at Lethalize
 			// Start deliverytime timer
 			if (bSecondary && !(GetWorldTimerManager().IsTimerActive(TimerHandle_DeliveryTime)))
@@ -248,7 +256,7 @@ void ATachyonAttack::Lethalize()
 			ActualAttackDamage *= (1.0f + AttackMagnitude);
 
 			ActualDeliveryTime = DeliveryTime * AttackMagnitude;
-			ActualDurationTime = FMath::Clamp(DurationTime * AttackMagnitude, 0.1f, DurationTime) + 0.05f;
+			ActualDurationTime = DurationTime * AttackMagnitude;
 			ActualLethalTime = LethalTime * AttackMagnitude;
 			HitTimer = (1.0f / ActualHitsPerSecond) * CustomTimeDilation;
 			RefireTime = 0.1f + (AttackMagnitude);
@@ -301,6 +309,15 @@ void ATachyonAttack::Lethalize()
 					UGameplayStatics::PlayWorldCameraShake(GetWorld(), FireShake, GetActorLocation(), 0.0f, 9999.0f, 1.0f, false);
 			}
 
+			// Shooter Slow
+			ATachyonCharacter* ShooterCharacter = Cast<ATachyonCharacter>(OwningShooter);
+			if (ShooterCharacter != nullptr)
+			{
+				float ShooterTimeDilation = OwningShooter->CustomTimeDilation * (ShooterSlow * 0.5f);
+				ShooterCharacter->NewTimescale(ShooterTimeDilation);
+			}
+			
+			// Visual slow
 			if (AttackParticles != nullptr)
 			{
 				AttackParticles->CustomTimeDilation = FMath::Clamp(AttackMagnitude, 0.33f, 1.0f);
@@ -623,7 +640,7 @@ void ATachyonAttack::RaycastForHit()
 					if (AttackParticles != nullptr)
 					{
 						MainHit(HitActor, Hits[i].ImpactPoint);
-						float ParticleSpeed = AttackParticles->CustomTimeDilation * 0.8f;
+						float ParticleSpeed = AttackParticles->CustomTimeDilation * 0.7f;
 						AttackParticles->CustomTimeDilation = ParticleSpeed;
 					}
 					else
