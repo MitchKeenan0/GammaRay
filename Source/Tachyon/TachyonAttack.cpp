@@ -260,28 +260,31 @@ void ATachyonAttack::Lethalize()
 			if (bSecondary)
 				CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 
+			
+
+			// TIMERS ///////////////////////////
+
 			// Start shooting and timeout process
 			LastFireTime = GetWorld()->TimeSeconds;
 
-			if (HasAuthority())
-			{
-				
-			}
+			// Effects
+			FTimerHandle EffectsTimer;
+			GetWorldTimerManager().SetTimer(EffectsTimer, this, &ATachyonAttack::ActivateEffects, ActualDeliveryTime, false, ActualDeliveryTime * 0.9f);
 
+			// Raycasting
 			float RefireTiming = (1.0f / ActualHitsPerSecond); // *(1.0f / CustomTimeDilation);
 			GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, RefireTiming, true, ActualDeliveryTime);
 
+			// Lifetime
 			GetWorldTimerManager().SetTimer(TimerHandle_Neutralize, this, &ATachyonAttack::Neutralize, ActualDurationTime, false, ActualDurationTime);
 			//GetWorldTimerManager().ClearTimer(TimerHandle_TimeBetweenShots);
 
 			SetInitVelocities();
-
-			FTimerHandle EffectsTimer;
-			GetWorldTimerManager().SetTimer(EffectsTimer, this, &ATachyonAttack::ActivateEffects, ActualDeliveryTime, false, ActualDeliveryTime);
 			///ActivateEffects();
 
 			FVector RecoilLocation = GetActorForwardVector() * 100.0f;
 			ApplyKnockForce(MyOwner, RecoilLocation, RecoilForce);
+
 
 			// Clear burst object
 			if (CurrentBurstObject != nullptr)
@@ -298,7 +301,10 @@ void ATachyonAttack::Lethalize()
 					UGameplayStatics::PlayWorldCameraShake(GetWorld(), FireShake, GetActorLocation(), 0.0f, 9999.0f, 1.0f, false);
 			}
 
-			CustomTimeDilation = AttackMagnitude;
+			if (AttackParticles != nullptr)
+			{
+				AttackParticles->CustomTimeDilation = FMath::Clamp(AttackMagnitude, 0.33f, 1.0f);
+			}
 
 			bLethal = true;
 			bDoneLethal = false;
@@ -319,7 +325,7 @@ void ATachyonAttack::ActivateEffects_Implementation()
 {
 	RedirectAttack();
 
-	ActivateParticles();
+	AttackParticles = ActivateParticles();
 
 	if (AttackSound != nullptr)
 		ActivateSound();
@@ -338,8 +344,10 @@ void ATachyonAttack::ActivateSound()
 }
 
 
-void ATachyonAttack::ActivateParticles()
+UParticleSystemComponent* ATachyonAttack::ActivateParticles()
 {
+	UParticleSystemComponent* Result = nullptr;
+	
 	if (AttackEffect != nullptr)
 	{
 		AttackParticles = UGameplayStatics::SpawnEmitterAttached(AttackEffect, GetRootComponent(), NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
@@ -348,10 +356,13 @@ void ATachyonAttack::ActivateParticles()
 		{
 			AttackParticles->bAutoDestroy = true;
 			AttackParticles->ComponentTags.Add("ResetKill");
+			Result = AttackParticles;
 		}
 
 		ForceNetUpdate();
 	}
+
+	return Result;
 }
 
 
@@ -612,15 +623,12 @@ void ATachyonAttack::RaycastForHit()
 					if (AttackParticles != nullptr)
 					{
 						MainHit(HitActor, Hits[i].ImpactPoint);
-						float ParticleSpeed = AttackParticles->CustomTimeDilation * 0.618f;
-						if (ParticleSpeed > 0.00001f)
-						{
-							AttackParticles->CustomTimeDilation = ParticleSpeed;
-						}
-						else if (!bGameEnder)
-						{
-							Neutralize();
-						}
+						float ParticleSpeed = AttackParticles->CustomTimeDilation * 0.8f;
+						AttackParticles->CustomTimeDilation = ParticleSpeed;
+					}
+					else
+					{
+						GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("no particles"));
 					}
 				}
 			}

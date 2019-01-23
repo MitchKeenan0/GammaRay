@@ -40,7 +40,7 @@ public:
 	void ActivateSound();
 
 	UFUNCTION()
-	void ActivateParticles();
+	UParticleSystemComponent* ActivateParticles();
 
 	UFUNCTION()
 	void SetShooterInputEnabled(bool bEnabled);
