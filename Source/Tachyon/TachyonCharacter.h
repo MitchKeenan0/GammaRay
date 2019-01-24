@@ -268,6 +268,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	class USphereComponent* OuterTouchCollider;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UParticleSystem* CollideEffect = nullptr;
+
 	// Shield collision
 	UFUNCTION()
 	void OnShieldBeginOverlap

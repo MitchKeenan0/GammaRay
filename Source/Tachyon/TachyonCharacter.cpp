@@ -222,7 +222,7 @@ void ATachyonCharacter::Tick(float DeltaTime)
 			NearDeathParticles->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
 			NearDeathParticles->ComponentTags.Add("ResetKill");
 			NearDeathParticles->GetOwner()->SetReplicates(true);
-			NearDeathParticles->CustomTimeDilation = CustomTimeDilation;
+			NearDeathParticles->CustomTimeDilation = FMath::Clamp(CustomTimeDilation, 0.1f, 1.0f);
 			bSpawnedDeath = true;
 		}
 	}
@@ -416,35 +416,37 @@ void ATachyonCharacter::Shield()
 
 void ATachyonCharacter::ModifyHealth(float Value)
 {
-	MaxHealth = FMath::Clamp(Health + Value, -1.0f, 100.0f);
-
 	if (Role < ROLE_Authority)
 	{
 		ServerModifyHealth(Value);
 	}
+
+	float SafeHealth = FMath::Clamp(Health, 0.0f, 100.0f);
+	MaxHealth = FMath::Clamp(Health + Value, 0.0f, 100.0f);
 
 	// Clear old death if we're reviving
 	if (Value == 100.0f)
 	{
 		bSpawnedDeath = false;
 
-		TArray<UActorComponent*> Particles = GetComponentsByClass(UParticleSystemComponent::StaticClass());
-		if (Particles.Num() > 0)
-		{
-			// Could be our ambient particles, so check by tag
-			int NumParticles = Particles.Num();
-			for (int i = 0; i < NumParticles; ++i)
-			{
-				UParticleSystemComponent* MyDeath = Cast<UParticleSystemComponent>(Particles[i]);
-				if (MyDeath != nullptr)
-				{
-					if (MyDeath->ComponentHasTag("ResetKill"))
-					{
-						MyDeath->DestroyComponent();
-					}
-				}
-			}
-		}
+		// Clearing death fx
+		//TArray<UActorComponent*> Particles = GetComponentsByClass(UParticleSystemComponent::StaticClass());
+		//if (Particles.Num() > 0)
+		//{
+		//	// Could be our ambient particles, so check by tag
+		//	int NumParticles = Particles.Num();
+		//	for (int i = 0; i < NumParticles; ++i)
+		//	{
+		//		UParticleSystemComponent* MyDeath = Cast<UParticleSystemComponent>(Particles[i]);
+		//		if (MyDeath != nullptr)
+		//		{
+		//			if (MyDeath->ComponentHasTag("ResetKill"))
+		//			{
+		//				MyDeath->DestroyComponent();
+		//			}
+		//		}
+		//	}
+		//}
 	}
 }
 void ATachyonCharacter::ServerModifyHealth_Implementation(float Value)
@@ -507,13 +509,17 @@ void ATachyonCharacter::MulticastNewTimescale_Implementation(float Value)
 void ATachyonCharacter::UpdateHealth(float DeltaTime)
 {
 	// Update smooth health value
-	if (MaxHealth != Health)
+	if (Health != MaxHealth)
 	{
 		float GlobalTime = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
 		float Timescalar = (1.0f / GlobalTime) + (1.0f / CustomTimeDilation);
-		float HealthDifference = FMath::Abs(Health - MaxHealth) * 100.0f;
+		float HealthDifference = FMath::Clamp((FMath::Abs(Health - MaxHealth) * 100.0f), 1.0f, 100.0f);
 		float InterpSpeed = Timescalar * FMath::Clamp(HealthDifference, 100.0f, 10000.0f);
 		Health = FMath::FInterpConstantTo(Health, MaxHealth, DeltaTime, InterpSpeed);
+		if (Health == 1.0f)
+		{
+			bSpawnedDeath = false;
+		}
 	}
 
 	///GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Blue, FString::Printf(TEXT("Health: %f"), Health));
@@ -975,6 +981,19 @@ void ATachyonCharacter::OnShieldBeginOverlap(UPrimitiveComponent* OverlappedComp
 	if (OtherActor->ActorHasTag("Player"))
 	{
 		Collide(OtherActor);
+	}
+
+	// Visual impact
+	if (CollideEffect != nullptr)
+	{
+		FVector SlamLocation = SweepResult.ImpactPoint;
+		FRotator SlamRotation = SweepResult.ImpactNormal.Rotation();
+		UParticleSystemComponent* NewSlam = UGameplayStatics::SpawnEmitterAttached(CollideEffect, GetRootComponent(), NAME_None, SlamLocation, SlamRotation, EAttachLocation::KeepWorldPosition);
+		if (NewSlam != nullptr)
+		{
+			NewSlam->bAutoDestroy = true;
+			NewSlam->ComponentTags.Add("ResetKill");
+		}
 	}
 
 	// attack should check for shield to make reflect fx

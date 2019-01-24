@@ -269,7 +269,10 @@ protected:
 	class UAudioComponent* AttackSound = nullptr;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	UParticleSystem* AttackEffect;
+	UParticleSystem* AttackEffectLight;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	UParticleSystem* AttackEffectHeavy;
 
 	/////////////////////////////////////////////////////////////////////////
 	// Spawned Resources

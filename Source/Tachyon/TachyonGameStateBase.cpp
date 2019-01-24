@@ -110,6 +110,27 @@ void ATachyonGameStateBase::RestartGame()
 		}
 	}
 
+	// Clear dead Bots
+	UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("Bot"), Doomies);
+	{
+		if (Doomies.Num() > 0)
+		{
+			int DoomNum = Doomies.Num();
+			for (int i = 0; i < DoomNum; ++i)
+			{
+				AActor* ThisBot = Doomies[i];
+				ATachyonCharacter* BotPlayer = Cast<ATachyonCharacter>(ThisBot);
+				if (BotPlayer != nullptr)
+				{
+					if (BotPlayer->GetHealth() <= 0.0f)
+					{
+						BotPlayer->Destroy();
+					}
+				}
+			}
+		}
+	}
+
 	// Reset player lifepoints
 	TArray<AActor*> Players;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ATachyonCharacter::StaticClass(), Players);
@@ -128,7 +149,7 @@ void ATachyonGameStateBase::RestartGame()
 					{
 						Player->ModifyHealth(100.0f);
 						Player->NewTimescale(1.0f);
-						Player->ForceNetUpdate();
+						//Player->ForceNetUpdate();
 					}
 
 					Player->GetCharacterMovement()->Velocity *= 0.1f;
