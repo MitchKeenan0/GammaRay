@@ -241,6 +241,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	float InputZ = 0.0f;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	float LastFaceDirection = 0.0f;
+
 	// HEALTH & CAMERA ///////////////////////////////////////////////////////////////
 	void UpdateHealth(float DeltaTime);
 	void UpdateCamera(float DeltaTime);

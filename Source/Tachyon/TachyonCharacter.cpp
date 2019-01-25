@@ -94,6 +94,8 @@ void ATachyonCharacter::BeginPlay()
 	Tags.Add("Player");
 	Tags.Add("FramingActor");
 
+	LastFaceDirection = GetActorForwardVector().X;
+
 	GetCharacterMovement()->MaxAcceleration = MoveSpeed;
 	GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed;
 	//GetCharacterMovement()->bOrientRotationToMovement = true;
@@ -269,6 +271,11 @@ void ATachyonCharacter::MoveRight(float Value)
 			}
 
 			InputX = Value;
+		}
+
+		if (Value != 0.0f)
+		{
+			LastFaceDirection = Value;
 		}
 	}
 }
@@ -810,22 +817,13 @@ void ATachyonCharacter::MulticastReceiveKnockback_Implementation(FVector Knockba
 
 void ATachyonCharacter::UpdateBody(float DeltaTime)
 {
-	// Net part: currently for custom time dilation recovery
-	//ServerUpdateBody(DeltaTime);
-	/*if (CustomTimeDilation < 1.0f)
-	{
-		float RecoverySpeed = 3.0f * (1.0f + CustomTimeDilation);
-		float InterpTime = FMath::FInterpConstantTo(CustomTimeDilation, 1.0f, DeltaTime, RecoverySpeed);
-		NewTimescale(InterpTime);
-	}*/
-
 	// Set rotation so character faces direction of travel
 	if (Controller != nullptr)
 	{
-		float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
+		float TravelDirection = FMath::Clamp(LastFaceDirection, -1.0f, 1.0f);
 		float ClimbDirection = FMath::Clamp(InputZ * 5.0f, -5.0f, 5.0f);
 		float Roll = FMath::Clamp(InputZ * -25.1f, -25.1f, 25.1f);
-		float RotatoeSpeed = FMath::Clamp((1500.0f * CustomTimeDilation), 500.0f, 1500.0f);
+		float RotatoeSpeed = FMath::Clamp((1500.0f * CustomTimeDilation), 750.0f, 1500.0f);
 
 		if (TravelDirection < 0.0f)
 		{
@@ -869,7 +867,7 @@ void ATachyonCharacter::ServerUpdateBody_Implementation(float DeltaTime)
 	if ((GlobalTimescale == 1.0f)
 		&& (CustomTimeDilation < 1.0f))
 	{
-		float RecoverySpeed = FMath::Square(CustomTimeDilation) * TimescaleRecoverySpeed * GlobalTimescale;
+		float RecoverySpeed = FMath::Sqrt(CustomTimeDilation) * TimescaleRecoverySpeed * GlobalTimescale;
 		RecoverySpeed = FMath::Clamp(RecoverySpeed, 1.0f, TimescaleRecoverySpeed);
 		float InterpTime = FMath::FInterpConstantTo(CustomTimeDilation, 1.0f, DeltaTime, RecoverySpeed);
 		NewTimescale(InterpTime);

@@ -259,6 +259,8 @@ void ATachyonAttack::Lethalize()
 				SetActorLocation(EmitLocation);
 			}
 
+			RedirectAttack();
+
 			// Calculate and set magnitude characteristics
 			float GeneratedMagnitude = FMath::Clamp(FMath::Square((GetWorld()->TimeSeconds - TimeAtInit)), 0.1f, 1.0f);
 			if (bSecondary)
@@ -462,13 +464,26 @@ void ATachyonAttack::RedirectAttack()
 		TargetPitch = FMath::Clamp(TargetPitch, -ShootingAngle, ShootingAngle);
 		
 		FRotator NewRotation = LocalForward.Rotation() + FRotator(TargetPitch, 0.0f, 0.0f);
+		NewRotation.Pitch = FMath::Clamp(NewRotation.Pitch, -ShootingAngle, ShootingAngle);
+		
+		// Clamp Angles
+		float ShooterYaw = FMath::Abs(OwningShooter->GetActorRotation().Yaw);
+		///GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::White, FString::Printf(TEXT("ShooterYaw: %f"), ShooterYaw));
+		if ((ShooterYaw > 50.0f))
+		{
+			NewRotation.Yaw = 180.0f;
+		}
+		else
+		{
+			NewRotation.Yaw = 0.0f;
+		}
 
 
 		// Interp to Rotation
 		if (!bSecondary)
 		{
 			float ShooterTimeDilation = TachyonShooter->CustomTimeDilation;
-			float PitchInterpSpeed = 1.0f + (5.0f * AttackMagnitude) + (5.0f * ShooterTimeDilation);
+			float PitchInterpSpeed = 10.0f + (5.0f * AttackMagnitude) + (5.0f * ShooterTimeDilation);
 			PitchInterpSpeed /= (NumHits * 2.0f);
 			PitchInterpSpeed = FMath::Clamp(PitchInterpSpeed, 1.0f, 500.0f);
 			
@@ -477,18 +492,6 @@ void ATachyonAttack::RedirectAttack()
 				NewRotation,
 				GetWorld()->DeltaTimeSeconds,
 				PitchInterpSpeed);
-
-			// Clamp Angles
-			float ShooterYaw = FMath::Abs(OwningShooter->GetActorRotation().Yaw);
-			///GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::White, FString::Printf(TEXT("ShooterYaw: %f"), ShooterYaw));
-			if ((ShooterYaw > 50.0f))
-			{
-				InterpRotation.Yaw = 180.0f;
-			}
-			else
-			{
-				InterpRotation.Yaw = 0.0f;
-			}
 
 			
 			// Shot angle return to zero
@@ -518,7 +521,7 @@ void ATachyonAttack::RedirectAttack()
 		// Update Location
 		if (LockedEmitPoint) /// formerly bSecondary
 		{
-			FVector EmitLocation = TachyonShooter->GetActorLocation() + TachyonShooter->GetActorForwardVector();
+			FVector EmitLocation = TachyonShooter->GetAttackScene()->GetComponentLocation();
 			if (bSecondary)
 			{
 				EmitLocation = TachyonShooter->GetActorLocation() + TachyonShooter->GetActorForwardVector();
