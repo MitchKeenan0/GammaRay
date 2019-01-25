@@ -825,7 +825,7 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 		float TravelDirection = FMath::Clamp(InputX, -1.0f, 1.0f);
 		float ClimbDirection = FMath::Clamp(InputZ * 5.0f, -5.0f, 5.0f);
 		float Roll = FMath::Clamp(InputZ * -25.1f, -25.1f, 25.1f);
-		float RotatoeSpeed = 1500.0f * CustomTimeDilation;
+		float RotatoeSpeed = FMath::Clamp((1500.0f * CustomTimeDilation), 500.0f, 1500.0f);
 
 		if (TravelDirection < 0.0f)
 		{

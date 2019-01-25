@@ -117,23 +117,27 @@ void ATachyonAttack::Fire()
 				AttackParticles->SetVisibility(false, true);
 			}*/
 
-			RedirectAttack();
-
-			if (Role == ROLE_Authority)
-			{
-				SpawnBurst();
-			}
-
 			bInitialized = true;
 			bNeutralized = false;
 
 			TimeAtInit = GetWorld()->TimeSeconds;
 
+			// Shooter slow and position to fire point
 			ATachyonCharacter* ShooterCharacter = Cast<ATachyonCharacter>(OwningShooter);
 			if (ShooterCharacter != nullptr)
 			{
 				float ShooterTimeDilation = OwningShooter->CustomTimeDilation * ShooterSlow;
 				ShooterCharacter->NewTimescale(ShooterTimeDilation);
+
+				FVector EmitLocation = ShooterCharacter->GetAttackScene()->GetComponentLocation();
+				SetActorLocation(EmitLocation);
+			}
+
+			//RedirectAttack();
+
+			if (Role == ROLE_Authority)
+			{
+				SpawnBurst();
 			}
 
 
@@ -239,11 +243,20 @@ void ATachyonAttack::Lethalize()
 	///{
 		if ((bInitialized) && (OwningShooter != nullptr))
 		{
-			///RedirectAttack();
-
 			if (AttackRadial != nullptr)
 			{
 				AttackRadial->Activate();
+			}
+
+			// Shooter Slow and location
+			ATachyonCharacter* ShooterCharacter = Cast<ATachyonCharacter>(OwningShooter);
+			if (ShooterCharacter != nullptr)
+			{
+				float ShooterTimeDilation = OwningShooter->CustomTimeDilation * (ShooterSlow * 0.5f);
+				ShooterCharacter->NewTimescale(ShooterTimeDilation);
+
+				FVector EmitLocation = ShooterCharacter->GetAttackScene()->GetComponentLocation();
+				SetActorLocation(EmitLocation);
 			}
 
 			// Calculate and set magnitude characteristics
@@ -263,6 +276,8 @@ void ATachyonAttack::Lethalize()
 			ActualLethalTime = LethalTime * AttackMagnitude;
 			HitTimer = (1.0f / ActualHitsPerSecond) * CustomTimeDilation;
 			RefireTime = 0.1f + (AttackMagnitude);
+
+
 
 			///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("ActualDeliveryTime: %f"), ActualDeliveryTime));
 			///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("ActualDurationTime: %f"), ActualDurationTime));
@@ -312,14 +327,6 @@ void ATachyonAttack::Lethalize()
 			{
 				if (FireShake != nullptr)
 					UGameplayStatics::PlayWorldCameraShake(GetWorld(), FireShake, GetActorLocation(), 0.0f, 9999.0f, 1.0f, false);
-			}
-
-			// Shooter Slow
-			ATachyonCharacter* ShooterCharacter = Cast<ATachyonCharacter>(OwningShooter);
-			if (ShooterCharacter != nullptr)
-			{
-				float ShooterTimeDilation = OwningShooter->CustomTimeDilation * (ShooterSlow * 0.5f);
-				ShooterCharacter->NewTimescale(ShooterTimeDilation);
 			}
 
 			// this contravenes above
@@ -509,13 +516,17 @@ void ATachyonAttack::RedirectAttack()
 		}
 
 		// Update Location
-		FVector EmitLocation = TachyonShooter->GetAttackScene()->GetComponentLocation();
-		if (bSecondary)
+		if (LockedEmitPoint) /// formerly bSecondary
 		{
-			EmitLocation = TachyonShooter->GetActorLocation() + TachyonShooter->GetActorForwardVector();
+			FVector EmitLocation = TachyonShooter->GetActorLocation() + TachyonShooter->GetActorForwardVector();
+			if (bSecondary)
+			{
+				EmitLocation = TachyonShooter->GetActorLocation() + TachyonShooter->GetActorForwardVector();
+			}
+			FVector InterpPos = FMath::VInterpTo(GetActorLocation(), EmitLocation, GetWorld()->DeltaTimeSeconds, 100.0f);
+
+			SetActorLocation(InterpPos);
 		}
-		
-		SetActorLocation(EmitLocation);
 			
 
 		if (AttackRadial != nullptr)
@@ -670,9 +681,9 @@ void ATachyonAttack::RaycastForHit()
 
 				if (AttackParticles != nullptr)
 				{
-					float ParticleSpeed = AttackParticles->CustomTimeDilation * 0.7f;
+					float ParticleSpeed = CustomTimeDilation * 0.7f;
 					ParticleSpeed = FMath::Clamp(ParticleSpeed, 0.1f, 1.0f);
-					AttackParticles->CustomTimeDilation = ParticleSpeed;
+					ReceiveTimescale(ParticleSpeed);
 				}
 			}
 		}
