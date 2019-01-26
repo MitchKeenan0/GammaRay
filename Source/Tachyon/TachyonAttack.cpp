@@ -54,6 +54,7 @@ void ATachyonAttack::BeginPlay()
 	TimeBetweenShots = RefireTime;
 	ActualAttackDamage = AttackDamage;
 	ActualDeliveryTime = DeliveryTime;
+	DamageTimer = 1.0f;
 
 	if (CapsuleComponent != nullptr)
 	{
@@ -121,6 +122,7 @@ void ATachyonAttack::Fire()
 			bNeutralized = false;
 
 			TimeAtInit = GetWorld()->TimeSeconds;
+			DamageTimer = 99.9f;
 
 			// Shooter slow and position to fire point
 			ATachyonCharacter* ShooterCharacter = Cast<ATachyonCharacter>(OwningShooter);
@@ -265,6 +267,8 @@ void ATachyonAttack::Lethalize()
 			float GeneratedMagnitude = FMath::Clamp(FMath::Square((GetWorld()->TimeSeconds - TimeAtInit)), 0.1f, 1.0f);
 			if (bSecondary)
 				GeneratedMagnitude = GivenMagnitude;
+
+			// This leavens the number to one significant digit
 			AttackMagnitude = (FMath::FloorToFloat(GeneratedMagnitude * 10)) * 0.1f;
 			AttackMagnitude = FMath::Clamp(AttackMagnitude, 0.1f, 1.0f);
 
@@ -573,6 +577,11 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 	{
 		RedirectAttack();
 	}
+
+	if (HitResultsArray.Num() > 0)
+	{
+		TimedHit(DeltaT);
+	}
 }
 
 
@@ -598,6 +607,27 @@ void ATachyonAttack::SetShooterInputEnabled(bool bEnabled)
 					CharacterShooter->DisableInput(TachyonController);
 				}
 			}
+		}
+	}
+}
+
+
+// Update hits on actors
+void ATachyonAttack::TimedHit(float DeltaTime)
+{
+	DamageTimer += DeltaTime;
+	float HitRate = (1.0f / HitsPerSecond) * 0.1f;
+
+	if (DamageTimer >= HitRate)
+	{
+		AActor* CurrentActor = HitResultsArray[0].GetActor();
+		if (CurrentActor != nullptr)
+		{
+			MainHit(CurrentActor, HitResultsArray[0].ImpactPoint);
+			
+			HitResultsArray.RemoveAt(0);
+			
+			DamageTimer = 0.0f;
 		}
 	}
 }
@@ -674,19 +704,22 @@ void ATachyonAttack::RaycastForHit()
 	if (HitResult)
 	{
 		int NumHits = Hits.Num();
-		for (int i = 0; i < NumHits; ++i)
+		if (NumHits > 0)
 		{
-			HitActor = Hits[i].GetActor();
-
-			if (HitActor != nullptr)
+			for (int i = 0; i < NumHits; ++i)
 			{
-				MainHit(HitActor, Hits[i].ImpactPoint);
+				HitActor = Hits[i].GetActor();
 
-				if (AttackParticles != nullptr)
+				if (HitActor != nullptr)
 				{
+					HitResultsArray.Add(Hits[i]);
+
+					/*if (AttackParticles != nullptr)
+					{
 					float ParticleSpeed = CustomTimeDilation * 0.7f;
 					ParticleSpeed = FMath::Clamp(ParticleSpeed, 0.1f, 1.0f);
 					ReceiveTimescale(ParticleSpeed);
+					}*/
 				}
 			}
 		}
@@ -711,15 +744,6 @@ void ATachyonAttack::SpawnHit(AActor* HitActor, FVector HitLocation)
 			FActorSpawnParameters SpawnParams;
 			FVector ActualHitLocation = HitLocation;
 			
-			// Closest point on bound
-			/*UPrimitiveComponent* HitPrimitive = Cast<UPrimitiveComponent>(HitActor->GetRootComponent());
-			if (HitPrimitive != nullptr)
-			{
-				FVector OutPoint;
-				float HitOnBounds = HitPrimitive->GetClosestPointOnCollision(GetActorLocation(), OutPoint);
-				ActualHitLocation = OutPoint;
-			}*/
-			
 			FVector ToHitLocation = (ActualHitLocation - GetActorLocation()).GetSafeNormal();
 			AActor* HitSpawning = GetWorld()->SpawnActor<AActor>(DamageClass, ActualHitLocation, ToHitLocation.Rotation(), SpawnParams);
 			if (HitSpawning != nullptr)
@@ -727,9 +751,9 @@ void ATachyonAttack::SpawnHit(AActor* HitActor, FVector HitLocation)
 				HitSpawning->AttachToActor(HitActor, FAttachmentTransformRules::KeepWorldTransform);
 				
 				//float DamageTimescale = FMath::Clamp(HitActor->CustomTimeDilation, 0.05f, 1.0f);
-				HitSpawning->CustomTimeDilation = HitActor->CustomTimeDilation;
+				HitSpawning->CustomTimeDilation = FMath::Clamp(HitActor->CustomTimeDilation, 0.2f, 0.5f);
 				
-				float HitLifespan = HitSpawning->GetLifeSpan() + (0.015f / HitActor->CustomTimeDilation);
+				float HitLifespan = 2.0f * HitSpawning->CustomTimeDilation;
 				HitSpawning->SetLifeSpan(HitLifespan);
 			}
 		}
@@ -783,7 +807,7 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 		{
 			return;
 		}
-		else
+		else if (!bGameEnder)
 		{
 			// Check for shield here...
 			if (PotentialAttack->ActorHasTag("Shield"))
@@ -795,15 +819,11 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 		}
 	}
 
-	// Smashy fx
-	if (Role == ROLE_Authority)
-	{
-		
-	}
-
 	if (!bGameEnder)
 	{
-		ApplyKnockForce(HitActor, HitLocation, 1.0f);
+		SpawnHit(HitActor, HitLocation);
+
+		ApplyKnockForce(HitActor, HitLocation, KineticForce);
 
 		// Update GameState
 		ReportHitToMatch(GetOwner(), HitActor);
@@ -811,8 +831,6 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 		ActualHitsPerSecond *= (HitsPerSecondDecay * CustomTimeDilation);
 
 		ProjectileComponent->Velocity *= (1.0f - ProjectileDrag);
-
-		SpawnHit(HitActor, HitLocation);
 
 		// New
 		if (!bSecondary)
@@ -977,11 +995,19 @@ void ATachyonAttack::Neutralize()
 	AActor* MyOwner = GetOwner();
 	if (MyOwner != nullptr)
 	{
+		GetWorldTimerManager().ClearTimer(TimerHandle_Raycast);
+		GetWorldTimerManager().ClearTimer(TimerHandle_DeliveryTime);
+		GetWorldTimerManager().ClearTimer(TimerHandle_HitDelivery);
+
+		HitResultsArray.Empty();
+
+
 		if (AttackParticles != nullptr)
 		{
 			AttackParticles->Deactivate();
-			AttackParticles = nullptr;
 		}
+
+		AttackParticles = nullptr;
 
 		// Reset variables
 		bNeutralized = true;
@@ -993,6 +1019,7 @@ void ATachyonAttack::Neutralize()
 		LifeTimer = 0.0f;
 		NumHits = 0;
 		HitTimer = (1.0f / HitsPerSecond);
+		DamageTimer = 1.0f;
 		TimeBetweenShots = RefireTime;
 		ActualHitsPerSecond = HitsPerSecond;
 		ActualDeliveryTime = DeliveryTime;
@@ -1016,9 +1043,6 @@ void ATachyonAttack::Neutralize()
 			AttackRadial->SetWorldLocation(GetActorLocation());
 			AttackRadial->Deactivate();
 		}
-
-		GetWorldTimerManager().ClearTimer(TimerHandle_Raycast);
-		GetWorldTimerManager().ClearTimer(TimerHandle_DeliveryTime);
 
 		CustomTimeDilation = 1.0f;
 	}
@@ -1047,6 +1071,7 @@ void ATachyonAttack::OnAttackBeginOverlap(UPrimitiveComponent* OverlappedCompone
 			DamageLocation = GetActorLocation() + SweepResult.ImpactPoint;
 		}
 
-		MainHit(OtherActor, DamageLocation);
+		HitResultsArray.Add(SweepResult);
+		//MainHit(OtherActor, DamageLocation);
 	}
 }

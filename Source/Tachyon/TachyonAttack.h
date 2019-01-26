@@ -60,6 +60,9 @@ public:
 	UFUNCTION()
 	void ReceiveTimescale(float InTimescale);
 
+	UFUNCTION()
+	void TimedHit(float DeltaTime);
+
 
 protected:
 	// Called when the game starts or when spawned
@@ -75,6 +78,11 @@ protected:
 	FTimerHandle TimerHandle_Neutralize;
 
 	FTimerHandle TimerHandle_Raycast;
+
+	FTimerHandle TimerHandle_HitDelivery;
+
+	UPROPERTY()
+	TArray<FHitResult> HitResultsArray;
 
 	UPROPERTY()
 	AActor* CurrentBurstObject = nullptr;
@@ -310,6 +318,8 @@ protected:
 	
 	UPROPERTY(BlueprintReadWrite)
 	float HitTimer = 0.0f;
+	UPROPERTY(BlueprintReadWrite)
+	float DamageTimer = 0.0f;
 	UPROPERTY(BlueprintReadWrite)
 	bool bHit = false;
 	UPROPERTY(BlueprintReadWrite)
