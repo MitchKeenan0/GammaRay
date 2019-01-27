@@ -307,7 +307,7 @@ void ATachyonAttack::Lethalize()
 
 			// Raycasting
 			float RefireTiming = (1.0f / ActualHitsPerSecond); // *(1.0f / CustomTimeDilation);
-			GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, RefireTiming, true, ActualDeliveryTime);
+			GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, 0.001f, true, 0.001f);
 
 			// Lifetime
 			GetWorldTimerManager().SetTimer(TimerHandle_Neutralize, this, &ATachyonAttack::Neutralize, ActualDurationTime, false, ActualDurationTime);
@@ -316,8 +316,8 @@ void ATachyonAttack::Lethalize()
 			SetInitVelocities();
 			///ActivateEffects();
 
-			FVector RecoilLocation = GetActorForwardVector() * 100.0f;
-			ApplyKnockForce(OwningShooter, RecoilLocation, RecoilForce); // MyOwner
+			//FVector RecoilLocation = GetActorForwardVector() * 100.0f;
+			//ApplyKnockForce(OwningShooter, RecoilLocation, RecoilForce); // MyOwner
 
 
 			// Clear burst object
@@ -452,7 +452,8 @@ void ATachyonAttack::SetInitVelocities()
 void ATachyonAttack::RedirectAttack()
 {
 	ATachyonCharacter* TachyonShooter = Cast<ATachyonCharacter>(OwningShooter);
-	if (!bGameEnder && (TachyonShooter != nullptr))
+	bool bTime = UGameplayStatics::GetGlobalTimeDilation(GetWorld()) == 1.0f;
+	if (bTime && !bGameEnder && (TachyonShooter != nullptr))
 	{
 		
 		FVector LocalForward = TachyonShooter->GetActorForwardVector();
@@ -570,6 +571,7 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 	// Catch lost game ender
 	if (bGameEnder && (GlobalTime >= 0.9f))
 	{
+		ActivateEffects();
 		CallForTimescale(OwningShooter, true, 0.01f);
 		GetWorldTimerManager().ClearTimer(TimerHandle_Raycast);
 	}
@@ -616,17 +618,26 @@ void ATachyonAttack::SetShooterInputEnabled(bool bEnabled)
 void ATachyonAttack::TimedHit(float DeltaTime)
 {
 	DamageTimer += DeltaTime;
-	float HitRate = (1.0f / HitsPerSecond) * 0.1f;
+	float HitRate = (1.0f / ActualHitsPerSecond) * 0.1f;
 
 	if (DamageTimer >= HitRate)
 	{
 		AActor* CurrentActor = HitResultsArray[0].GetActor();
 		if (CurrentActor != nullptr)
 		{
-			MainHit(CurrentActor, HitResultsArray[0].ImpactPoint);
+			FVector HitLocation = HitResultsArray[0].ImpactPoint;
+			if (HitLocation == FVector::ZeroVector)
+			{
+				//float DistToHit = FVector::Dist(GetActorLocation(), CurrentActor->GetActorLocation());
+				HitLocation = GetActorLocation() + GetActorForwardVector();
+			}
 			
-			HitResultsArray.RemoveAt(0);
+			MainHit(CurrentActor, HitLocation);
 			
+			if (!CurrentActor->ActorHasTag("Player"))
+			{
+				HitResultsArray.RemoveAt(0);
+			}
 			DamageTimer = 0.0f;
 		}
 	}
@@ -886,13 +897,17 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		float TachyonHealth = HitTachyon->GetHealth();
 		if ((TachyonHealth - ActualAttackDamage) <= 0.0f)
 		{
-			CallForTimescale(HitTachyon, false, 0.1f);
-			CallForTimescale(MyOwner, false, 0.05f);
-			bGameEnder = true;
+			//CallForTimescale(HitTachyon, false, 0.05f);
+			//CallForTimescale(MyOwner, false, 0.05f);
 
+			CallForTimescale(HitTachyon, true, 0.01f);
+
+			CustomTimeDilation *= 0.1f;
+
+			bGameEnder = true;
 			if (AttackParticles != nullptr)
 			{
-				AttackParticles->CustomTimeDilation = 0.0f;
+				AttackParticles->CustomTimeDilation = 0.1f;
 			}
 
 			GetWorldTimerManager().ClearTimer(TimerHandle_Neutralize);
@@ -1004,6 +1019,7 @@ void ATachyonAttack::Neutralize()
 
 		if (AttackParticles != nullptr)
 		{
+			AttackParticles->CustomTimeDilation = 1.0f;
 			AttackParticles->Deactivate();
 		}
 
@@ -1060,18 +1076,14 @@ bool ATachyonAttack::ServerNeutralize_Validate()
 // COLLISION BEGIN
 void ATachyonAttack::OnAttackBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	bool bTime = !bFirstHitReported || (HitTimer >= (1 / ActualHitsPerSecond));
-	bool bActors = (OwningShooter != nullptr) && (OtherActor != nullptr) && (OtherActor != OwningShooter);
-	bool TimeSc = UGameplayStatics::GetGlobalTimeDilation(GetWorld()) >= 0.05f;
-	if (bTime && bActors && (bLethal && !bDoneLethal) && TimeSc)
+	if (RaycastHitRange == 0.0f)
 	{
-		FVector DamageLocation = GetActorLocation() + (OwningShooter->GetActorForwardVector() * RaycastHitRange);
-		if (ActorHasTag("Obstacle"))
+		///bool bTime = !bFirstHitReported || (HitTimer >= (1 / ActualHitsPerSecond));
+		bool bActors = (OwningShooter != nullptr) && (OtherActor != nullptr) && (OtherActor != OwningShooter);
+		bool TimeSc = UGameplayStatics::GetGlobalTimeDilation(GetWorld()) >= 0.05f;
+		if (bActors && (bLethal && !bDoneLethal) && TimeSc)
 		{
-			DamageLocation = GetActorLocation() + SweepResult.ImpactPoint;
+			HitResultsArray.Add(SweepResult);
 		}
-
-		HitResultsArray.Add(SweepResult);
-		//MainHit(OtherActor, DamageLocation);
 	}
 }

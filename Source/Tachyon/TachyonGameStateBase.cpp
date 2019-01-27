@@ -175,7 +175,7 @@ void ATachyonGameStateBase::UpdateGlobalTimescale(float DeltaTime)
 	float InterpSpeed = TimescaleRecoverySpeed + (1.0f / FactoredTimescale);
 	if (DesiredTimescale == GGTimescale)
 	{
-		InterpSpeed *= 0.15f;
+		InterpSpeed *= 0.5f;
 	}
 	float InterpTime = FMath::FInterpConstantTo(CurrentTime, DesiredTimescale, DeltaTime, InterpSpeed);
 	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), InterpTime);
