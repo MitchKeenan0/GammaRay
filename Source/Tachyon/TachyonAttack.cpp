@@ -54,7 +54,7 @@ void ATachyonAttack::BeginPlay()
 	TimeBetweenShots = RefireTime;
 	ActualAttackDamage = AttackDamage;
 	ActualDeliveryTime = DeliveryTime;
-	DamageTimer = 1.0f;
+	DamageTimer = 0.0f;
 
 	if (CapsuleComponent != nullptr)
 	{
@@ -307,7 +307,7 @@ void ATachyonAttack::Lethalize()
 
 			// Raycasting
 			float RefireTiming = (1.0f / ActualHitsPerSecond); // *(1.0f / CustomTimeDilation);
-			GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, 0.001f, true, 0.001f);
+			GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, 0.001f, true, 0.09f);
 
 			// Lifetime
 			GetWorldTimerManager().SetTimer(TimerHandle_Neutralize, this, &ATachyonAttack::Neutralize, ActualDurationTime, false, ActualDurationTime);
@@ -458,7 +458,7 @@ void ATachyonAttack::RedirectAttack()
 		
 		FVector LocalForward = TachyonShooter->GetActorForwardVector();
 		float ShooterAimDirection = FMath::Clamp(
-			TachyonShooter->GetActorForwardVector().Z * ShootingAngle, 
+			(TachyonShooter->GetActorForwardVector().Z) * 10.0f,
 			-1.0f, 1.0f);
 		
 		float TargetPitch = ShootingAngle * ShooterAimDirection;
@@ -488,7 +488,7 @@ void ATachyonAttack::RedirectAttack()
 		if (!bSecondary)
 		{
 			float ShooterTimeDilation = TachyonShooter->CustomTimeDilation;
-			float PitchInterpSpeed = 10.0f + (5.0f * AttackMagnitude) + (5.0f * ShooterTimeDilation);
+			float PitchInterpSpeed = 10.0f + (((5.0f * AttackMagnitude) + (5.0f * ShooterTimeDilation)) * RedirectionSpeed);
 			PitchInterpSpeed /= (NumHits * 2.0f);
 			PitchInterpSpeed = FMath::Clamp(PitchInterpSpeed, 1.0f, 500.0f);
 			
@@ -500,10 +500,11 @@ void ATachyonAttack::RedirectAttack()
 
 			
 			// Shot angle return to zero
-			if (FMath::Abs(ShooterAimDirection) <= 5.0f)
+			/*if (FMath::Abs(ShooterAimDirection) <= 0.1f)
 			{
-				InterpRotation.Pitch *= 0.99f;
-			}
+				InterpRotation.Pitch *= 0.999f;
+				GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::White, TEXT("attack redirect bottom out"));
+			}*/
 
 			// Quick-snap to angle shot
 			if (ShooterAimDirection < -0.1f)
@@ -698,6 +699,8 @@ void ATachyonAttack::RaycastForHit()
 			}
 		}
 
+		Start.Y = End.Y = 0.0f;
+
 		// Pew pew
 		HitResult = UKismetSystemLibrary::LineTraceMultiForObjects(
 			this,
@@ -839,13 +842,9 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 		// Update GameState
 		ReportHitToMatch(GetOwner(), HitActor);
 
-		ActualHitsPerSecond *= (HitsPerSecondDecay * CustomTimeDilation);
-
 		ProjectileComponent->Velocity *= (1.0f - ProjectileDrag);
 
-		// New
-		if (!bSecondary)
-			RedirectAttack();
+		ActualHitsPerSecond *= (HitsPerSecondDecay * CustomTimeDilation);
 	}
 }
 
@@ -1035,7 +1034,7 @@ void ATachyonAttack::Neutralize()
 		LifeTimer = 0.0f;
 		NumHits = 0;
 		HitTimer = (1.0f / HitsPerSecond);
-		DamageTimer = 1.0f;
+		DamageTimer = 0.0f;
 		TimeBetweenShots = RefireTime;
 		ActualHitsPerSecond = HitsPerSecond;
 		ActualDeliveryTime = DeliveryTime;

@@ -178,6 +178,9 @@ protected:
 	float RedirectionTime = 0.2f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	float RedirectionSpeed = 5.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	float DurationTime = 0.3f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)

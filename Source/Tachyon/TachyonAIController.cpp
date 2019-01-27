@@ -75,7 +75,7 @@ void ATachyonAIController::Tick(float DeltaTime)
 		if (Player != nullptr)
 		{
 			float GlobalTime = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
-			if (GlobalTime > 0.5f)
+			if (GlobalTime == 1.0f)
 			{
 				// Movement
 				if ((LocationTarget == FVector::ZeroVector) || (TravelTimer > 2.0f))
@@ -206,49 +206,73 @@ void ATachyonAIController::NavigateTo(FVector TargetLocation)
 
 void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 {
-	
 	FVector LocalForward = MyTachyonCharacter->GetAttackScene()->GetForwardVector();
 	FVector ToTarget = TargetActor->GetActorLocation() - MyTachyonCharacter->GetActorLocation();
-	FVector ForwardNorm = LocalForward.GetSafeNormal();
-	FVector ToPlayerNorm = ToTarget.GetSafeNormal();
-	
-	float VerticalNorm = FMath::FloorToFloat(FMath::Clamp((ToTarget.GetSafeNormal()).Z, -1.0f, 1.0f));
-	float DotToTarget = FVector::DotProduct(ForwardNorm, ToPlayerNorm);
 	float RangeToTarget = ToTarget.Size();
-	//float MyShootingAngle = MyTachyonCharacter
-
-	MyInputZ = VerticalNorm;
-
 
 	// Aim - leads to attacks and secondaries////////////////////////
 	if (RangeToTarget <= 3000.0f)
 	{
 
-		// Only fire if a) we're on screen & b) angle looks good
-		float AngleToTarget = FMath::RadiansToDegrees(FMath::Acos(DotToTarget));
-
-		if (AngleToTarget <= 50.0f)  // && MyCharacter->WasRecentlyRendered(0.15f)
+		/// initializing charge
+		if (ReactionTimeIsNow(DeltaTime))
 		{
+
+			MyTachyonCharacter->BotMove(MyInputX, MyInputZ);
+
+			FVector ForwardNorm = LocalForward.GetSafeNormal();
+			FVector ToPlayerNorm = ToTarget.GetSafeNormal();
+
+			float VerticalNorm = FMath::FloorToFloat(FMath::Clamp((ToTarget.GetSafeNormal()).Z, -1.0f, 1.0f));
+			float DotToTarget = FVector::DotProduct(ForwardNorm, ToPlayerNorm);
 			
-			/// initializing charge
-			if (ReactionTimeIsNow(DeltaTime) && (ShootingChargeTimer == 0.0f))
+			MyInputZ = VerticalNorm;
+
+			// Only fire if a) we're on screen & b) angle looks good
+			float AngleToTarget = FMath::RadiansToDegrees(FMath::Acos(DotToTarget));
+			if (AngleToTarget <= 50.0f)  // && MyCharacter->WasRecentlyRendered(0.15f)
 			{
-				MyTachyonCharacter->BotMove(MyInputX, MyInputZ);
-				MyTachyonCharacter->StartFire();
-				ShootingChargeTimer += 0.001f;
-			}
-			else {
-				ShootingChargeTimer += DeltaTime;
+				// Attacking
+				if (!bAttacking)
+				{
+					MyTachyonCharacter->StartFire();
+					bAttacking = true;
+				}
+				else
+				{
+					float AccountedDelta = DeltaTime * (1.0f / ReactionTime);
+					ShootingChargeTimer += DeltaTime;
+					GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::White, FString::Printf(TEXT("ShootingChargeTimer: %f"), ShootingChargeTimer));
+				}
 			}
 
-			/// release attack
-			if (ShootingChargeTimer >= (ReactionTime + (1.0f / Aggression) * 0.1f))
+			// Shielding
+			if (!bShielding)
 			{
-				MyTachyonCharacter->EndFire();
-				
-				ShootingChargeTimer = 0.0f;
-				TimeAtLastShotFired = GetWorld()->TimeSeconds;
+				if (FMath::Sqrt(FMath::RandRange(0.0f, 1.0f)) >= 0.5f)
+				{
+					MyTachyonCharacter->Shield();
+					bShielding = true;
+				}
 			}
+
+			if (bShielding && bAttacking)
+			{
+				bShielding = false;
+			}
+		}
+
+		/// release attack
+		float AttackChargeThreshold = FMath::RandRange(0.1f, Aggression);
+		if (ShootingChargeTimer >= AttackChargeThreshold)
+		{
+			MyTachyonCharacter->EndFire();
+
+			ShootingChargeTimer = 0.0f;
+			bAttacking = false;
+			TimeAtLastShotFired = GetWorld()->TimeSeconds;
+
+			GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("FIRED"));
 		}
 	}
 

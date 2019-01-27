@@ -193,17 +193,26 @@ void ATachyonCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	float GlobalTimeScale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+
 	if (Controller != nullptr)
 	{
 		UpdateHealth(DeltaTime);
 		UpdateCamera(DeltaTime);
 
-		if (!ActorHasTag("Bot"))
-			UpdateBody(DeltaTime);
-
-		if (HasAuthority() && (CustomTimeDilation < 1.0f))
+		if (GlobalTimeScale == 1.0f)
 		{
-			ServerUpdateBody(DeltaTime);
+			// Body rotation
+			if (!ActorHasTag("Bot"))
+			{
+				UpdateBody(DeltaTime);
+			}
+
+			// Timescale recovery
+			if (HasAuthority() && (CustomTimeDilation < 1.0f))
+			{
+				ServerUpdateBody(DeltaTime);
+			}
 		}
 
 		FVector ToCentre = FVector::ZeroVector - GetActorLocation();

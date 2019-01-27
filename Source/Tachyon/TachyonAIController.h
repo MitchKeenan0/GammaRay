@@ -34,6 +34,13 @@ class TACHYON_API ATachyonAIController : public AAIController
 	UPROPERTY()
 	float JumpTimer = 0.0f;
 
+	UPROPERTY()
+	bool bAttacking = false;
+
+	UPROPERTY()
+	bool bShielding = false;
+
+
 public:
 	UPROPERTY(EditDefaultsOnly)
 	float MoveRange = 100.0f;
