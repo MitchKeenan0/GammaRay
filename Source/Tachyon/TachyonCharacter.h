@@ -341,6 +341,9 @@ protected:
 	TSubclassOf<ATApparel> ApparelClass;
 	/*UPROPERTY(EditDefaultsOnly)
 	class ATApparel* ActiveApparel = nullptr;*/
+
+	UPROPERTY(Replicated)
+	class UParticleSystemComponent* ActiveDeath = nullptr;
 	
 	
 };

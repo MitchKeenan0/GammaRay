@@ -34,13 +34,10 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 	UFUNCTION()
-	void InitAttack();
-
-	UFUNCTION()
 	void ActivateSound();
 
 	UFUNCTION()
-	UParticleSystemComponent* ActivateParticles();
+	void ActivateParticles();
 
 	UFUNCTION()
 	void SetShooterInputEnabled(bool bEnabled);
@@ -265,7 +262,7 @@ protected:
 	class UCapsuleComponent* CapsuleComponent = nullptr;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	class UParticleSystemComponent* AttackParticles = nullptr;
+	class AActor* AttackParticles = nullptr;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	class UPaperSpriteComponent* AttackSprite = nullptr;
@@ -280,10 +277,10 @@ protected:
 	class UAudioComponent* AttackSound = nullptr;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	UParticleSystem* AttackEffectLight;
+	TSubclassOf<AActor> AttackEffectLight;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	UParticleSystem* AttackEffectHeavy;
+	TSubclassOf<AActor> AttackEffectHeavy;
 
 	/////////////////////////////////////////////////////////////////////////
 	// Spawned Resources

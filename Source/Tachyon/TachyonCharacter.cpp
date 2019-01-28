@@ -152,11 +152,13 @@ void ATachyonCharacter::SpawnAbilities()
 			}
 		}
 
-		if (ActorHasTag("Bot"))
+		if (NearDeathEffect != nullptr)
 		{
-			if (SoundComp != nullptr)
+			ActiveDeath = UGameplayStatics::SpawnEmitterAttached(NearDeathEffect, GetRootComponent(), NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
+			if (ActiveDeath != nullptr)
 			{
-				SoundComp->SetVolumeMultiplier(0.01f);
+				ActiveDeath->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
+				ActiveDeath->Deactivate();
 			}
 		}
 	}
@@ -209,9 +211,12 @@ void ATachyonCharacter::Tick(float DeltaTime)
 			}
 
 			// Timescale recovery
-			if (HasAuthority() && (CustomTimeDilation < 1.0f))
+			if (HasAuthority())
 			{
-				ServerUpdateBody(DeltaTime);
+				if (CustomTimeDilation < 1.0f)
+				{
+					ServerUpdateBody(DeltaTime);
+				}
 			}
 		}
 
@@ -225,15 +230,12 @@ void ATachyonCharacter::Tick(float DeltaTime)
 
 	// Hacky stuff
 	if ((Health <= 0.0f) && !bSpawnedDeath &&
-		(NearDeathEffect != nullptr)) ///  && 
+		(ActiveDeath != nullptr)) ///  && 
 	{
-		UParticleSystemComponent* NearDeathParticles = UGameplayStatics::SpawnEmitterAttached(NearDeathEffect, GetRootComponent(), NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
-		if (NearDeathParticles != nullptr)
+		if (ActiveDeath != nullptr)
 		{
-			NearDeathParticles->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
-			NearDeathParticles->ComponentTags.Add("ResetKill");
-			NearDeathParticles->GetOwner()->SetReplicates(true);
-			NearDeathParticles->CustomTimeDilation = FMath::Clamp(CustomTimeDilation, 0.1f, 1.0f);
+			ActiveDeath->Activate();
+			ActiveDeath->CustomTimeDilation = FMath::Clamp(CustomTimeDilation, 0.1f, 1.0f);
 			bSpawnedDeath = true;
 		}
 	}
@@ -368,25 +370,26 @@ void ATachyonCharacter::EndJump()
 
 void ATachyonCharacter::EngageJump()
 {
-	float JumpSpeed = BoostSpeed * CustomTimeDilation;
-	float JumpTopSpeed = BoostSustain * CustomTimeDilation;
+	float DilationSqrt = 1.0f; //FMath::Sqrt(CustomTimeDilation);
+	float JumpSpeed = BoostSpeed * DilationSqrt;
+	float JumpTopSpeed = BoostSustain * DilationSqrt;
 
-	if (Opponent != nullptr)
-	{
-		FVector ToOpponent = Opponent->GetActorLocation() - GetActorLocation();
-		float DistToOpponent = FVector::Dist(GetActorLocation(), Opponent->GetActorLocation());
+	//if (Opponent != nullptr)
+	//{
+	//	FVector ToOpponent = Opponent->GetActorLocation() - GetActorLocation();
+	//	float DistToOpponent = FVector::Dist(GetActorLocation(), Opponent->GetActorLocation());
 
-		FVector Norm1 = GetCharacterMovement()->Velocity.GetSafeNormal();
-		FVector Norm2 = ToOpponent.GetSafeNormal();
-		float DotToOpponent = -FVector::DotProduct(Norm1, Norm2);
-		DotToOpponent = FMath::Clamp(DotToOpponent, 0.77f, 1.1f);
-		//float DotReductiveScalar = FMath::Clamp((1.0f / DotToOpponent), 0.01f, 1.0f);
+	//	FVector Norm1 = GetCharacterMovement()->Velocity.GetSafeNormal();
+	//	FVector Norm2 = ToOpponent.GetSafeNormal();
+	//	float DotToOpponent = -FVector::DotProduct(Norm1, Norm2);
+	//	DotToOpponent = FMath::Clamp(DotToOpponent, 0.77f, 1.1f);
+	//	//float DotReductiveScalar = FMath::Clamp((1.0f / DotToOpponent), 0.01f, 1.0f);
 
-		//GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::White, FString::Printf(TEXT("DotToOpponent: %f"), DotToOpponent));
+	//	//GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::White, FString::Printf(TEXT("DotToOpponent: %f"), DotToOpponent));
 
-		JumpSpeed *= DotToOpponent;
-		JumpTopSpeed *= DotToOpponent;
-	}
+	//	JumpSpeed *= DotToOpponent;
+	//	JumpTopSpeed *= DotToOpponent;
+	//}
 
 	GetCharacterMovement()->MaxAcceleration = JumpSpeed;
 	GetCharacterMovement()->MaxFlySpeed = JumpTopSpeed;
@@ -440,34 +443,20 @@ void ATachyonCharacter::ModifyHealth(float Value)
 	float SafeHealth = FMath::Clamp(Health, 0.0f, 100.0f);
 	MaxHealth = FMath::Clamp(Health + Value, 0.0f, 100.0f);
 
+	///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("Ouch MaxHealth %f"), MaxHealth));
+
 	// Clear old death if we're reviving
 	if (Value == 100.0f)
 	{
 		bSpawnedDeath = false;
-
-		// Clearing death fx
-		//TArray<UActorComponent*> Particles = GetComponentsByClass(UParticleSystemComponent::StaticClass());
-		//if (Particles.Num() > 0)
-		//{
-		//	// Could be our ambient particles, so check by tag
-		//	int NumParticles = Particles.Num();
-		//	for (int i = 0; i < NumParticles; ++i)
-		//	{
-		//		UParticleSystemComponent* MyDeath = Cast<UParticleSystemComponent>(Particles[i]);
-		//		if (MyDeath != nullptr)
-		//		{
-		//			if (MyDeath->ComponentHasTag("ResetKill"))
-		//			{
-		//				MyDeath->DestroyComponent();
-		//			}
-		//		}
-		//	}
-		//}
 	}
 }
 void ATachyonCharacter::ServerModifyHealth_Implementation(float Value)
 {
-	ModifyHealth(Value);
+	if (GetOwner() != nullptr)
+	{
+		ModifyHealth(Value);
+	}
 }
 bool ATachyonCharacter::ServerModifyHealth_Validate(float Value)
 {
@@ -492,25 +481,24 @@ bool ATachyonCharacter::ServerNewTimescale_Validate(float Value)
 void ATachyonCharacter::MulticastNewTimescale_Implementation(float Value)
 {
 	CustomTimeDilation = Value;
-	
-	if (ActiveAttack != nullptr)
-	{
-		float AttackTimescale = FMath::FInterpConstantTo(ActiveAttack->CustomTimeDilation, Value, GetWorld()->DeltaTimeSeconds, TimescaleRecoverySpeed * 5.0f);
 
+	if (Value < 0.5f)
+	{
 		if (ActiveAttack != nullptr)
 		{
+			float AttackTimescale = FMath::Clamp(Value * 2.1f, 0.5f, 1.0f);
 			ActiveAttack->ReceiveTimescale(AttackTimescale);
 		}
 
 		if (ActiveSecondary != nullptr)
 		{
-			ActiveSecondary->ReceiveTimescale(AttackTimescale);
+			float SecondaryTimescale = FMath::Clamp(Value * 2.1f, 0.5f, 1.0f);
+			ActiveSecondary->ReceiveTimescale(SecondaryTimescale);
 		}
 
 		if (ActiveBoost != nullptr)
 		{
 			float JumpTimescale = Value;
-
 			ActiveBoost->CustomTimeDilation = JumpTimescale;
 		}
 	}
@@ -832,7 +820,7 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 		float TravelDirection = FMath::Clamp(LastFaceDirection, -1.0f, 1.0f);
 		float ClimbDirection = FMath::Clamp(InputZ * 5.0f, -5.0f, 5.0f);
 		float Roll = FMath::Clamp(InputZ * -25.1f, -25.1f, 25.1f);
-		float RotatoeSpeed = FMath::Clamp((1500.0f * CustomTimeDilation), 750.0f, 1500.0f);
+		float RotatoeSpeed = FMath::Clamp((5000.0f * CustomTimeDilation), 1500.0f, 5000.0f);
 
 		if (TravelDirection < 0.0f)
 		{
@@ -873,18 +861,29 @@ void ATachyonCharacter::ServerUpdateBody_Implementation(float DeltaTime)
 {
 	// Recover personal timescale if down
 	float GlobalTimescale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+	
 	if ((GlobalTimescale == 1.0f)
 		&& (CustomTimeDilation < 1.0f))
 	{
-		float RecoverySpeed = FMath::Sqrt(CustomTimeDilation) * TimescaleRecoverySpeed * GlobalTimescale;
-		RecoverySpeed = FMath::Clamp(RecoverySpeed, 1.0f, TimescaleRecoverySpeed);
-		float InterpTime = FMath::FInterpConstantTo(CustomTimeDilation, 1.0f, DeltaTime, RecoverySpeed);
+		float RecoverySpeed = 0.1f + (FMath::Sqrt(CustomTimeDilation) * TimescaleRecoverySpeed);
+		RecoverySpeed = FMath::Clamp(RecoverySpeed, 0.1f, 1.0f);
+		///GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::White, FString::Printf(TEXT("RecoverySpeed: %f"), RecoverySpeed));
+		
+		float InterpTime = FMath::FInterpTo(CustomTimeDilation, 1.0f, DeltaTime, RecoverySpeed);
 		NewTimescale(InterpTime);
 	}
 }
 bool ATachyonCharacter::ServerUpdateBody_Validate(float DeltaTime)
 {
-	return true;
+	float GlobalTimescale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+	if (GlobalTimescale == 1.0f)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 
@@ -1027,6 +1026,7 @@ void ATachyonCharacter::GetLifetimeReplicatedProps(TArray <FLifetimeProperty> & 
 	DOREPLIFETIME(ATachyonCharacter, ActiveWindup);
 	DOREPLIFETIME(ATachyonCharacter, ActiveBoost);
 	DOREPLIFETIME(ATachyonCharacter, ActiveSecondary);
+	DOREPLIFETIME(ATachyonCharacter, ActiveDeath);
 
 	DOREPLIFETIME(ATachyonCharacter, Health);
 	DOREPLIFETIME(ATachyonCharacter, MaxHealth);

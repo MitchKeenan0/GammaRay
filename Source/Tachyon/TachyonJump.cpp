@@ -114,7 +114,10 @@ void ATachyonJump::Jump()
 			LastJumpTime = GetWorld()->TimeSeconds;
 		}
 
-		DoJumpVisuals();
+		if (Role == ROLE_Authority)
+		{
+			DoJumpVisuals();
+		}
 	}
 }
 
@@ -159,6 +162,7 @@ void ATachyonJump::DoJumpVisuals_Implementation()
 		{
 			//JumpParticles->bAutoDestroy = true;
 			JumpParticles->SetIsReplicated(true);
+			JumpParticles->CustomTimeDilation = 1.0f;
 		}
 	}
 }
