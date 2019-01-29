@@ -370,9 +370,9 @@ void ATachyonCharacter::EndJump()
 
 void ATachyonCharacter::EngageJump()
 {
-	float DilationSqrt = 1.0f; //FMath::Sqrt(CustomTimeDilation);
-	float JumpSpeed = BoostSpeed * DilationSqrt;
-	float JumpTopSpeed = BoostSustain * DilationSqrt;
+	float DilationSpeed = FMath::Clamp((1.0f / CustomTimeDilation), 1.0f, 3.0f); //FMath::Sqrt(CustomTimeDilation);
+	float JumpSpeed = BoostSpeed * DilationSpeed;
+	float JumpTopSpeed = BoostSustain * DilationSpeed;
 
 	//if (Opponent != nullptr)
 	//{

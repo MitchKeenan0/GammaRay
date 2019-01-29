@@ -242,7 +242,7 @@ void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 				{
 					float AccountedDelta = DeltaTime * (1.0f / ReactionTime);
 					ShootingChargeTimer += DeltaTime;
-					GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::White, FString::Printf(TEXT("ShootingChargeTimer: %f"), ShootingChargeTimer));
+					///GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::White, FString::Printf(TEXT("ShootingChargeTimer: %f"), ShootingChargeTimer));
 				}
 			}
 
@@ -272,7 +272,7 @@ void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 			bAttacking = false;
 			TimeAtLastShotFired = GetWorld()->TimeSeconds;
 
-			GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("FIRED"));
+			///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("FIRED"));
 		}
 	}
 

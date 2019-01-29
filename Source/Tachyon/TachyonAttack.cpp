@@ -91,7 +91,7 @@ void ATachyonAttack::EndFire()
 
 		GetWorldTimerManager().ClearTimer(TimerHandle_TimeBetweenShots);
 
-		GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("Set Timer to Lethalize"));
+		//GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("Set Timer to Lethalize"));
 	}
 }
 
@@ -170,7 +170,7 @@ bool ATachyonAttack::ServerFire_Validate()
 }
 
 
-// PRE-LETHAL EFFECTS
+// EFFECTS ///////////////////////////////////////////////////////////
 void ATachyonAttack::SpawnBurst()
 {
 	AActor* MyOwner = GetOwner();
@@ -192,6 +192,74 @@ void ATachyonAttack::SpawnBurst()
 		}
 	}
 }
+
+
+void ATachyonAttack::MainEffects()
+{
+	ActivateParticles();
+
+	if (AttackSound != nullptr)
+	{
+		ActivateSound();
+	}
+}
+
+void ATachyonAttack::ActivateSound()
+{
+	if ((AttackSound != nullptr)) /// && !AttackSound->IsPlaying()
+	{
+		float ModifiedPitch = AttackSound->PitchMultiplier * FMath::Sqrt(AttackMagnitude);
+		AttackSound->SetPitchMultiplier(ModifiedPitch);
+		AttackSound->Activate();
+		AttackSound->Play();
+	}
+}
+
+
+void ATachyonAttack::ActivateParticles()
+{
+	AActor* Result = nullptr;
+	TSubclassOf<AActor> TypeSpawning = nullptr;
+
+	AActor* MyOwner = GetOwner();
+	if (MyOwner != nullptr)
+	{
+		if (AttackMagnitude != 0.0f)
+		{
+			///GEngine->AddOnScreenDebugMessage(-1, 3.3f, FColor::White, FString::Printf(TEXT("Perceived AttackMagnitude: %f"), AttackMagnitude));
+
+			if (AttackMagnitude < 0.5f)
+			{
+				if (AttackEffectLight != nullptr)
+				{
+					TypeSpawning = AttackEffectLight;
+					///GEngine->AddOnScreenDebugMessage(-1, 3.3f, FColor::White, FString::Printf(TEXT("TypeSpawning light")));
+				}
+			}
+			else
+			{
+				if (AttackEffectHeavy != nullptr)
+				{
+					TypeSpawning = AttackEffectHeavy;
+					///GEngine->AddOnScreenDebugMessage(-1, 3.3f, FColor::White, FString::Printf(TEXT("TypeSpawning HEAVY")));
+				}
+			}
+		}
+
+		FActorSpawnParameters SpawnParams;
+		AttackParticles = GetWorld()->SpawnActor<AActor>(TypeSpawning, GetActorLocation(), GetActorRotation(), SpawnParams);
+		if (AttackParticles != nullptr)
+		{
+			AttackParticles->AttachToActor(MyOwner, FAttachmentTransformRules::KeepWorldTransform);
+
+			// Scaling
+			/*float VisibleMagnitude = FMath::Clamp(AttackMagnitude, 0.5f, 1.0f);
+			FVector NewBurstScale = CurrentBurstObject->GetActorRelativeScale3D() * VisibleMagnitude;
+			CurrentBurstObject->SetActorRelativeScale3D(NewBurstScale);*/
+		}
+	}
+}
+
 
 
 // LETHAL ACTIVATION ///////////////////////////////////////////////
@@ -223,13 +291,13 @@ void ATachyonAttack::Lethalize()
 					CurrentBurstObject->SetLifeSpan(0.1f);
 				}
 
-				GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::Green, TEXT("One Timer!"));
+				//GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::Green, TEXT("One Timer!"));
 
 				// Start shooting and timeout process
 				LastFireTime = GetWorld()->TimeSeconds;
 
 				FTimerHandle EffectsTimer;
-				GetWorldTimerManager().SetTimer(EffectsTimer, this, &ATachyonAttack::ActivateEffects, ActualDeliveryTime, false, ActualDeliveryTime * 0.9f);
+				GetWorldTimerManager().SetTimer(EffectsTimer, this, &ATachyonAttack::MainEffects, ActualDeliveryTime, false, ActualDeliveryTime * 0.9f);
 
 				// Raycasting
 				float RefireTiming = (1.0f / ActualHitsPerSecond) * CustomTimeDilation;
@@ -238,7 +306,7 @@ void ATachyonAttack::Lethalize()
 
 				// Effects
 				SetInitVelocities();
-				ActivateEffects();
+				//MainEffects();
 
 				FVector RecoilLocation = GetActorLocation() + (GetActorForwardVector() * 1000.0f);
 				ApplyKnockForce(OwningShooter, RecoilLocation, RecoilForce); // MyOwner
@@ -321,7 +389,7 @@ void ATachyonAttack::Lethalize()
 				AttackParticles->CustomTimeDilation = FMath::Clamp(AttackMagnitude, 0.33f, 1.0f);
 			}
 
-			GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("Lethalized!"));
+			//GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("Lethalized!"));
 		}
 	}
 }
@@ -332,83 +400,6 @@ void ATachyonAttack::ServerLethalize_Implementation()
 bool ATachyonAttack::ServerLethalize_Validate()
 {
 	return true;
-}
-
-
-// EFFECTS & SOUND /////////////////////////////////////////////////////
-void ATachyonAttack::ActivateEffects_Implementation()
-{
-
-	/*AActor* MyOwner = GetOwner();
-	if (MyOwner != nullptr)
-	{
-		AttackParticles = ActivateParticles();
-	}*/
-
-	if (Role == ROLE_Authority)
-	{
-		ActivateParticles();
-	}
-
-	if (AttackSound != nullptr)
-		ActivateSound();
-}
-
-
-void ATachyonAttack::ActivateSound()
-{
-	if ((AttackSound != nullptr)) /// && !AttackSound->IsPlaying()
-	{
-		float ModifiedPitch = AttackSound->PitchMultiplier * FMath::Sqrt(AttackMagnitude);
-		AttackSound->SetPitchMultiplier(ModifiedPitch);
-		AttackSound->Activate();
-		AttackSound->Play();
-	}
-}
-
-
-void ATachyonAttack::ActivateParticles()
-{
-	AActor* Result = nullptr;
-	TSubclassOf<AActor> TypeSpawning = nullptr;
-
-	AActor* MyOwner = GetOwner();
-	if (MyOwner != nullptr)
-	{
-		if (AttackMagnitude != 0.0f)
-		{
-			///GEngine->AddOnScreenDebugMessage(-1, 3.3f, FColor::White, FString::Printf(TEXT("Perceived AttackMagnitude: %f"), AttackMagnitude));
-
-			if (AttackMagnitude < 0.5f)
-			{
-				if (AttackEffectLight != nullptr)
-				{
-					TypeSpawning = AttackEffectLight;
-					///GEngine->AddOnScreenDebugMessage(-1, 3.3f, FColor::White, FString::Printf(TEXT("TypeSpawning light")));
-				}
-			}
-			else
-			{
-				if (AttackEffectHeavy != nullptr)
-				{
-					TypeSpawning = AttackEffectHeavy;
-					///GEngine->AddOnScreenDebugMessage(-1, 3.3f, FColor::White, FString::Printf(TEXT("TypeSpawning HEAVY")));
-				}
-			}
-		}
-
-		FActorSpawnParameters SpawnParams;
-		AttackParticles = GetWorld()->SpawnActor<AActor>(TypeSpawning, GetActorLocation(), GetActorRotation(), SpawnParams);
-		if (AttackParticles != nullptr)
-		{
-			AttackParticles->AttachToActor(MyOwner, FAttachmentTransformRules::KeepWorldTransform);
-
-			// Scaling
-			/*float VisibleMagnitude = FMath::Clamp(AttackMagnitude, 0.5f, 1.0f);
-			FVector NewBurstScale = CurrentBurstObject->GetActorRelativeScale3D() * VisibleMagnitude;
-			CurrentBurstObject->SetActorRelativeScale3D(NewBurstScale);*/
-		}
-	}
 }
 
 
@@ -452,7 +443,7 @@ void ATachyonAttack::RedirectAttack()
 			GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Redirecting...")));
 
 			FVector LocalForward = TachyonShooter->GetActorForwardVector();
-			LocalForward.Y = 0.0f;
+			
 			float ShooterAimDirection = FMath::Clamp(
 				(TachyonShooter->GetActorForwardVector().Z) * 1.0f,
 				-1.0f, 1.0f);
@@ -463,21 +454,11 @@ void ATachyonAttack::RedirectAttack()
 			FRotator NewRotation = LocalForward.Rotation() + FRotator(TargetPitch, 0.0f, 0.0f);
 			NewRotation.Pitch = FMath::Clamp(NewRotation.Pitch, -ShootingAngle, ShootingAngle);
 
-			// Clamp Angles
+			NewRotation.Yaw = TachyonShooter->GetActorForwardVector().Rotation().Yaw;
 			float ShooterYaw = FMath::Abs(OwningShooter->GetActorRotation().Yaw);
-			if ((ShooterYaw > 50.0f))
-			{
-				NewRotation.Yaw = 180.0f;
-			}
-			else
-			{
-				NewRotation.Yaw = 0.0f;
-			}
 
 
-			// To Rotation
 			FRotator PreRotation = FRotator::ZeroRotator;
-
 			if (!bSecondary)
 			{
 				float ShooterTimeDilation = TachyonShooter->CustomTimeDilation;
@@ -491,15 +472,7 @@ void ATachyonAttack::RedirectAttack()
 					GetWorld()->DeltaTimeSeconds,
 					PitchInterpSpeed);
 
-
-				// Shot angle return to zero
-				/*if (FMath::Abs(ShooterAimDirection) <= 0.1f)
-				{
-				InterpRotation.Pitch *= 0.999f;
-				GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::White, TEXT("attack redirect bottom out"));
-				}*/
-
-				// Quick-snap to angle shot
+				// Quick-snap up/down angle
 				if (ShooterAimDirection < -0.1f)
 				{
 					InterpRotation.Pitch = FMath::Clamp(InterpRotation.Pitch, -ShootingAngle, -1.0f);
@@ -1061,6 +1034,8 @@ void ATachyonAttack::Neutralize()
 
 		CustomTimeDilation = 1.0f;
 	}
+
+	GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("Neutralized!"));
 }
 void ATachyonAttack::ServerNeutralize_Implementation()
 {

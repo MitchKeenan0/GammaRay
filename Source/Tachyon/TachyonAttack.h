@@ -15,6 +15,7 @@ class TACHYON_API ATachyonAttack : public AActor
 
 	void UpdateLifeTime(float DeltaT);
 	void SpawnBurst();
+	void MainEffects();
 
 	UPROPERTY()
 	bool bGameEnder = false;
@@ -92,9 +93,6 @@ protected:
 
 	UPROPERTY(BlueprintReadWrite)
 	float LifeTimer = 0.0f;
-
-	UFUNCTION(NetMulticast, Reliable) /// 
-	void ActivateEffects();
 
 	UPROPERTY()
 	float ActualDeliveryTime = 0.0f;
