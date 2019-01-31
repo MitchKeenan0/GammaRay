@@ -334,7 +334,7 @@ protected:
 	UPROPERTY(BlueprintReadWrite)
 	bool bFirstHitReported = false;
 	UPROPERTY(BlueprintReadWrite)
-	bool bNeutralized = false;
+	bool bNeutralized = true;
 
 	/*UPROPERTY(VisibleAnywhere, Replicated, BlueprintReadWrite)
 	float NetDeliveryTime = 0.1f;

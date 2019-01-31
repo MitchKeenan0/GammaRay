@@ -134,10 +134,10 @@ void ATachyonCharacter::SpawnAbilities()
 			{
 				ActiveAttack->SetOwner(this);
 				
-				if (ActiveAttack->IsLockedEmitPoint())
+				/*if (ActiveAttack->IsLockedEmitPoint())
 				{
 					ActiveAttack->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
-				}
+				}*/
 			}
 		}
 
