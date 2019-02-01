@@ -397,8 +397,15 @@ void ATachyonCharacter::EngageJump()
 
 void ATachyonCharacter::DisengageJump()
 {
+	float NewMaxSpeed = MaxMoveSpeed;
+	FVector MyVelocity = GetCharacterMovement()->Velocity;
+	if (MyVelocity.Size() >= GetCharacterMovement()->MaxFlySpeed)
+	{
+		NewMaxSpeed = MaxMoveSpeed * 1.62f;
+		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::White, FString::Printf(TEXT("NewMaxSpeed: %f"), NewMaxSpeed));
+	}
 	GetCharacterMovement()->MaxAcceleration = MoveSpeed;
-	GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed;
+	GetCharacterMovement()->MaxFlySpeed = NewMaxSpeed;
 }
 
 
@@ -820,7 +827,7 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 		float TravelDirection = FMath::Clamp(LastFaceDirection, -1.0f, 1.0f);
 		float ClimbDirection = FMath::Clamp(InputZ * 5.0f, -5.0f, 5.0f);
 		float Roll = FMath::Clamp(InputZ * -25.1f, -25.1f, 25.1f);
-		float RotatoeSpeed = FMath::Clamp((5000.0f * CustomTimeDilation), 1500.0f, 5000.0f);
+		float RotatoeSpeed = FMath::Clamp((15000.0f * CustomTimeDilation), 1500.0f, 15000.0f);
 
 		if (TravelDirection < 0.0f)
 		{

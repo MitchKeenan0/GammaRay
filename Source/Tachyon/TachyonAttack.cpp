@@ -138,21 +138,23 @@ void ATachyonAttack::Fire()
 			TimeAtInit = GetWorld()->TimeSeconds;
 			DamageTimer = 99.9f;
 
-			// Shooter slow and position to fire point
-			ATachyonCharacter* ShooterCharacter = Cast<ATachyonCharacter>(OwningShooter);
-			if (ShooterCharacter != nullptr)
-			{
-				float ShooterTimeDilation = OwningShooter->CustomTimeDilation * FMath::Sqrt(ShooterSlow);
-				ShooterCharacter->NewTimescale(ShooterTimeDilation);
-
-				FVector EmitLocation = ShooterCharacter->GetAttackScene()->GetComponentLocation();
-				SetActorLocation(EmitLocation);
-			}
+			
 
 			//RedirectAttack();
 
 			if (Role == ROLE_Authority)
 			{
+				// Shooter slow and position to fire point
+				ATachyonCharacter* ShooterCharacter = Cast<ATachyonCharacter>(OwningShooter);
+				if (ShooterCharacter != nullptr)
+				{
+					float ShooterTimeDilation = OwningShooter->CustomTimeDilation * FMath::Sqrt(ShooterSlow);
+					ShooterCharacter->NewTimescale(ShooterTimeDilation);
+
+					FVector EmitLocation = ShooterCharacter->GetAttackScene()->GetComponentLocation();
+					SetActorLocation(EmitLocation);
+				}
+
 				SpawnBurst();
 			}
 
@@ -461,14 +463,13 @@ void ATachyonAttack::RedirectAttack()
 			float TargetPitch = ShootingAngle * ShooterAimDirection * 3.14f;
 			TargetPitch = FMath::Clamp(TargetPitch, -ShootingAngle, ShootingAngle);
 
+
 			FRotator NewRotation = LocalForward.Rotation() + FRotator(TargetPitch, 0.0f, 0.0f);
 			NewRotation.Pitch = FMath::Clamp(NewRotation.Pitch, -ShootingAngle, ShootingAngle);
-
 			NewRotation.Yaw = TachyonShooter->GetActorForwardVector().Rotation().Yaw;
-			float ShooterYaw = FMath::Abs(OwningShooter->GetActorRotation().Yaw);
 
-
-			FRotator PreRotation = FRotator::ZeroRotator;
+			// Interp or Set to FinalRotation
+			FRotator PreRotation = NewRotation;
 			if (!bSecondary)
 			{
 				float ShooterTimeDilation = TachyonShooter->CustomTimeDilation;
@@ -493,10 +494,6 @@ void ATachyonAttack::RedirectAttack()
 				}
 
 				PreRotation = InterpRotation;
-			}
-			else
-			{
-				PreRotation = NewRotation;
 			}
 
 			// Final recalculation to honour dimensional plane
@@ -910,17 +907,23 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 
 			if (NewTimescale <= MarkTimescale)
 			{
-				CallForTimescale(Mark, false, HitTimescale);
+				if (Role == ROLE_Authority)
+				{
+					CallForTimescale(Mark, false, HitTimescale);
+				}
 			}
 
 			// A little slow for the shooter
 			if (OwningShooter != nullptr)
 			{
-				float ShooterTimescale = HitTimescale * 1.618f; ///1.0f - (AttackMagnitude * TimescaleImpact * 0.01f);
+				float ShooterTimescale = HitTimescale * 1.3f; ///1.0f - (AttackMagnitude * TimescaleImpact * 0.01f);
 				ShooterTimescale = FMath::Clamp(ShooterTimescale, 0.05f, 0.5f);
-				if (ShooterTimescale < CustomTimeDilation)
+				if (ShooterTimescale < OwningShooter->CustomTimeDilation)
 				{
-					CallForTimescale(OwningShooter, false, ShooterTimescale);
+					if (Role == ROLE_Authority)
+					{
+						CallForTimescale(OwningShooter, false, ShooterTimescale);
+					}
 				}
 			}
 		}

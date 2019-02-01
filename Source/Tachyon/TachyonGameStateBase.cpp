@@ -152,7 +152,10 @@ void ATachyonGameStateBase::RestartGame()
 						//Player->ForceNetUpdate();
 					}
 
-					Player->GetCharacterMovement()->Velocity *= 0.1f;
+					if (Role == ROLE_Authority)
+					{
+						Player->GetCharacterMovement()->Velocity *= 0.05f;
+					}
 				}
 			}
 		}
