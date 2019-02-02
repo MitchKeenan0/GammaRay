@@ -398,12 +398,12 @@ void ATachyonCharacter::EngageJump()
 void ATachyonCharacter::DisengageJump()
 {
 	float NewMaxSpeed = MaxMoveSpeed;
-	FVector MyVelocity = GetCharacterMovement()->Velocity;
+	/*FVector MyVelocity = GetCharacterMovement()->Velocity;
 	if (MyVelocity.Size() >= GetCharacterMovement()->MaxFlySpeed)
 	{
-		NewMaxSpeed = MaxMoveSpeed * 1.62f;
-		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::White, FString::Printf(TEXT("NewMaxSpeed: %f"), NewMaxSpeed));
-	}
+		NewMaxSpeed = MyVelocity.Size() * 1.62f;
+		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::White, FString::Printf(TEXT("FWOOSH ~ NewMaxSpeed: %f"), NewMaxSpeed));
+	}*/
 	GetCharacterMovement()->MaxAcceleration = MoveSpeed;
 	GetCharacterMovement()->MaxFlySpeed = NewMaxSpeed;
 }
@@ -707,8 +707,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				}
 				else
 				{
-					ProcessedDist *= 1.5f;
-					CameraMinimumDistance *= 1.5f;
+					CameraMinimumDistance *= 1.15f;
 				}
 
 				// Handle horizontal bias
@@ -827,7 +826,7 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 		float TravelDirection = FMath::Clamp(LastFaceDirection, -1.0f, 1.0f);
 		float ClimbDirection = FMath::Clamp(InputZ * 5.0f, -5.0f, 5.0f);
 		float Roll = FMath::Clamp(InputZ * -25.1f, -25.1f, 25.1f);
-		float RotatoeSpeed = FMath::Clamp((15000.0f * CustomTimeDilation), 1500.0f, 15000.0f);
+		float RotatoeSpeed = TurnSpeed; //FMath::Clamp((TurnSpeed * CustomTimeDilation), TurnSpeed / 3.0f, TurnSpeed);
 
 		if (TravelDirection < 0.0f)
 		{

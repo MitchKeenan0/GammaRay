@@ -140,7 +140,7 @@ void ATachyonAttack::Fire()
 
 			
 
-			//RedirectAttack();
+			RedirectAttack(true);
 
 			if (Role == ROLE_Authority)
 			{
@@ -263,7 +263,7 @@ void ATachyonAttack::ActivateParticles()
 		AttackParticles = GetWorld()->SpawnActor<AActor>(TypeSpawning, GetActorLocation(), GetActorRotation(), SpawnParams);
 		if (AttackParticles != nullptr)
 		{
-			AttackParticles->AttachToActor(MyOwner, FAttachmentTransformRules::KeepWorldTransform);
+			AttackParticles->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
 
 			// Scaling
 			/*float VisibleMagnitude = FMath::Clamp(AttackMagnitude, 0.5f, 1.0f);
@@ -298,36 +298,7 @@ void ATachyonAttack::Lethalize()
 				AttackRadial->Activate();
 			}
 
-			if (Role == ROLE_Authority)
-			{
-				// Clear burst object
-				if (CurrentBurstObject != nullptr)
-				{
-					CurrentBurstObject->SetLifeSpan(0.1f);
-				}
-
-				///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("BANG"));
-
-				FTimerHandle EffectsTimer;
-				GetWorldTimerManager().SetTimer(EffectsTimer, this, &ATachyonAttack::MainEffects, ActualDeliveryTime, false, ActualDeliveryTime * 0.9f);
-
-				// Raycasting
-				float RefireTiming = (1.0f / ActualHitsPerSecond) * CustomTimeDilation;
-				float FirstDelay = 0.09f * CustomTimeDilation;
-				GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, RefireTiming, true, FirstDelay);
-
-				// Effects
-				SetInitVelocities();
-				//MainEffects();
-
-				FVector RecoilLocation = GetActorLocation() + (GetActorForwardVector() * 1000.0f);
-				ApplyKnockForce(OwningShooter, RecoilLocation, RecoilForce); // MyOwner
-			}
-
-
-			RedirectAttack();
-
-			// Attack numbers are born here, to be reset later at Neutralize
+			RedirectAttack(true);
 
 			// Calculate and set magnitude characteristics
 			float GeneratedMagnitude = FMath::Clamp(FMath::Square((GetWorld()->TimeSeconds - TimeAtInit)), 0.1f, 1.0f);
@@ -339,7 +310,37 @@ void ATachyonAttack::Lethalize()
 			AttackMagnitude = FMath::Clamp(AttackMagnitude, 0.1f, 1.0f);
 
 			ActualAttackDamage = (AttackDamage * AttackMagnitude);
-			///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("ActualAttackDamage: %f"), ActualAttackDamage));
+
+			// Timing numbers
+			float NewHitRate = FMath::Clamp((HitsPerSecond * AttackMagnitude), 10.0f, HitsPerSecond);
+			ActualHitsPerSecond = NewHitRate;
+
+			ActualDeliveryTime = DeliveryTime * AttackMagnitude;
+			ActualDurationTime = DurationTime;
+			ActualLethalTime = LethalTime;
+
+			if (Role == ROLE_Authority)
+			{
+				// Clear burst object
+				if (CurrentBurstObject != nullptr)
+				{
+					CurrentBurstObject->SetLifeSpan(0.1f);
+				}
+
+				FTimerHandle EffectsTimer;
+				GetWorldTimerManager().SetTimer(EffectsTimer, this, &ATachyonAttack::MainEffects, ActualDeliveryTime, false, ActualDeliveryTime * 0.9f);
+
+				// Raycasting
+				float RefireTiming = (1.0f / ActualHitsPerSecond) * CustomTimeDilation;
+				float FirstDelay = 0.07f * CustomTimeDilation;
+				GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, RefireTiming, true, FirstDelay);
+
+				SetInitVelocities();
+
+				FVector RecoilLocation = GetActorLocation() + (GetActorForwardVector() * 1000.0f);
+				ApplyKnockForce(OwningShooter, RecoilLocation, RecoilForce); // MyOwner
+			}
+
 
 			// Shooter Slow and location
 			ATachyonCharacter* ShooterCharacter = Cast<ATachyonCharacter>(OwningShooter);
@@ -354,18 +355,7 @@ void ATachyonAttack::Lethalize()
 				SetActorLocation(EmitLocation);
 			}
 
-			// Timing numbers
-			float NewHitRate = FMath::Clamp((HitsPerSecond * AttackMagnitude), 1.0f, HitsPerSecond);
-			ActualHitsPerSecond = NewHitRate;
-
-			ActualDeliveryTime = DeliveryTime + AttackMagnitude;
-			ActualDurationTime = (DurationTime + AttackMagnitude) * CustomTimeDilation;
-			ActualLethalTime = LethalTime + AttackMagnitude;
-
-			if (bSecondary)
-			{
-				ActualDurationTime = DurationTime;
-			}
+			
 
 			HitTimer = (1.0f / ActualHitsPerSecond) * CustomTimeDilation;
 			RefireTime = RefireTime * AttackMagnitude;
@@ -428,25 +418,21 @@ void ATachyonAttack::SetInitVelocities()
 		ProjectileComponent->Velocity = InitialVelocity;
 		
 		
-		float VelSize = ShooterVelocity.Size();
+		/*float VelSize = ShooterVelocity.Size();
 		if (VelSize != 0.0f)
 		{
-			float ScalarProjectileSpeed = ProjectileSpeed;
-			if (bSecondary)
-				ScalarProjectileSpeed *= 0.001f;
-			FVector ScalarVelocity = ShooterVelocity.GetSafeNormal() * FMath::Sqrt(VelSize) * ScalarProjectileSpeed;
+			FVector ScalarVelocity = ShooterVelocity.GetSafeNormal() * FMath::Sqrt(VelSize) * ProjectileSpeed;
 			ScalarVelocity.Z *= 0.21f;
 			ProjectileComponent->Velocity += ScalarVelocity;
-		}
+		}*/
 	}
 }
 
 
 // REDIRECTION ////////////////////////////////////////////////////////////
-void ATachyonAttack::RedirectAttack()
+void ATachyonAttack::RedirectAttack(bool bInstant)
 {
-	AActor* MyOwner = GetOwner();
-	if (MyOwner != nullptr)
+	if (OwningShooter != nullptr)
 	{
 		ATachyonCharacter* TachyonShooter = Cast<ATachyonCharacter>(OwningShooter);
 		bool bTime = UGameplayStatics::GetGlobalTimeDilation(GetWorld()) == 1.0f;
@@ -455,26 +441,25 @@ void ATachyonAttack::RedirectAttack()
 			///GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Redirecting...")));
 
 			FVector LocalForward = TachyonShooter->GetActorForwardVector();
+			LocalForward.Z = 0.0f;
 			
 			float ShooterAimDirection = FMath::Clamp(
-				(TachyonShooter->GetActorForwardVector().Z) * 1.0f,
+				TachyonShooter->GetActorForwardVector().Z,
 				-1.0f, 1.0f);
 
-			float TargetPitch = ShootingAngle * ShooterAimDirection * 3.14f;
+			float TargetPitch = ShootingAngle * ShooterAimDirection * 5.1f; // 3.14f;
 			TargetPitch = FMath::Clamp(TargetPitch, -ShootingAngle, ShootingAngle);
-
 
 			FRotator NewRotation = LocalForward.Rotation() + FRotator(TargetPitch, 0.0f, 0.0f);
 			NewRotation.Pitch = FMath::Clamp(NewRotation.Pitch, -ShootingAngle, ShootingAngle);
-			NewRotation.Yaw = TachyonShooter->GetActorForwardVector().Rotation().Yaw;
 
 			// Interp or Set to FinalRotation
 			FRotator PreRotation = NewRotation;
-			if (!bSecondary)
+			if (!bInstant)
 			{
 				float ShooterTimeDilation = TachyonShooter->CustomTimeDilation;
-				float PitchInterpSpeed = 10.0f + (((5.0f * AttackMagnitude) + (5.0f * ShooterTimeDilation)) * RedirectionSpeed);
-				PitchInterpSpeed /= (NumHits * 2.0f);
+				float PitchInterpSpeed = 10.0f + ( ((5.0f * AttackMagnitude) + (5.0f * ShooterTimeDilation)) * RedirectionSpeed);
+				//PitchInterpSpeed /= (NumHits * 2.0f);
 				PitchInterpSpeed = FMath::Clamp(PitchInterpSpeed, 1.0f, 500.0f);
 
 				FRotator InterpRotation = FMath::RInterpTo(
@@ -482,6 +467,9 @@ void ATachyonAttack::RedirectAttack()
 					NewRotation,
 					GetWorld()->DeltaTimeSeconds,
 					PitchInterpSpeed);
+
+				/// Debug dynamic interp speed
+				//GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("PitchInterpSpeed: %f"), PitchInterpSpeed));
 
 				// Quick-snap up/down angle
 				if (ShooterAimDirection < -0.1f)
@@ -496,11 +484,9 @@ void ATachyonAttack::RedirectAttack()
 				PreRotation = InterpRotation;
 			}
 
-			// Final recalculation to honour dimensional plane
-			PreRotation.Roll = 0.0f;
-			PreRotation.Pitch = FMath::Clamp(PreRotation.Pitch, -ShootingAngle, ShootingAngle);
 			FRotator FinalRotation = PreRotation;
 			SetActorRotation(FinalRotation);
+
 
 			// Update Location
 			if (LockedEmitPoint) /// formerly bSecondary
@@ -539,6 +525,11 @@ void ATachyonAttack::Tick(float DeltaTime)
 		{
 			UpdateLifeTime(DeltaTime);
 		}
+
+		if ((!bNeutralized) && (GetWorld()->TimeSeconds > (LastFireTime + 10.0f)))
+		{
+			Neutralize();
+		}
 	}
 }
 
@@ -559,7 +550,7 @@ void ATachyonAttack::UpdateLifeTime(float DeltaT)
 		}
 		else if (!bSecondary)
 		{
-			RedirectAttack();
+			RedirectAttack(false);
 		}
 
 		if (HitResultsArray.Num() > 0)
@@ -608,6 +599,8 @@ void ATachyonAttack::TimedHit(float DeltaTime)
 		AActor* CurrentActor = HitResultsArray[0].GetActor();
 		if (CurrentActor != nullptr)
 		{
+			
+			
 			FVector HitLocation = HitResultsArray[0].ImpactPoint;
 			if (HitLocation == FVector::ZeroVector)
 			{
@@ -717,11 +710,12 @@ void ATachyonAttack::RaycastForHit()
 			for (int i = 0; i < NumHits; ++i)
 			{
 				HitActor = Hits[i].GetActor();
-				if (HitActor != nullptr)
+				if ((HitActor != nullptr) && (HitActor != OwningShooter))
 				{
 					const FHitResult ThisHit = Hits[i];
 					HitResultsArray.Add(ThisHit);
 
+					// Debug hit actor name
 					/*if (HitActor != MyOwner)
 					{
 						GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("hit: %s"), *HitActor->GetName()));
@@ -754,7 +748,7 @@ void ATachyonAttack::SpawnHit(AActor* HitActor, FVector HitLocation)
 			AActor* HitSpawning = GetWorld()->SpawnActor<AActor>(DamageClass, ActualHitLocation, ToHitLocation.Rotation(), SpawnParams);
 			if (HitSpawning != nullptr)
 			{
-				//HitSpawning->AttachToActor(HitActor, FAttachmentTransformRules::KeepWorldTransform);
+				HitSpawning->AttachToActor(HitActor, FAttachmentTransformRules::KeepWorldTransform);
 				
 				//float DamageTimescale = FMath::Clamp(HitActor->CustomTimeDilation, 0.05f, 1.0f);
 				HitSpawning->CustomTimeDilation = FMath::Clamp(HitActor->CustomTimeDilation, 0.2f, 0.5f);
@@ -811,16 +805,17 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 	ATachyonAttack* PotentialAttack = Cast<ATachyonAttack>(HitActor);
 	if (PotentialAttack != nullptr)
 	{
-		if (PotentialAttack->OwningShooter == this->OwningShooter)
+		if (PotentialAttack->OwningShooter 
+			== this->OwningShooter)
 		{
 			return;
 		}
 		else if (!bGameEnder)
 		{
-			// Check for shield here...
 			if (PotentialAttack->ActorHasTag("Shield"))
 			{
-				CallForTimescale(PotentialAttack, false, 0.1f);
+				CallForTimescale(this, false, 0.01f);
+				CallForTimescale(OwningShooter, false, 0.2f);
 			}
 		}
 	}
@@ -834,7 +829,7 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 		// Update GameState
 		ReportHitToMatch(GetOwner(), HitActor);
 
-		ProjectileComponent->Velocity *= (1.0f - ProjectileDrag);
+		ProjectileComponent->Velocity *= ProjectileDrag;
 
 		ActualHitsPerSecond *= (HitsPerSecondDecay * CustomTimeDilation);
 	}
@@ -888,14 +883,14 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		float TachyonHealth = HitTachyon->GetHealth();
 		if ((TachyonHealth - ActualAttackDamage) <= 0.0f)
 		{
-			CallForTimescale(HitTachyon, false, 0.05f);
-			CallForTimescale(MyOwner, false, 0.05f);
-			CustomTimeDilation *= 0.1f;
+			CallForTimescale(HitTachyon, true, 0.01f);
+			//CallForTimescale(MyOwner, false, 0.05f);
+			AttackParticles->CustomTimeDilation *= 0.15f;
 			bGameEnder = true;
 
 			GetWorldTimerManager().ClearTimer(TimerHandle_Neutralize);
-			float NewNeutTime = GetWorld()->TimeSeconds + 1.0f;
-			GetWorldTimerManager().SetTimer(TimerHandle_Neutralize, this, &ATachyonAttack::Neutralize, ActualDurationTime, false, ActualDurationTime);
+			//float NewNeutTime = GetWorld()->TimeSeconds + 1.0f;
+			//GetWorldTimerManager().SetTimer(TimerHandle_Neutralize, this, &ATachyonAttack::Neutralize, ActualDurationTime, false, ActualDurationTime);
 		}
 		else
 		{
@@ -903,7 +898,7 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 			// Slow the target
 			float MarkTimescale = Mark->CustomTimeDilation;
 			float NewTimescale = MarkTimescale - (AttackMagnitude * TimescaleImpact);
-			float HitTimescale = FMath::Clamp(NewTimescale, 0.05f, 0.5f);
+			float HitTimescale = FMath::Clamp(NewTimescale, 0.0001f, 0.5f);
 
 			if (NewTimescale <= MarkTimescale)
 			{
@@ -913,19 +908,37 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 				}
 			}
 
-			// A little slow for the shooter
-			if (OwningShooter != nullptr)
-			{
-				float ShooterTimescale = HitTimescale * 1.3f; ///1.0f - (AttackMagnitude * TimescaleImpact * 0.01f);
-				ShooterTimescale = FMath::Clamp(ShooterTimescale, 0.05f, 0.5f);
-				if (ShooterTimescale < OwningShooter->CustomTimeDilation)
-				{
-					if (Role == ROLE_Authority)
-					{
-						CallForTimescale(OwningShooter, false, ShooterTimescale);
-					}
-				}
-			}
+			/// A little slow for the shooter
+			//if (OwningShooter != nullptr)
+			//{
+			//	float ShooterTimescale = HitTimescale * 1.3f; ///1.0f - (AttackMagnitude * TimescaleImpact * 0.01f);
+			//	ShooterTimescale = FMath::Clamp(ShooterTimescale, 0.0001f, 0.5f);
+			//	if (ShooterTimescale < OwningShooter->CustomTimeDilation)
+			//	{
+			//		if (Role == ROLE_Authority)
+			//		{
+			//			CallForTimescale(OwningShooter, false, ShooterTimescale);
+			//		}
+			//	}
+			//}
+		}
+
+		// Visual particle slow
+		if (AttackParticles != nullptr)
+		{
+			AttackParticles->CustomTimeDilation *= 0.618f;
+		}
+
+		// Alternate win condition - timeout
+		if (Mark->CustomTimeDilation <= 0.00099f)
+		{
+			CallForTimescale(Mark, true, 0.01f);
+			bGameEnder = true;
+		}
+		else if (Shooter->CustomTimeDilation <= 0.00099f)
+		{
+			CallForTimescale(Shooter, true, 0.01f);
+			bGameEnder = true;
 		}
 
 		// Modify Health of Mark
@@ -952,13 +965,10 @@ void ATachyonAttack::CallForTimescale(AActor* TargetActor, bool bGlobal, float N
 		if (bGlobal)
 		{
 			TGState->SetGlobalTimescale(NewTimescale);
-			Neutralize();
 		}
 		else
 		{
 			TGState->SetActorTimescale(TargetActor, NewTimescale);
-			float ShooterTimescale = FMath::Clamp(NewTimescale + 0.5f, 0.5f, 1.0f);
-			TGState->SetActorTimescale(OwningShooter, ShooterTimescale);
 		}
 
 		TGState->ForceNetUpdate();

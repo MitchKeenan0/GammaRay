@@ -107,7 +107,7 @@ public:
 	float MaxMoveSpeed = 2000.0f;
 
 	UPROPERTY(EditDefaultsOnly)
-	float TurnSpeed = 1.0f;
+	float TurnSpeed = 3600.0f;
 
 	UPROPERTY(EditDefaultsOnly)
 	float AttackFireRate = 0.5f;

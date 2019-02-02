@@ -122,6 +122,7 @@ FVector ATachyonAIController::GetNewLocationTarget()
 		
 		if (PlayerVelocity.Size() > 100.0f)
 		{
+			PlayerVelocity.Z *= 0.5f;
 			PlayerTargetPostion = PlayerLocation + (PlayerVelocity * 0.9f);
 		}
 		else

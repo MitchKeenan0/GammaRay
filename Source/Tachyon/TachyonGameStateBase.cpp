@@ -71,6 +71,10 @@ void ATachyonGameStateBase::SetActorTimescale(AActor* TargetActor, float TargetT
 	{
 		TargetTachyon->NewTimescale(TargetTimescale);
 	}
+	else
+	{
+		TargetActor->CustomTimeDilation = TargetTimescale;
+	}
 }
 
 
@@ -148,14 +152,11 @@ void ATachyonGameStateBase::RestartGame()
 					if (Role == ROLE_Authority)
 					{
 						Player->ModifyHealth(100.0f);
-						Player->NewTimescale(1.0f);
-						//Player->ForceNetUpdate();
-					}
-
-					if (Role == ROLE_Authority)
-					{
 						Player->GetCharacterMovement()->Velocity *= 0.05f;
 					}
+
+					Player->NewTimescale(1.0f);
+					Player->CustomTimeDilation = 1.0f;
 				}
 			}
 		}

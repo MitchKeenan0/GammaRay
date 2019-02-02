@@ -117,7 +117,7 @@ protected:
 	void ServerRaycastForHit();
 
 	UFUNCTION()
-	void RedirectAttack();
+	void RedirectAttack(bool bInstant);
 
 	UFUNCTION()
 	void Lethalize();
