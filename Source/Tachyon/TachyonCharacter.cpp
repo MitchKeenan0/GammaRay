@@ -4,6 +4,7 @@
 #include "TachyonJump.h"
 #include "TachyonGameStateBase.h"
 #include "TachyonMovementComponent.h"
+#include "DrawDebugHelpers.h"
 #include "TachyonGameStateBase.h"
 
 
@@ -123,6 +124,7 @@ void ATachyonCharacter::SpawnAbilities()
 				if (ActiveSecondary->IsLockedEmitPoint())
 				{
 					ActiveSecondary->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+					///ActiveSecondary->Neutralize();
 				}
 			}
 		}
@@ -138,6 +140,8 @@ void ATachyonCharacter::SpawnAbilities()
 				{
 					ActiveAttack->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
 				}*/
+
+				///ActiveAttack->Neutralize();
 			}
 		}
 
@@ -370,7 +374,7 @@ void ATachyonCharacter::EndJump()
 
 void ATachyonCharacter::EngageJump()
 {
-	float DilationSpeed = FMath::Clamp((1.0f / CustomTimeDilation), 1.0f, 3.0f); //FMath::Sqrt(CustomTimeDilation);
+	float DilationSpeed = FMath::Clamp((1.0f / CustomTimeDilation), 1.0f, 2.0f); //FMath::Sqrt(CustomTimeDilation);
 	float JumpSpeed = BoostSpeed * DilationSpeed;
 	float JumpTopSpeed = BoostSustain * DilationSpeed;
 
@@ -990,16 +994,93 @@ void ATachyonCharacter::MulticastRestartGame_Implementation()
 // BODY COLLISION 
 void ATachyonCharacter::OnShieldBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
+	if (OtherActor->ActorHasTag("Surface")
+		|| OverlappedComponent->ComponentHasTag("Surface"))
+	{
+		// Raycast for surface hit, since we're not sweeping
+		bool HitResult = false;
+
+		// Linecast ingredients
+		TArray<TEnumAsByte<EObjectTypeQuery>> TraceObjects;
+		TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_WorldStatic));
+		TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_WorldDynamic));
+		TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_PhysicsBody));
+		TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_Destructible));
+		TArray<FHitResult> Hits;
+		TArray<AActor*> IgnoredActors;
+		IgnoredActors.Add(this);
+
+		// Set up ray position
+		FVector Start = GetActorLocation();
+		FVector End = OtherActor->GetActorLocation();
+
+		// Pew pew
+		HitResult = UKismetSystemLibrary::LineTraceMultiForObjects(
+			this,
+			Start,
+			End,
+			TraceObjects,
+			false,
+			IgnoredActors,
+			EDrawDebugTrace::None,
+			Hits,
+			true,
+			FLinearColor::Green, FLinearColor::Red, 5.0f);
+
+		// Slam position
+		FVector SlamLocation = FVector::ZeroVector;
+		FRotator SlamRotation = FRotator::ZeroRotator;
+		if (HitResult)
+		{
+			int NumHits = Hits.Num();
+			if (NumHits > 0)
+			{
+				for (int i = 0; i < NumHits; ++i)
+				{
+					AActor* HitActor = Hits[i].GetActor();
+					if (HitActor->ActorHasTag("Surface"))
+					{
+						SlamLocation = ((Hits[i].ImpactPoint - GetActorLocation()) * 0.1f) + GetActorLocation();
+						SlamRotation = Hits[i].ImpactNormal.Rotation();
+						break;
+
+						//GEngine->DrawDebugLine
+						DrawDebugLine(GetWorld(), Hits[i].ImpactPoint, Hits[i].ImpactNormal * 100000.0f, FColor::White, true, 0.5f, 0, 5.0f);
+					}
+				}
+			}
+		}
+
+		// Spawn it
+		UParticleSystemComponent* NewSlam = UGameplayStatics::SpawnEmitterAttached(SurfaceHitEffect, GetRootComponent(), NAME_None, SlamLocation, SlamRotation, EAttachLocation::KeepWorldPosition);
+		if (NewSlam != nullptr)
+		{
+			NewSlam->bAutoDestroy = true;
+			NewSlam->ComponentTags.Add("ResetKill");
+
+			float VelSize = FMath::Clamp((GetCharacterMovement()->Velocity.Size() * 0.005f), 1.0f, 10.0f);
+			FVector NewScale = NewSlam->GetComponentScale() * VelSize;
+			NewSlam->SetWorldScale3D(NewScale);
+
+			///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("Impact VelSize: %f"), VelSize));
+		}
+	}
+
 	if (OtherActor->ActorHasTag("Player"))
 	{
 		Collide(OtherActor);
 	}
 
+	// attack should check for shield to make reflect fx
+}
+
+void ATachyonCharacter::Collide(AActor* OtherActor)
+{
 	// Visual impact
 	if (CollideEffect != nullptr)
 	{
-		FVector SlamLocation = SweepResult.ImpactPoint;
-		FRotator SlamRotation = SweepResult.ImpactNormal.Rotation();
+		FVector SlamLocation = GetActorLocation() + (OtherActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+		FRotator SlamRotation = SlamLocation.Rotation();
 		UParticleSystemComponent* NewSlam = UGameplayStatics::SpawnEmitterAttached(CollideEffect, GetRootComponent(), NAME_None, SlamLocation, SlamRotation, EAttachLocation::KeepWorldPosition);
 		if (NewSlam != nullptr)
 		{
@@ -1008,11 +1089,7 @@ void ATachyonCharacter::OnShieldBeginOverlap(UPrimitiveComponent* OverlappedComp
 		}
 	}
 
-	// attack should check for shield to make reflect fx
-}
-
-void ATachyonCharacter::Collide(AActor* OtherActor)
-{
+	// Deliver damage-related event
 	if (ActiveAttack != nullptr)
 	{
 		ActiveAttack->RemoteHit(OtherActor, 1.0f);

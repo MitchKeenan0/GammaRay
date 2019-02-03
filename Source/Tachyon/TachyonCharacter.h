@@ -271,9 +271,6 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	class USphereComponent* OuterTouchCollider;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	UParticleSystem* CollideEffect = nullptr;
-
 	// Shield collision
 	UFUNCTION()
 	void OnShieldBeginOverlap
@@ -308,7 +305,14 @@ protected:
 	class ATachyonCharacter* Opponent = nullptr;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "NearDeath")
-	UParticleSystem* NearDeathEffect;
+	UParticleSystem* NearDeathEffect = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SurfaceReaction")
+	UParticleSystem* SurfaceHitEffect = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SurfaceReaction")
+	UParticleSystem* CollideEffect = nullptr;
+
 
 	//UPROPERTY(Replicated, BlueprintReadOnly)
 	//int iApparelIndex = 0;

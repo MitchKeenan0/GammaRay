@@ -120,7 +120,7 @@ void ATachyonAttack::Fire()
 	{
 		if (!bInitialized)
 		{
-			//Neutralize();
+			Neutralize();
 
 			OwningShooter = MyOwner;
 
@@ -455,7 +455,7 @@ void ATachyonAttack::RedirectAttack(bool bInstant)
 
 			// Interp or Set to FinalRotation
 			FRotator PreRotation = NewRotation;
-			if (!bInstant)
+			if (!bInstant && !bSecondary)
 			{
 				float ShooterTimeDilation = TachyonShooter->CustomTimeDilation;
 				float PitchInterpSpeed = 10.0f + ( ((5.0f * AttackMagnitude) + (5.0f * ShooterTimeDilation)) * RedirectionSpeed);
@@ -897,8 +897,8 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 			// Basic hits
 			// Slow the target
 			float MarkTimescale = Mark->CustomTimeDilation;
-			float NewTimescale = MarkTimescale - (AttackMagnitude * TimescaleImpact);
-			float HitTimescale = FMath::Clamp(NewTimescale, 0.0001f, 0.5f);
+			float NewTimescale = MarkTimescale * TimescaleImpact; //MarkTimescale - (AttackMagnitude * TimescaleImpact);
+			float HitTimescale = FMath::Clamp(NewTimescale, 0.00001f, 0.9f);
 
 			if (NewTimescale <= MarkTimescale)
 			{
@@ -909,18 +909,18 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 			}
 
 			/// A little slow for the shooter
-			//if (OwningShooter != nullptr)
-			//{
-			//	float ShooterTimescale = HitTimescale * 1.3f; ///1.0f - (AttackMagnitude * TimescaleImpact * 0.01f);
-			//	ShooterTimescale = FMath::Clamp(ShooterTimescale, 0.0001f, 0.5f);
-			//	if (ShooterTimescale < OwningShooter->CustomTimeDilation)
-			//	{
-			//		if (Role == ROLE_Authority)
-			//		{
-			//			CallForTimescale(OwningShooter, false, ShooterTimescale);
-			//		}
-			//	}
-			//}
+			if (OwningShooter != nullptr)
+			{
+				float ShooterTimescale = OwningShooter->CustomTimeDilation; ///1.0f - (AttackMagnitude * TimescaleImpact * 0.01f);
+				ShooterTimescale = FMath::Clamp(ShooterTimescale * 0.8f, 0.00001f, 0.9f);
+				if (ShooterTimescale < OwningShooter->CustomTimeDilation)
+				{
+					if (Role == ROLE_Authority)
+					{
+						CallForTimescale(OwningShooter, false, ShooterTimescale);
+					}
+				}
+			}
 		}
 
 		// Visual particle slow
@@ -930,12 +930,12 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		}
 
 		// Alternate win condition - timeout
-		if (Mark->CustomTimeDilation <= 0.00099f)
+		if (Mark->CustomTimeDilation <= 0.0005f)
 		{
 			CallForTimescale(Mark, true, 0.01f);
 			bGameEnder = true;
 		}
-		else if (Shooter->CustomTimeDilation <= 0.00099f)
+		else if (Shooter->CustomTimeDilation <= 0.0005f)
 		{
 			CallForTimescale(Shooter, true, 0.01f);
 			bGameEnder = true;
