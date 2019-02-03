@@ -526,10 +526,10 @@ void ATachyonAttack::Tick(float DeltaTime)
 			UpdateLifeTime(DeltaTime);
 		}
 
-		if ((!bNeutralized) && (GetWorld()->TimeSeconds > (LastFireTime + 10.0f)))
+		/*if ((!bNeutralized) && (GetWorld()->TimeSeconds > (LastFireTime + 10.0f)))
 		{
 			Neutralize();
-		}
+		}*/
 	}
 }
 
