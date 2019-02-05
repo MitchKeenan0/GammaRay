@@ -97,7 +97,7 @@ void ATachyonAttack::EndFire()
 		float GlobalTimeScale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
 		if ((GlobalTimeScale == 1.0f) && bAllowIt)
 		{
-			float FirstDelay = DeliveryTime * CustomTimeDilation;
+			float FirstDelay = DeliveryTime;// *CustomTimeDilation;
 
 			GetWorldTimerManager().SetTimer(TimerHandle_DeliveryTime, this, &ATachyonAttack::Lethalize, DeliveryTime, false, FirstDelay);
 
@@ -120,7 +120,10 @@ void ATachyonAttack::Fire()
 	{
 		if (!bInitialized)
 		{
-			Neutralize();
+			if (Role == ROLE_Authority)
+			{
+				Neutralize();
+			}
 
 			OwningShooter = MyOwner;
 
@@ -262,16 +265,19 @@ void ATachyonAttack::ActivateParticles()
 			}
 		}
 
-		FActorSpawnParameters SpawnParams;
-		AttackParticles = GetWorld()->SpawnActor<AActor>(TypeSpawning, GetActorLocation(), GetActorRotation(), SpawnParams);
-		if (AttackParticles != nullptr)
+		if (Role == ROLE_Authority)
 		{
-			AttackParticles->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+			FActorSpawnParameters SpawnParams;
+			AttackParticles = GetWorld()->SpawnActor<AActor>(TypeSpawning, GetActorLocation(), GetActorRotation(), SpawnParams);
+			if (AttackParticles != nullptr)
+			{
+				AttackParticles->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
 
-			// Scaling
-			/*float VisibleMagnitude = FMath::Clamp(AttackMagnitude, 0.5f, 1.0f);
-			FVector NewBurstScale = CurrentBurstObject->GetActorRelativeScale3D() * VisibleMagnitude;
-			CurrentBurstObject->SetActorRelativeScale3D(NewBurstScale);*/
+				// Scaling
+				/*float VisibleMagnitude = FMath::Clamp(AttackMagnitude, 0.5f, 1.0f);
+				FVector NewBurstScale = CurrentBurstObject->GetActorRelativeScale3D() * VisibleMagnitude;
+				CurrentBurstObject->SetActorRelativeScale3D(NewBurstScale);*/
+			}
 		}
 	}
 }
@@ -352,17 +358,17 @@ void ATachyonAttack::Lethalize()
 				float ShooterTimeDilation = OwningShooter->CustomTimeDilation * (ShooterSlow * 0.5f);
 				ShooterTimeDilation = FMath::Clamp(ShooterTimeDilation, 0.3f, 0.9f);
 
-				ShooterCharacter->NewTimescale(ShooterTimeDilation);
+				if (OwningShooter->CustomTimeDilation > ShooterTimeDilation)
+				{
+					ShooterCharacter->NewTimescale(ShooterTimeDilation);
+				}
 
 				FVector EmitLocation = ShooterCharacter->GetAttackScene()->GetComponentLocation();
 				SetActorLocation(EmitLocation);
 			}
 
-			
-
 			HitTimer = (1.0f / ActualHitsPerSecond) * CustomTimeDilation;
 			RefireTime = RefireTime * AttackMagnitude;
-
 
 			// Lifetime
 			GetWorldTimerManager().SetTimer(TimerHandle_Neutralize, this, &ATachyonAttack::Neutralize, ActualDurationTime, false, ActualDurationTime);
@@ -435,7 +441,8 @@ void ATachyonAttack::SetInitVelocities()
 // REDIRECTION ////////////////////////////////////////////////////////////
 void ATachyonAttack::RedirectAttack(bool bInstant)
 {
-	if (OwningShooter != nullptr)
+	AActor* MyOwner = GetOwner();
+	if (MyOwner != nullptr)
 	{
 		ATachyonCharacter* TachyonShooter = Cast<ATachyonCharacter>(OwningShooter);
 		bool bTime = UGameplayStatics::GetGlobalTimeDilation(GetWorld()) == 1.0f;
@@ -496,14 +503,13 @@ void ATachyonAttack::RedirectAttack(bool bInstant)
 			if (LockedEmitPoint) /// formerly bSecondary
 			{
 				FVector EmitLocation = TachyonShooter->GetAttackScene()->GetComponentLocation();
+
 				if (bSecondary)
 				{
 					EmitLocation = TachyonShooter->GetActorLocation() + TachyonShooter->GetActorForwardVector();
 				}
 
-				FVector InterpPos = FMath::VInterpTo(GetActorLocation(), EmitLocation, GetWorld()->DeltaTimeSeconds, 300.0f);
-
-				SetActorLocation(InterpPos);
+				SetActorLocation(EmitLocation);
 			}
 
 
@@ -739,24 +745,27 @@ bool ATachyonAttack::ServerRaycastForHit_Validate()
 
 void ATachyonAttack::SpawnHit(AActor* HitActor, FVector HitLocation)
 {
-	if (Role == ROLE_Authority)
+	AActor* MyOwner = GetOwner();
+	if (MyOwner != nullptr)
 	{
-		if (DamageClass != nullptr)
+		if (Role == ROLE_Authority)
 		{
-			FActorSpawnParameters SpawnParams;
-			FVector ActualHitLocation = HitLocation;
-			
-			FVector ToHitLocation = (ActualHitLocation - GetActorLocation()).GetSafeNormal();
-			AActor* HitSpawning = GetWorld()->SpawnActor<AActor>(DamageClass, ActualHitLocation, ToHitLocation.Rotation(), SpawnParams);
-			if (HitSpawning != nullptr)
+			if (DamageClass != nullptr)
 			{
-				HitSpawning->AttachToActor(HitActor, FAttachmentTransformRules::KeepWorldTransform);
-				
-				//float DamageTimescale = FMath::Clamp(HitActor->CustomTimeDilation, 0.05f, 1.0f);
-				HitSpawning->CustomTimeDilation = FMath::Clamp(HitActor->CustomTimeDilation, 0.2f, 0.5f);
-				
-				float HitLifespan = 2.0f * HitSpawning->CustomTimeDilation;
-				HitSpawning->SetLifeSpan(HitLifespan);
+				AActor* HitSpawning = nullptr;
+				FActorSpawnParameters SpawnParams;
+				FVector ActualHitLocation = HitLocation;
+
+				FVector ToHitLocation = (ActualHitLocation - GetActorLocation()).GetSafeNormal();
+
+				HitSpawning = GetWorld()->SpawnActor<AActor>(DamageClass, ActualHitLocation, ToHitLocation.Rotation(), SpawnParams);
+				if (HitSpawning != nullptr)
+				{
+					HitSpawning->AttachToActor(HitActor, FAttachmentTransformRules::KeepWorldTransform);
+					
+					float HitLifespan = 2.0f * HitSpawning->CustomTimeDilation;
+					HitSpawning->SetLifeSpan(HitLifespan);
+				}
 			}
 		}
 	}
@@ -803,33 +812,34 @@ void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, floa
 // HIT ////////////////////////////////////////////////////////////////////////
 void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 {
-	// Bail out if we hit our own attack type
-	ATachyonAttack* PotentialAttack = Cast<ATachyonAttack>(HitActor);
-	if (PotentialAttack != nullptr)
+	if (!bGameEnder && (Role == ROLE_Authority))
 	{
-		if (PotentialAttack->OwningShooter 
-			== this->OwningShooter)
+		// Bail out if we hit our own attack type
+		ATachyonAttack* PotentialAttack = Cast<ATachyonAttack>(HitActor);
+		if (PotentialAttack != nullptr)
 		{
-			return;
-		}
-		else if (!bGameEnder)
-		{
-			if (PotentialAttack->ActorHasTag("Shield"))
+			if (PotentialAttack->OwningShooter
+				== this->OwningShooter)
 			{
-				CallForTimescale(this, false, 0.01f);
-				CallForTimescale(OwningShooter, false, 0.2f);
+				return;
+			}
+			else if (!bGameEnder)
+			{
+				if (PotentialAttack->ActorHasTag("Shield"))
+				{
+					CallForTimescale(this, false, 0.01f);
+					CallForTimescale(OwningShooter, false, 0.2f);
+				}
 			}
 		}
-	}
 
-	if (!bGameEnder && HasAuthority())
-	{
-		SpawnHit(HitActor, HitLocation);
-
-		ApplyKnockForce(HitActor, HitLocation, KineticForce);
 
 		// Update GameState
 		ReportHitToMatch(GetOwner(), HitActor);
+
+		SpawnHit(HitActor, HitLocation);
+
+		ApplyKnockForce(HitActor, HitLocation, KineticForce);
 
 		ProjectileComponent->Velocity *= ProjectileDrag;
 
@@ -887,7 +897,7 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		{
 			CallForTimescale(HitTachyon, true, 0.01f);
 			//CallForTimescale(MyOwner, false, 0.05f);
-			AttackParticles->CustomTimeDilation *= 0.15f;
+			//AttackParticles->CustomTimeDilation *= 0.15f;
 			bGameEnder = true;
 
 			GetWorldTimerManager().ClearTimer(TimerHandle_Neutralize);
@@ -926,9 +936,15 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		}
 
 		// Visual particle slow
-		if (AttackParticles != nullptr)
+		if (Role == ROLE_Authority)
 		{
-			AttackParticles->CustomTimeDilation *= 0.618f;
+			Shooter->ForceNetUpdate();
+			Mark->ForceNetUpdate();
+
+			if (AttackParticles != nullptr)
+			{
+				AttackParticles->CustomTimeDilation *= 0.9f;
+			}
 		}
 
 		// Alternate win condition - timeout
@@ -955,6 +971,8 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 
 		if (!bFirstHitReported)
 			bFirstHitReported = true;
+
+		ForceNetUpdate();
 	}
 }
 
@@ -992,6 +1010,8 @@ void ATachyonAttack::ReceiveTimescale(float InTimescale)
 
 void ATachyonAttack::Neutralize()
 {
+	///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("neutralizing..."));
+
 	if (Role < ROLE_Authority)
 	{
 		ServerNeutralize();

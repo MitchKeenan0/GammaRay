@@ -194,18 +194,16 @@ void ATachyonCharacter::SetDynamicMoveSpeed()
 
 ////////////////////////////////////////////////////////////////////////
 // TICK
-
 void ATachyonCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
-	float GlobalTimeScale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
 
 	if (Controller != nullptr)
 	{
 		UpdateHealth(DeltaTime);
 		UpdateCamera(DeltaTime);
 
+		float GlobalTimeScale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
 		if (GlobalTimeScale == 1.0f)
 		{
 			// Body rotation
@@ -213,17 +211,18 @@ void ATachyonCharacter::Tick(float DeltaTime)
 			{
 				UpdateBody(DeltaTime);
 			}
+		}
 
-			// Timescale recovery
-			if (HasAuthority())
+		// Timescale recovery
+		if (Role == ROLE_Authority)
+		{
+			if (CustomTimeDilation < 1.0f)
 			{
-				if (CustomTimeDilation < 1.0f)
-				{
-					ServerUpdateBody(DeltaTime);
-				}
+				ServerUpdateBody(DeltaTime);
 			}
 		}
 
+		// Map bounds
 		FVector ToCentre = FVector::ZeroVector - GetActorLocation();
 		if (ToCentre.Size() >= 3000.0f)
 		{
@@ -231,6 +230,8 @@ void ATachyonCharacter::Tick(float DeltaTime)
 			GetCharacterMovement()->Velocity = ToCentre.GetSafeNormal() * CurrentV;
 		}
 	}
+
+	
 
 	// Hacky stuff
 	if ((Health <= 0.0f) && !bSpawnedDeath &&
@@ -248,7 +249,6 @@ void ATachyonCharacter::Tick(float DeltaTime)
 
 ////////////////////////////////////////////////////////////////////////
 // INPUT BINDING
-
 void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
@@ -270,7 +270,6 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 
 ////////////////////////////////////////////////////////////////////////
 // MOVEMENT
-
 // Left / Right
 void ATachyonCharacter::MoveRight(float Value)
 {
@@ -355,7 +354,6 @@ void ATachyonCharacter::BotMove(float X, float Z)
 
 ////////////////////////////////////////////////////////////////////////
 // JUMP
-
 void ATachyonCharacter::StartJump()
 {
 	if (ActiveBoost != nullptr)
@@ -374,26 +372,10 @@ void ATachyonCharacter::EndJump()
 
 void ATachyonCharacter::EngageJump()
 {
-	float DilationSpeed = FMath::Clamp((1.0f / CustomTimeDilation), 1.0f, 10.0f); //FMath::Sqrt(CustomTimeDilation);
+	/// it could just be 1
+	float DilationSpeed = FMath::Clamp((1.0f / CustomTimeDilation), 1.0f, 100.0f); //FMath::Sqrt(CustomTimeDilation);
 	float JumpSpeed = BoostSpeed * DilationSpeed;
 	float JumpTopSpeed = BoostSustain * DilationSpeed;
-
-	//if (Opponent != nullptr)
-	//{
-	//	FVector ToOpponent = Opponent->GetActorLocation() - GetActorLocation();
-	//	float DistToOpponent = FVector::Dist(GetActorLocation(), Opponent->GetActorLocation());
-
-	//	FVector Norm1 = GetCharacterMovement()->Velocity.GetSafeNormal();
-	//	FVector Norm2 = ToOpponent.GetSafeNormal();
-	//	float DotToOpponent = -FVector::DotProduct(Norm1, Norm2);
-	//	DotToOpponent = FMath::Clamp(DotToOpponent, 0.77f, 1.1f);
-	//	//float DotReductiveScalar = FMath::Clamp((1.0f / DotToOpponent), 0.01f, 1.0f);
-
-	//	//GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::White, FString::Printf(TEXT("DotToOpponent: %f"), DotToOpponent));
-
-	//	JumpSpeed *= DotToOpponent;
-	//	JumpTopSpeed *= DotToOpponent;
-	//}
 
 	GetCharacterMovement()->MaxAcceleration = JumpSpeed;
 	GetCharacterMovement()->MaxFlySpeed = JumpTopSpeed;
@@ -401,16 +383,6 @@ void ATachyonCharacter::EngageJump()
 
 void ATachyonCharacter::DisengageJump()
 {
-	//float NewMaxSpeed = MaxMoveSpeed;
-	/*FVector MyVelocity = GetCharacterMovement()->Velocity;
-	if (MyVelocity.Size() >= GetCharacterMovement()->MaxFlySpeed)
-	{
-		NewMaxSpeed = MyVelocity.Size() * 1.62f;
-		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::White, FString::Printf(TEXT("FWOOSH ~ NewMaxSpeed: %f"), NewMaxSpeed));
-	}*/
-
-	//float NewSpeed = FMath::Clamp(MoveSpeed * CustomTimeDilation, 0.15f, 1.0f);
-
 	GetCharacterMovement()->MaxAcceleration = MoveSpeed;
 	GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed;
 }
@@ -418,7 +390,6 @@ void ATachyonCharacter::DisengageJump()
 
 ////////////////////////////////////////////////////////////////////////
 // ATTACKING
-
 void ATachyonCharacter::StartFire()
 {
 	if (ActiveAttack != nullptr)
@@ -446,7 +417,6 @@ void ATachyonCharacter::Shield()
 
 ////////////////////////////////////////////////////////////////////////
 // HEALTH & TIME
-
 void ATachyonCharacter::ModifyHealth(float Value)
 {
 	if (Role < ROLE_Authority)
@@ -523,7 +493,6 @@ void ATachyonCharacter::MulticastNewTimescale_Implementation(float Value)
 
 ////////////////////////////////////////////////////////////////////////
 // CHARACTER UPDATES
-
 void ATachyonCharacter::UpdateHealth(float DeltaTime)
 {
 	// Update smooth health value
@@ -867,6 +836,7 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 		SoundComp->SetVolumeMultiplier(SpeedVolume);
 	}
 }
+
 void ATachyonCharacter::ServerUpdateBody_Implementation(float DeltaTime)
 {
 	// Recover personal timescale if down
@@ -877,7 +847,7 @@ void ATachyonCharacter::ServerUpdateBody_Implementation(float DeltaTime)
 	{
 		float RecoverySpeed = 0.1f + (FMath::Sqrt(CustomTimeDilation) * TimescaleRecoverySpeed);
 		RecoverySpeed = FMath::Clamp(RecoverySpeed, 0.1f, 1.0f);
-		///GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::White, FString::Printf(TEXT("RecoverySpeed: %f"), RecoverySpeed));
+		///GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("RecoverySpeed: %f"), RecoverySpeed));
 		
 		float InterpTime = FMath::FInterpTo(CustomTimeDilation, 1.0f, DeltaTime, RecoverySpeed);
 		NewTimescale(InterpTime);
@@ -885,15 +855,7 @@ void ATachyonCharacter::ServerUpdateBody_Implementation(float DeltaTime)
 }
 bool ATachyonCharacter::ServerUpdateBody_Validate(float DeltaTime)
 {
-	float GlobalTimescale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
-	if (GlobalTimescale == 1.0f)
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
+	return true;
 }
 
 

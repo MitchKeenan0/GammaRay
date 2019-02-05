@@ -135,6 +135,10 @@ void ATachyonGameStateBase::RestartGame()
 		}
 	}
 
+	// Reset timescale
+	SetGlobalTimescale(1.0f);
+	bGG = false;
+
 	// Reset player lifepoints
 	TArray<AActor*> Players;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ATachyonCharacter::StaticClass(), Players);
@@ -153,10 +157,8 @@ void ATachyonGameStateBase::RestartGame()
 					{
 						Player->ModifyHealth(100.0f);
 						Player->GetCharacterMovement()->Velocity *= 0.05f;
+						SetActorTimescale(Player, 1.0f);
 					}
-
-					Player->NewTimescale(1.0f);
-					Player->CustomTimeDilation = 1.0f;
 				}
 			}
 		}
@@ -164,9 +166,7 @@ void ATachyonGameStateBase::RestartGame()
 
 	// To-do... Place the players a reasonable distance apart
 
-	// Reset timescale
-	SetGlobalTimescale(1.0f);
-	bGG = false;
+	
 }
 
 

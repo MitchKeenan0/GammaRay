@@ -138,12 +138,11 @@ void ATachyonJump::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	/*if ((OwningJumper != nullptr)
-		&& (JumpVector != FVector::ZeroVector))
+	AActor* MyOwner = GetOwner();
+	if (MyOwner != nullptr)
 	{
-		UpdateJump(DeltaTime);
-		ForceNetUpdate();
-	}*/
+		CustomTimeDilation = MyOwner->CustomTimeDilation;
+	}
 }
 
 
@@ -155,7 +154,7 @@ void ATachyonJump::InitJump(FVector JumpDirection, ACharacter* Jumper)
 
 void ATachyonJump::DoJumpVisuals_Implementation()
 {
-	if (JumpEffect != nullptr)
+	if ((JumpEffect != nullptr) && (JumpParticles != nullptr))
 	{
 		JumpParticles = UGameplayStatics::SpawnEmitterAttached(JumpEffect, GetRootComponent(), NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
 		if (JumpParticles != nullptr)
@@ -163,11 +162,12 @@ void ATachyonJump::DoJumpVisuals_Implementation()
 			//JumpParticles->bAutoDestroy = true;
 			JumpParticles->SetIsReplicated(true);
 			JumpParticles->CustomTimeDilation = 1.0f;
+			JumpParticles->ComponentTags.Add("ResetKill");
 		}
 	}
 }
 
-// unused
+// UNUSED /////
 void ATachyonJump::UpdateJump(float DeltaTime)
 {
 	float JumpTimeAlive = GetGameTimeSinceCreation();
