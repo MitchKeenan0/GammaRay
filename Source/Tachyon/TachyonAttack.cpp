@@ -145,11 +145,14 @@ void ATachyonAttack::Fire()
 			if (Role == ROLE_Authority)
 			{
 				// Shooter slow and position to fire point
-				ATachyonCharacter* ShooterCharacter = Cast<ATachyonCharacter>(OwningShooter);
+				ATachyonCharacter* ShooterCharacter = Cast<ATachyonCharacter>(MyOwner);
 				if (ShooterCharacter != nullptr)
 				{
 					float ShooterTimeDilation = OwningShooter->CustomTimeDilation * FMath::Sqrt(ShooterSlow);
-					ShooterCharacter->NewTimescale(ShooterTimeDilation);
+					if (MyOwner->CustomTimeDilation > ShooterTimeDilation)
+					{
+						ShooterCharacter->NewTimescale(ShooterTimeDilation);
+					}
 
 					FVector EmitLocation = ShooterCharacter->GetAttackScene()->GetComponentLocation();
 					SetActorLocation(EmitLocation);
