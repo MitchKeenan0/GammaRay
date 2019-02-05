@@ -462,11 +462,12 @@ void ATachyonAttack::RedirectAttack(bool bInstant)
 				//PitchInterpSpeed /= (NumHits * 2.0f);
 				PitchInterpSpeed = FMath::Clamp(PitchInterpSpeed, 1.0f, 500.0f);
 
+				float ShooterInterpScalar = FMath::Clamp(ShooterTimeDilation, 0.1f, 1.0f);
 				FRotator InterpRotation = FMath::RInterpTo(
 					GetActorRotation(),
 					NewRotation,
 					GetWorld()->DeltaTimeSeconds,
-					PitchInterpSpeed);
+					PitchInterpSpeed * ShooterInterpScalar);
 
 				/// Debug dynamic interp speed
 				//GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("PitchInterpSpeed: %f"), PitchInterpSpeed));
@@ -496,7 +497,8 @@ void ATachyonAttack::RedirectAttack(bool bInstant)
 				{
 					EmitLocation = TachyonShooter->GetActorLocation() + TachyonShooter->GetActorForwardVector();
 				}
-				FVector InterpPos = FMath::VInterpTo(GetActorLocation(), EmitLocation, GetWorld()->DeltaTimeSeconds, 100.0f);
+
+				FVector InterpPos = FMath::VInterpTo(GetActorLocation(), EmitLocation, GetWorld()->DeltaTimeSeconds, 300.0f);
 
 				SetActorLocation(InterpPos);
 			}
@@ -656,7 +658,6 @@ void ATachyonAttack::RaycastForHit()
 	FVector Start = GetActorLocation() + (GetActorForwardVector() * -100.0f);
 	Start.Y = 0.0f;
 	FVector End = Start + (RaycastVector * RaycastHitRange);
-	End.Y = 0.0f;
 	
 	AActor* MyOwner = GetOwner();
 	if (!bGameEnder && (MyOwner != nullptr))
@@ -673,7 +674,6 @@ void ATachyonAttack::RaycastForHit()
 				Start = AttackSprite->GetComponentLocation() + (GetActorForwardVector() * (-SpriteLength / 2.1f));
 				
 				End = Start + (RaycastVector * AttackBodyLength);
-				End.Y = 0.0f;
 			}
 			else if (AttackParticles != nullptr)
 			{
@@ -681,7 +681,6 @@ void ATachyonAttack::RaycastForHit()
 				Start = AttackParticles->GetActorLocation() + (GetActorForwardVector() * (-AttackBodyLength / 2.1f));
 				Start.Y = 0.0f;
 				End = Start + (RaycastVector * AttackBodyLength);
-				End.Y = 0.0f;
 			}
 		}
 

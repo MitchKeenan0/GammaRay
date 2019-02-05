@@ -225,7 +225,7 @@ void ATachyonCharacter::Tick(float DeltaTime)
 		}
 
 		FVector ToCentre = FVector::ZeroVector - GetActorLocation();
-		if (ToCentre.Size() >= 2000.0f)
+		if (ToCentre.Size() >= 3000.0f)
 		{
 			float CurrentV = GetCharacterMovement()->Velocity.Size();
 			GetCharacterMovement()->Velocity = ToCentre.GetSafeNormal() * CurrentV;
@@ -374,7 +374,7 @@ void ATachyonCharacter::EndJump()
 
 void ATachyonCharacter::EngageJump()
 {
-	float DilationSpeed = FMath::Clamp((1.0f / CustomTimeDilation), 1.0f, 2.0f); //FMath::Sqrt(CustomTimeDilation);
+	float DilationSpeed = FMath::Clamp((1.0f / CustomTimeDilation), 1.0f, 10.0f); //FMath::Sqrt(CustomTimeDilation);
 	float JumpSpeed = BoostSpeed * DilationSpeed;
 	float JumpTopSpeed = BoostSustain * DilationSpeed;
 
@@ -401,15 +401,18 @@ void ATachyonCharacter::EngageJump()
 
 void ATachyonCharacter::DisengageJump()
 {
-	float NewMaxSpeed = MaxMoveSpeed;
+	//float NewMaxSpeed = MaxMoveSpeed;
 	/*FVector MyVelocity = GetCharacterMovement()->Velocity;
 	if (MyVelocity.Size() >= GetCharacterMovement()->MaxFlySpeed)
 	{
 		NewMaxSpeed = MyVelocity.Size() * 1.62f;
 		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::White, FString::Printf(TEXT("FWOOSH ~ NewMaxSpeed: %f"), NewMaxSpeed));
 	}*/
+
+	//float NewSpeed = FMath::Clamp(MoveSpeed * CustomTimeDilation, 0.15f, 1.0f);
+
 	GetCharacterMovement()->MaxAcceleration = MoveSpeed;
-	GetCharacterMovement()->MaxFlySpeed = NewMaxSpeed;
+	GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed;
 }
 
 
@@ -681,8 +684,15 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				Actor1Velocity = Actor1->GetVelocity() + GetActorForwardVector();
 
 				// Declare Position Two
-				FVector VelocityFraming = Actor1->GetActorLocation() + (Actor1Velocity * DeltaTime * CameraSoloVelocityChase);
+				FVector SoloPairing = Actor1Velocity;
+				if (SoloPairing == FVector::ZeroVector)
+				{
+					SoloPairing = Actor1->GetActorForwardVector() * 100.0f;
+				}
+				FVector VelocityFraming = Actor1->GetActorLocation() + (SoloPairing * CameraSoloVelocityChase);
 				PositionTwo = FMath::VInterpTo(PositionTwo, VelocityFraming, DeltaTime, VelocityCameraSpeed * 0.5f);
+
+				CameraMinimumDistance *= 1.618f;
 
 				Actor2 = nullptr;
 			}
@@ -693,8 +703,6 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 			float MidpointBias = 0.5f;
 			FVector TargetMidpoint = PositionOne + ((PositionTwo - PositionOne) * MidpointBias);
 			float MidpointInterpSpeed = 10.0f * FMath::Clamp(TargetMidpoint.Size() * 0.01f, 10.0f, 100.0f) * (1.0f / CustomTimeDilation);
-			if (bAlone)
-				MidpointInterpSpeed *= 0.5f;
 
 			Midpoint = FMath::VInterpTo(Midpoint, TargetMidpoint, DeltaTime, MidpointInterpSpeed); /// TargetMidpoint; /// 
 			if (Midpoint.Size() > 0.0f)
@@ -703,16 +711,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				// Distance
 				float DistBetweenActors = FVector::Dist(PositionOne, PositionTwo);
 				float ProcessedDist = (FMath::Sqrt(DistBetweenActors) * 1500.0f);
-				float VerticalDist = FMath::Abs((PositionTwo - PositionOne).Z);
-				// If paired, widescreen edges are vulnerable to overshoot
-				if (!bAlone)
-				{
-					VerticalDist *= 2.1f;
-				}
-				else
-				{
-					CameraMinimumDistance *= 1.15f;
-				}
+				float VerticalDist = FMath::Abs((PositionTwo - PositionOne).Z) * 2.1f;
 
 				// Handle horizontal bias
 				float DistancePreClamp = ProcessedDist + FMath::Sqrt(VerticalDist);
@@ -751,10 +750,10 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 					TargetLengthClamped, DeltaTime, (VelocityCameraSpeed * 0.5f) * InverseTimeSpeed);
 
 				// Narrowing and expanding camera FOV for closeup and outer zones
-				float ScalarSize = FMath::Clamp(DistBetweenActors * 0.005f, 0.05f, 52.5f);
+				float ScalarSize = FMath::Clamp(DistBetweenActors * 0.005f, 0.5f, 50.0f);
 				float FOVTimeScalar = FMath::Clamp(GlobalTimeScale, 0.5f, 1.0f);
 				float FOV = 19.9f;
-				float FOVSpeed = 1.0f;
+				float FOVSpeed = 10.0f;
 				float Verticality = FMath::Abs((PositionOne - PositionTwo).Z);
 
 				// Inner and Outer zones
@@ -763,21 +762,22 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 					FOV = 21.5f;
 				}
 				
-				if (((DistBetweenActors > 150.0f) || (Verticality >= 100.0f))
+				if (((DistBetweenActors > 100.0f) || (Verticality >= 50.0f))
 					&& !bAlone)
 				{
-					float WideAngleFOV = FMath::Clamp((0.03f * DistBetweenActors), 30.0f, 120.0f);
+					float WideAngleFOV = FMath::Clamp((0.033f * DistBetweenActors), 30.0f, 120.0f);
 					FOV = WideAngleFOV;
 				}
 				
-				// GGTime Timescale adjustment
-				if (GlobalTimeScale < 1.0f)
+				// Timescale adjustment
+				if (CustomTimeDilation < 1.0f)
 				{
-					FOV -= 5.f;
+					float TimeScalar = FMath::Clamp(CustomTimeDilation, 0.88f, 0.99f);
+					FOV *= TimeScalar;
 				}
 				
 				FOV *= CameraFOVScalar;
-				FOV = FMath::Clamp(FOV, 19.0f, 120.0f);
+				FOV = FMath::Clamp(FOV, 20.0f, 120.0f);
 
 				// Set FOV
 				SideViewCameraComponent->FieldOfView = FMath::FInterpTo(
@@ -832,15 +832,15 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 		float Roll = FMath::Clamp(InputZ * -25.1f, -25.1f, 25.1f);
 		float RotatoeSpeed = TurnSpeed; //FMath::Clamp((TurnSpeed * CustomTimeDilation), TurnSpeed / 3.0f, TurnSpeed);
 
+		FRotator BodyRotation = FRotator::ZeroRotator;
+
 		if (TravelDirection < 0.0f)
 		{
-			FRotator Fint = FMath::RInterpConstantTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, Roll), DeltaTime, RotatoeSpeed);
-			Controller->SetControlRotation(Fint);
+			BodyRotation = FRotator(ClimbDirection, 180.0f, Roll);
 		}
 		else if (TravelDirection > 0.0f)
 		{
-			FRotator Fint = FMath::RInterpConstantTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, -Roll), DeltaTime, RotatoeSpeed);
-			Controller->SetControlRotation(Fint);
+			BodyRotation = FRotator(ClimbDirection, 0.0f, -Roll);
 		}
 
 		// No lateral Input - finish rotation
@@ -848,15 +848,15 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 		{
 			if (FMath::Abs(Controller->GetControlRotation().Yaw) > 90.0f)
 			{
-				FRotator Fint = FMath::RInterpConstantTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 180.0f, -Roll), DeltaTime, RotatoeSpeed);
-				Controller->SetControlRotation(Fint);
+				BodyRotation = FRotator(ClimbDirection, 180.0f, -Roll);
 			}
 			else if (FMath::Abs(Controller->GetControlRotation().Yaw) < 90.0f)
 			{
-				FRotator Fint = FMath::RInterpConstantTo(Controller->GetControlRotation(), FRotator(ClimbDirection, 0.0f, Roll), DeltaTime, RotatoeSpeed);
-				Controller->SetControlRotation(Fint);
+				BodyRotation = FRotator(ClimbDirection, 0.0f, Roll);
 			}
 		}
+
+		Controller->SetControlRotation(BodyRotation);
 	}
 
 	// Sound control
