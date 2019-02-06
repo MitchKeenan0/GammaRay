@@ -356,9 +356,12 @@ void ATachyonCharacter::BotMove(float X, float Z)
 // JUMP
 void ATachyonCharacter::StartJump()
 {
-	if (ActiveBoost != nullptr)
+	if ((ActiveAttack != nullptr) && !ActiveAttack->IsInitialized())
 	{
-		ActiveBoost->StartJump();
+		if (ActiveBoost != nullptr)
+		{
+			ActiveBoost->StartJump();
+		}
 	}
 }
 
@@ -452,6 +455,13 @@ void ATachyonCharacter::NewTimescale(float Value)
 	if (Controller != nullptr)
 	{
 		ServerNewTimescale(Value);
+	}
+
+	if ((Role < ROLE_Authority) && (GetController() != nullptr))
+	{
+		float NewVignetteIntenso = 0.618f * FMath::Sqrt(1.0f / Value);
+		SideViewCameraComponent->PostProcessSettings.VignetteIntensity = NewVignetteIntenso;
+		GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("NewVignetteIntenso: %f"), NewVignetteIntenso));
 	}
 }
 void ATachyonCharacter::ServerNewTimescale_Implementation(float Value)
@@ -831,8 +841,8 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 	// Sound control
 	if (SoundComp != nullptr)
 	{
-		float Velo = FMath::Sqrt(GetCharacterMovement()->Velocity.Size() * 0.000001f);
-		float SpeedVolume = FMath::Clamp(Velo, 0.01f, 1.0f);
+		float Velo = 0.001f + FMath::Sqrt(GetCharacterMovement()->Velocity.Size() * 0.00001f);
+		float SpeedVolume = FMath::Clamp(Velo, 0.001f, 1.0f);
 		SoundComp->SetVolumeMultiplier(SpeedVolume);
 	}
 }

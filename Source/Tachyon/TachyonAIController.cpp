@@ -229,21 +229,34 @@ void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 			
 			MyInputZ = VerticalNorm;
 
+			// Attacking
+			if (!bAttacking)
+			{
+				MyTachyonCharacter->StartFire();
+				bAttacking = true;
+			}
+			else
+			{
+				float AccountedDelta = DeltaTime * (1.0f / ReactionTime);
+				ShootingChargeTimer += DeltaTime;
+				///GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::White, FString::Printf(TEXT("ShootingChargeTimer: %f"), ShootingChargeTimer));
+			}
+
 			// Only fire if a) we're on screen & b) angle looks good
 			float AngleToTarget = FMath::RadiansToDegrees(FMath::Acos(DotToTarget));
 			if (AngleToTarget <= 50.0f)  // && MyCharacter->WasRecentlyRendered(0.15f)
 			{
-				// Attacking
-				if (!bAttacking)
+				/// release attack
+				float AttackChargeThreshold = FMath::RandRange(0.1f, Aggression);
+				if (ShootingChargeTimer >= AttackChargeThreshold)
 				{
-					MyTachyonCharacter->StartFire();
-					bAttacking = true;
-				}
-				else
-				{
-					float AccountedDelta = DeltaTime * (1.0f / ReactionTime);
-					ShootingChargeTimer += DeltaTime;
-					///GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::White, FString::Printf(TEXT("ShootingChargeTimer: %f"), ShootingChargeTimer));
+					MyTachyonCharacter->EndFire();
+
+					ShootingChargeTimer = 0.0f;
+					bAttacking = false;
+					TimeAtLastShotFired = GetWorld()->TimeSeconds;
+
+					///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("FIRED"));
 				}
 			}
 
@@ -261,19 +274,6 @@ void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 			{
 				bShielding = false;
 			}
-		}
-
-		/// release attack
-		float AttackChargeThreshold = FMath::RandRange(0.1f, Aggression);
-		if (ShootingChargeTimer >= AttackChargeThreshold)
-		{
-			MyTachyonCharacter->EndFire();
-
-			ShootingChargeTimer = 0.0f;
-			bAttacking = false;
-			TimeAtLastShotFired = GetWorld()->TimeSeconds;
-
-			///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("FIRED"));
 		}
 	}
 

@@ -828,7 +828,16 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 				if (PotentialAttack->ActorHasTag("Shield"))
 				{
 					CallForTimescale(this, false, 0.01f);
-					CallForTimescale(OwningShooter, false, 0.2f);
+					
+					if (OwningShooter->CustomTimeDilation > 0.2f)
+					{
+						CallForTimescale(OwningShooter, false, 0.2f);
+					}
+					
+					if (AttackParticles != nullptr)
+					{
+						AttackParticles->CustomTimeDilation *= 0.1f;
+					}
 				}
 			}
 		}

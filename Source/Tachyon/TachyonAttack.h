@@ -29,6 +29,9 @@ public:
 
 	void EndFire();
 
+	UFUNCTION()
+	bool IsArmed() { return bInitialized || bLethal || !bNeutralized; }
+
 	void RemoteHit(AActor* Target, float Damage);
 
 	// Called every frame
