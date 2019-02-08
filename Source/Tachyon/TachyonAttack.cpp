@@ -97,7 +97,7 @@ void ATachyonAttack::EndFire()
 		float GlobalTimeScale = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
 		if ((GlobalTimeScale == 1.0f) && bAllowIt)
 		{
-			float FirstDelay = DeliveryTime;// *CustomTimeDilation;
+			float FirstDelay = DeliveryTime * 0.1f;
 
 			GetWorldTimerManager().SetTimer(TimerHandle_DeliveryTime, this, &ATachyonAttack::Lethalize, DeliveryTime, false, FirstDelay);
 
@@ -161,7 +161,7 @@ void ATachyonAttack::Fire()
 					SetActorLocation(EmitLocation);
 				}
 
-				SpawnBurst();
+				//SpawnBurst();
 			}
 
 
@@ -202,7 +202,7 @@ void ATachyonAttack::SpawnBurst()
 			if (CurrentBurstObject != nullptr)
 			{
 				CurrentBurstObject->AttachToActor(MyOwner, FAttachmentTransformRules::KeepWorldTransform);
-
+				CurrentBurstObject->SetLifeSpan(RefireTime);
 				// Scaling
 				/*float VisibleMagnitude = FMath::Clamp(AttackMagnitude, 0.5f, 1.0f);
 				FVector NewBurstScale = CurrentBurstObject->GetActorRelativeScale3D() * VisibleMagnitude;
@@ -220,6 +220,19 @@ void ATachyonAttack::MainEffects()
 	if (AttackSound != nullptr)
 	{
 		ActivateSound();
+	}
+
+	if (CapsuleComponent != nullptr)
+	{
+		CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	}
+
+	// Screen shake
+	AActor* MyOwner = GetOwner();
+	if (MyOwner != nullptr)
+	{
+		if (FireShake != nullptr)
+			UGameplayStatics::PlayWorldCameraShake(GetWorld(), FireShake, GetActorLocation(), 0.0f, 9999.0f, 1.0f, false);
 	}
 }
 
@@ -324,32 +337,9 @@ void ATachyonAttack::Lethalize()
 			float NewHitRate = FMath::Clamp((HitsPerSecond * AttackMagnitude), 10.0f, HitsPerSecond);
 			ActualHitsPerSecond = NewHitRate;
 
-			ActualDeliveryTime = DeliveryTime * AttackMagnitude;
-			ActualDurationTime = DurationTime;
+			ActualDeliveryTime = FMath::Clamp((DeliveryTime * AttackMagnitude), 0.1f, 0.5f);
+			ActualDurationTime = FMath::Clamp((DurationTime * AttackMagnitude), 0.2f, 1.0f);
 			ActualLethalTime = LethalTime;
-
-			if (Role == ROLE_Authority)
-			{
-				// Clear burst object
-				if (CurrentBurstObject != nullptr)
-				{
-					CurrentBurstObject->SetLifeSpan(0.1f);
-				}
-
-				FTimerHandle EffectsTimer;
-				GetWorldTimerManager().SetTimer(EffectsTimer, this, &ATachyonAttack::MainEffects, ActualDeliveryTime, false, ActualDeliveryTime * 0.9f);
-
-				// Raycasting
-				float RefireTiming = (1.0f / ActualHitsPerSecond) * CustomTimeDilation;
-				float FirstDelay = 0.07f * CustomTimeDilation;
-				GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, RefireTiming, true, FirstDelay);
-
-				SetInitVelocities();
-
-				FVector RecoilLocation = GetActorLocation() + (GetActorForwardVector() * 1000.0f);
-				ApplyKnockForce(OwningShooter, RecoilLocation, RecoilForce); // MyOwner
-			}
-
 
 			// Shooter Slow and location
 			ATachyonCharacter* ShooterCharacter = Cast<ATachyonCharacter>(OwningShooter);
@@ -367,6 +357,23 @@ void ATachyonAttack::Lethalize()
 				SetActorLocation(EmitLocation);
 			}
 
+			if (Role == ROLE_Authority)
+			{
+				SpawnBurst();
+
+				FTimerHandle EffectsTimer;
+				GetWorldTimerManager().SetTimer(EffectsTimer, this, &ATachyonAttack::MainEffects, ActualDeliveryTime, false, ActualDeliveryTime * 0.9f);
+
+				// Raycasting
+				float RefireTiming = (1.0f / ActualHitsPerSecond) * CustomTimeDilation;
+				GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, RefireTiming, true, ActualDeliveryTime);
+
+				SetInitVelocities();
+
+				FVector RecoilLocation = GetActorLocation() + (GetActorForwardVector() * 1000.0f);
+				ApplyKnockForce(OwningShooter, RecoilLocation, RecoilForce); // MyOwner
+			}
+
 			HitTimer = (1.0f / ActualHitsPerSecond) * CustomTimeDilation;
 			RefireTime = RefireTime * AttackMagnitude;
 
@@ -376,29 +383,6 @@ void ATachyonAttack::Lethalize()
 
 			///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("ActualDeliveryTime: %f"), ActualDeliveryTime));
 			///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("ActualDurationTime: %f"), ActualDurationTime));
-
-
-			if (CapsuleComponent != nullptr)
-			{
-				CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-			}
-
-			// Screen shake
-			AActor* MyOwner = GetOwner();
-			if (MyOwner != nullptr)
-			{
-				if (FireShake != nullptr)
-					UGameplayStatics::PlayWorldCameraShake(GetWorld(), FireShake, GetActorLocation(), 0.0f, 9999.0f, 1.0f, false);
-			}
-
-			// this contravenes above
-			//ReceiveTimescale(1.0f);
-			
-			// Visual slow
-			if (AttackParticles != nullptr)
-			{
-				AttackParticles->CustomTimeDilation = FMath::Clamp(AttackMagnitude, 0.33f, 1.0f);
-			}
 
 			//GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("Lethalized!"));
 		}
@@ -952,7 +936,8 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 
 			if (AttackParticles != nullptr)
 			{
-				AttackParticles->CustomTimeDilation *= 0.9f;
+				AttackParticles->CustomTimeDilation *= 0.99f;
+				AttackParticles->CustomTimeDilation = FMath::Clamp(AttackParticles->CustomTimeDilation, 0.005f, 1.0f);
 			}
 		}
 

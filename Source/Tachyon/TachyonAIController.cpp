@@ -164,8 +164,10 @@ void ATachyonAIController::NavigateTo(FVector TargetLocation)
 
 		if (bJumping)
 		{
+			float DistToDest = FVector::Dist(MyTachyonCharacter->GetVelocity(), LocationTarget);
 			float ContinueJumpingChance = Aggression * FMath::FRand();
-			if (ContinueJumpingChance >= (Aggression * 0.5f))
+			//if (ContinueJumpingChance >= (Aggression * 0.5f))
+			if (DistToDest > (Aggression * 1000.0f))
 			{
 				MyTachyonCharacter->BotMove(MyInputX, MyInputZ);
 			}
