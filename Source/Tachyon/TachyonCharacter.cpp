@@ -457,11 +457,12 @@ void ATachyonCharacter::NewTimescale(float Value)
 		ServerNewTimescale(Value);
 	}
 
-	if ((Role < ROLE_Authority) && (GetController() != nullptr))
+	if (GetController() != nullptr)
 	{
 		float NewVignetteIntenso = 0.618f * FMath::Sqrt(1.0f / Value);
+		NewVignetteIntenso = FMath::Clamp(NewVignetteIntenso, 0.3f, 3.0f);
 		SideViewCameraComponent->PostProcessSettings.VignetteIntensity = NewVignetteIntenso;
-		GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("NewVignetteIntenso: %f"), NewVignetteIntenso));
+		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("NewVignetteIntenso: %f"), NewVignetteIntenso));
 	}
 }
 void ATachyonCharacter::ServerNewTimescale_Implementation(float Value)

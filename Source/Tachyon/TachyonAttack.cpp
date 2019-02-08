@@ -234,6 +234,11 @@ void ATachyonAttack::MainEffects()
 		if (FireShake != nullptr)
 			UGameplayStatics::PlayWorldCameraShake(GetWorld(), FireShake, GetActorLocation(), 0.0f, 9999.0f, 1.0f, false);
 	}
+
+	if (CurrentBurstObject != nullptr)
+	{
+		CurrentBurstObject->SetLifeSpan(0.01f);
+	}
 }
 
 void ATachyonAttack::ActivateSound()
@@ -337,8 +342,8 @@ void ATachyonAttack::Lethalize()
 			float NewHitRate = FMath::Clamp((HitsPerSecond * AttackMagnitude), 10.0f, HitsPerSecond);
 			ActualHitsPerSecond = NewHitRate;
 
-			ActualDeliveryTime = FMath::Clamp((DeliveryTime * AttackMagnitude), 0.1f, 0.5f);
-			ActualDurationTime = FMath::Clamp((DurationTime * AttackMagnitude), 0.3f, 1.0f);
+			ActualDeliveryTime = FMath::Clamp(DeliveryTime + (DeliveryTime * AttackMagnitude), 0.1f, 0.5f);
+			ActualDurationTime = ActualDeliveryTime + FMath::Clamp((DurationTime * AttackMagnitude), 0.3f, 1.0f);
 			ActualLethalTime = LethalTime;
 
 			// Shooter Slow and location
@@ -818,7 +823,7 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 						CallForTimescale(OwningShooter, false, 0.2f);
 					}
 					
-					if (AttackParticles != nullptr)
+					if ((AttackParticles != nullptr) && (NumHits > 3))
 					{
 						AttackParticles->CustomTimeDilation *= 0.1f;
 					}
