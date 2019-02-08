@@ -162,7 +162,20 @@ void ATachyonAIController::NavigateTo(FVector TargetLocation)
 		MyInputX = FMath::Clamp(LateralDistance * 100000.0f, -1.0f, 1.0f);
 		MyInputZ = FMath::Clamp(VerticalDistance * 100000.0f, -1.0f, 1.0f);
 
-		MyTachyonCharacter->BotMove(MyInputX, MyInputZ);
+		if (bJumping)
+		{
+			float ContinueJumpingChance = Aggression * FMath::FRand();
+			if (ContinueJumpingChance >= (Aggression * 0.5f))
+			{
+				MyTachyonCharacter->BotMove(MyInputX, MyInputZ);
+			}
+			else
+			{
+				MyTachyonCharacter->EndJump();
+				bJumping = false;
+				JumpTimer = 0.0f;
+			}
+		}
 
 		float DeltaTime = GetWorld()->DeltaTimeSeconds;
 		//MyTachyonCharacter->UpdateBody(DeltaTime);
@@ -291,7 +304,7 @@ void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 	{
 		// End jump
 		JumpTimer += DeltaTime;
-		if (JumpTimer >= ((1.0f + FMath::FRand()) * Aggression))
+		if (JumpTimer >= ((1.0f + FMath::FRand()) * Aggression) )
 		{
 			MyTachyonCharacter->EndJump();
 			JumpTimer = 0.0f;
