@@ -202,7 +202,7 @@ void ATachyonAttack::SpawnBurst()
 			if (CurrentBurstObject != nullptr)
 			{
 				CurrentBurstObject->AttachToActor(MyOwner, FAttachmentTransformRules::KeepWorldTransform);
-				CurrentBurstObject->SetLifeSpan(RefireTime);
+				CurrentBurstObject->SetLifeSpan(0.33f);
 				// Scaling
 				/*float VisibleMagnitude = FMath::Clamp(AttackMagnitude, 0.5f, 1.0f);
 				FVector NewBurstScale = CurrentBurstObject->GetActorRelativeScale3D() * VisibleMagnitude;
@@ -338,7 +338,7 @@ void ATachyonAttack::Lethalize()
 			ActualHitsPerSecond = NewHitRate;
 
 			ActualDeliveryTime = FMath::Clamp((DeliveryTime * AttackMagnitude), 0.1f, 0.5f);
-			ActualDurationTime = FMath::Clamp((DurationTime * AttackMagnitude), 0.2f, 1.0f);
+			ActualDurationTime = FMath::Clamp((DurationTime * AttackMagnitude), 0.3f, 1.0f);
 			ActualLethalTime = LethalTime;
 
 			// Shooter Slow and location
@@ -597,11 +597,11 @@ void ATachyonAttack::TimedHit(float DeltaTime)
 			
 			
 			FVector HitLocation = HitResultsArray[0].ImpactPoint;
-			if (HitLocation == FVector::ZeroVector)
-			{
-				//float DistToHit = FVector::Dist(GetActorLocation(), CurrentActor->GetActorLocation());
-				HitLocation = GetActorLocation() + GetActorForwardVector();
-			}
+			//if (HitLocation == FVector::ZeroVector)
+			//{
+			//	//float DistToHit = FVector::Dist(GetActorLocation(), CurrentActor->GetActorLocation());
+			//	HitLocation = GetActorLocation() + GetActorForwardVector();
+			//}
 			
 			FVector ForNorm = GetActorForwardVector().GetSafeNormal();
 			FVector HitNorm = (HitLocation - GetActorLocation()).GetSafeNormal();
@@ -942,12 +942,12 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		}
 
 		// Alternate win condition - timeout
-		if (Mark->CustomTimeDilation <= 0.0005f)
+		if (Mark->CustomTimeDilation < 0.01f)
 		{
 			CallForTimescale(Mark, true, 0.01f);
 			bGameEnder = true;
 		}
-		else if (Shooter->CustomTimeDilation <= 0.0005f)
+		else if (Shooter->CustomTimeDilation < 0.01f)
 		{
 			CallForTimescale(Shooter, true, 0.01f);
 			bGameEnder = true;
@@ -1083,14 +1083,17 @@ bool ATachyonAttack::ServerNeutralize_Validate()
 // COLLISION BEGIN
 void ATachyonAttack::OnAttackBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (RaycastHitRange == 0.0f)
-	{
+	//if (RaycastHitRange == 0.0f)
+	//{
 		///bool bTime = !bFirstHitReported || (HitTimer >= (1 / ActualHitsPerSecond));
 		bool bActors = (OwningShooter != nullptr) && (OtherActor != nullptr) && (OtherActor != OwningShooter);
 		bool TimeSc = UGameplayStatics::GetGlobalTimeDilation(GetWorld()) >= 0.05f;
 		if (bActors && (bLethal && !bDoneLethal) && TimeSc)
 		{
-			HitResultsArray.Add(SweepResult);
+			FVector ClosestPoint = FVector::ZeroVector;
+			float Closy = OtherComp->GetClosestPointOnCollision(OverlappedComponent->GetComponentLocation(), ClosestPoint);
+			MainHit(OtherActor, ClosestPoint);
+			//HitResultsArray.Add(SweepResult);
 		}
-	}
+	//}
 }
