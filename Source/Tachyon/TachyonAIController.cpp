@@ -162,12 +162,11 @@ void ATachyonAIController::NavigateTo(FVector TargetLocation)
 		MyInputX = FMath::Clamp(LateralDistance * 100000.0f, -1.0f, 1.0f);
 		MyInputZ = FMath::Clamp(VerticalDistance * 100000.0f, -1.0f, 1.0f);
 
-		if (bJumping)
+		if (bJumping || bAttacking)
 		{
-			float DistToDest = FVector::Dist(MyTachyonCharacter->GetVelocity(), LocationTarget);
-			float ContinueJumpingChance = Aggression * FMath::FRand();
-			//if (ContinueJumpingChance >= (Aggression * 0.5f))
-			if (DistToDest > (Aggression * 1000.0f))
+			FVector MyPlayerAtSpeed = MyTachyonCharacter->GetActorLocation() + MyTachyonCharacter->GetVelocity();
+			float DistToDest = FVector::Dist(MyPlayerAtSpeed, LocationTarget);
+			if (DistToDest > (Aggression * 550.0f))
 			{
 				MyTachyonCharacter->BotMove(MyInputX, MyInputZ);
 			}
@@ -186,17 +185,16 @@ void ATachyonAIController::NavigateTo(FVector TargetLocation)
 		float TravelDirection = FMath::Clamp(MyInputX, -1.0f, 1.0f);
 		float ClimbDirection = FMath::Clamp(MyInputZ * 5.0f, -5.0f, 5.0f);
 		float Roll = FMath::Clamp(MyInputZ * 25.1, -25.1, 25.1);
-		float RotatoeSpeed = 1500.0f * CustomTimeDilation;
+
+		FRotator BodyRotation = FRotator::ZeroRotator;
 
 		if (TravelDirection < 0.0f)
 		{
-			FRotator Fint = FMath::RInterpConstantTo(GetControlRotation(), FRotator(ClimbDirection, 180.0f, Roll), DeltaTime, RotatoeSpeed);
-			SetControlRotation(Fint);
+			BodyRotation = FRotator(ClimbDirection, 180.0f, Roll);
 		}
 		else if (TravelDirection > 0.0f)
 		{
-			FRotator Fint = FMath::RInterpConstantTo(GetControlRotation(), FRotator(ClimbDirection, 0.0f, -Roll), DeltaTime, RotatoeSpeed);
-			SetControlRotation(Fint);
+			BodyRotation = FRotator(ClimbDirection, 0.0f, -Roll);
 		}
 
 		// No lateral Input - finish rotation
@@ -204,18 +202,18 @@ void ATachyonAIController::NavigateTo(FVector TargetLocation)
 		{
 			if (FMath::Abs(GetControlRotation().Yaw) > 90.0f)
 			{
-				FRotator Fint = FMath::RInterpConstantTo(GetControlRotation(), FRotator(ClimbDirection, 180.0f, -Roll), DeltaTime, RotatoeSpeed);
-				SetControlRotation(Fint);
+				BodyRotation = FRotator(ClimbDirection, 180.0f, -Roll);
 			}
 			else if (FMath::Abs(GetControlRotation().Yaw) < 90.0f)
 			{
-				FRotator Fint = FMath::RInterpConstantTo(GetControlRotation(), FRotator(ClimbDirection, 0.0f, Roll), DeltaTime, RotatoeSpeed);
-				SetControlRotation(Fint);
+				BodyRotation = FRotator(ClimbDirection, 0.0f, Roll);
 			}
 		}
 
-		/*GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Blue, FString::Printf(TEXT("Pitch: %f"), GetControlRotation().Pitch));
-		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Blue, FString::Printf(TEXT("My Z: %f"), MyTachyonCharacter->GetZ()));*/
+		SetControlRotation(BodyRotation);
+
+		//GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Blue, FString::Printf(TEXT("Pitch: %f"), GetControlRotation().Pitch));
+		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Blue, FString::Printf(TEXT("ClimbDirection: %f"), ClimbDirection));
 	}
 }
 

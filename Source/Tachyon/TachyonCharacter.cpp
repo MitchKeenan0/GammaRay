@@ -376,7 +376,7 @@ void ATachyonCharacter::EndJump()
 void ATachyonCharacter::EngageJump()
 {
 	/// it could just be 1
-	float DilationSpeed = FMath::Clamp((1.0f / CustomTimeDilation), 1.0f, 100.0f); //FMath::Sqrt(CustomTimeDilation);
+	float DilationSpeed = 1.0f; // FMath::Clamp((1.0f / CustomTimeDilation), 1.0f, 100.0f); //FMath::Sqrt(CustomTimeDilation);
 	float JumpSpeed = BoostSpeed * DilationSpeed;
 	float JumpTopSpeed = BoostSustain * DilationSpeed;
 
@@ -460,9 +460,9 @@ void ATachyonCharacter::NewTimescale(float Value)
 	if (GetController() != nullptr)
 	{
 		float NewVignetteIntenso = 0.618f * FMath::Sqrt(1.0f / Value);
-		NewVignetteIntenso = FMath::Clamp(NewVignetteIntenso, 0.3f, 3.0f);
+		NewVignetteIntenso = FMath::Clamp(NewVignetteIntenso, 0.0f, 1.0f);
 		SideViewCameraComponent->PostProcessSettings.VignetteIntensity = NewVignetteIntenso;
-		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("NewVignetteIntenso: %f"), NewVignetteIntenso));
+		//GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("NewVignetteIntenso: %f"), NewVignetteIntenso));
 	}
 }
 void ATachyonCharacter::ServerNewTimescale_Implementation(float Value)
@@ -633,18 +633,18 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				{
 					PairDistanceThreshold *= 3.3f;
 				}
-				if (!Actor2->ActorHasTag("Player"))
+				/*if (!Actor2->ActorHasTag("Player"))
 				{
 					PairDistanceThreshold *= 0.5f;
-				}
+				}*/
 
 				// Special care taken for vertical as we are probably widescreen
 				float Vertical = FMath::Abs(( Actor2->GetActorLocation() - Actor1->GetActorLocation() ).Z);
 				bool bInRange = (FVector::Dist(Actor1->GetActorLocation(), Actor2->GetActorLocation()) <= PairDistanceThreshold)
 					&& (Vertical <= (PairDistanceThreshold * 0.9f));
-				bool TargetVisible = Actor2->WasRecentlyRendered(0.2f);
+				//bool TargetVisible = Actor2->WasRecentlyRendered(0.2f);
 
-				if (bInRange && TargetVisible)
+				if (bInRange)// && TargetVisible)
 				{
 					bAlone = false;
 
@@ -810,7 +810,6 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 		float TravelDirection = FMath::Clamp(LastFaceDirection, -1.0f, 1.0f);
 		float ClimbDirection = FMath::Clamp(InputZ * 5.0f, -5.0f, 5.0f);
 		float Roll = FMath::Clamp(InputZ * -25.1f, -25.1f, 25.1f);
-		float RotatoeSpeed = TurnSpeed; //FMath::Clamp((TurnSpeed * CustomTimeDilation), TurnSpeed / 3.0f, TurnSpeed);
 
 		FRotator BodyRotation = FRotator::ZeroRotator;
 

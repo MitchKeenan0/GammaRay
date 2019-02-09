@@ -375,7 +375,7 @@ void ATachyonAttack::Lethalize()
 
 				SetInitVelocities();
 
-				FVector RecoilLocation = GetActorLocation() + (GetActorForwardVector() * 1000.0f);
+				FVector RecoilLocation = MyOwner->GetActorLocation() + (GetActorForwardVector() * 10.0f);
 				ApplyKnockForce(OwningShooter, RecoilLocation, RecoilForce); // MyOwner
 			}
 
@@ -410,7 +410,8 @@ void ATachyonAttack::SetInitVelocities()
 	// Inherit some velocity from owning shooter
 	if ((ProjectileComponent != nullptr) && (ProjectileSpeed != 0.0f))
 	{
-		FVector InitialVelocity = GetActorForwardVector() * ProjectileSpeed;
+		float ShooterTime = GetOwner()->CustomTimeDilation;
+		FVector InitialVelocity = GetActorForwardVector() * ProjectileSpeed * ShooterTime;
 		InitialVelocity.Y = 0.0f;
 		
 		ProjectileComponent->Velocity = InitialVelocity;
@@ -443,10 +444,11 @@ void ATachyonAttack::RedirectAttack(bool bInstant)
 			LocalForward.Z = 0.0f;
 			
 			float ShooterAimDirection = FMath::Clamp(
-				TachyonShooter->GetActorForwardVector().Z,
-				-1.0f, 1.0f);
+				TachyonShooter->GetActorForwardVector().Z * 100.0f,
+				-0.1f, 0.1f);
+			///GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::White, FString::Printf(TEXT("ShooterAimDirection: %f"), ShooterAimDirection));
 
-			float TargetPitch = ShootingAngle * ShooterAimDirection * 5.1f; // 3.14f;
+			float TargetPitch = ShootingAngle * ShooterAimDirection * 5.1f;
 			TargetPitch = FMath::Clamp(TargetPitch, -ShootingAngle, ShootingAngle);
 
 			FRotator NewRotation = LocalForward.Rotation() + FRotator(TargetPitch, 0.0f, 0.0f);
@@ -767,32 +769,21 @@ void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, floa
 	if (MyOwner != nullptr)
 	{
 		// Init intended force
-		FVector KnockDirection = GetActorForwardVector() + (HitActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
-		///FVector KnockDirection = (HitActor->GetActorLocation() - HitLocation).GetSafeNormal();
+		FVector KnockDirection = (HitActor->GetActorLocation() - MyOwner->GetActorLocation()).GetSafeNormal();
 		FVector KnockVector = KnockDirection * KineticForce * HitScalar;
-		KnockVector = KnockVector.GetClampedToMaxSize(KineticForce / 2.0f);
+		KnockVector.Y = 0.0f;
+		KnockVector = KnockVector.GetClampedToMaxSize(KineticForce);
 
-		// Adjust force size for time dilation
-		float GlobalDilationScalar = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
-		if (GlobalDilationScalar <= 0.05f)
-			GlobalDilationScalar = 0.0f;
-		else
-			GlobalDilationScalar = (1.0f / GlobalDilationScalar);
-		KnockVector *= GlobalDilationScalar;
-
-		float TimescaleAverage = (HitActor->CustomTimeDilation + MyOwner->CustomTimeDilation) / 2.0f;
-		KnockVector *= TimescaleAverage;
+		float Timescalar = (1.0f / HitActor->CustomTimeDilation);
+		KnockVector *= Timescalar;
 
 		// Character case
 		ATachyonCharacter* Chara = Cast<ATachyonCharacter>(HitActor);
 		if (Chara != nullptr)
 		{
-			KnockVector.Y = 0.0f;
-			
-			FVector CharaVelocity = Chara->GetMovementComponent()->Velocity;
-			FVector KnockbackVector = CharaVelocity + KnockVector;
+			Chara->ReceiveKnockback(KnockVector, bAbsoluteHitForce);
 
-			Chara->ReceiveKnockback(KnockVector, false);
+			///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("Whammy"));
 		}
 	}
 }
@@ -812,21 +803,23 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 			{
 				return;
 			}
-			else if (!bGameEnder)
+		}
+
+		// Shield interaction
+		if (!bGameEnder)
+		{
+			if (HitActor->ActorHasTag("Shield"))
 			{
-				if (PotentialAttack->ActorHasTag("Shield"))
+				CallForTimescale(this, false, 0.01f);
+
+				if (OwningShooter->CustomTimeDilation > 0.2f)
 				{
-					CallForTimescale(this, false, 0.01f);
-					
-					if (OwningShooter->CustomTimeDilation > 0.2f)
-					{
-						CallForTimescale(OwningShooter, false, 0.2f);
-					}
-					
-					if ((AttackParticles != nullptr) && (NumHits > 3))
-					{
-						AttackParticles->CustomTimeDilation *= 0.1f;
-					}
+					CallForTimescale(OwningShooter, false, 0.2f);
+				}
+
+				if ((AttackParticles != nullptr) && (NumHits > 3))
+				{
+					AttackParticles->CustomTimeDilation *= 0.1f;
 				}
 			}
 		}
