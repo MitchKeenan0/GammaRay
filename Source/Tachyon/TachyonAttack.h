@@ -56,6 +56,9 @@ public:
 	void CallForTimescale(AActor* TargetActor, bool bGlobal, float NewTimescale);
 
 	UFUNCTION()
+	void ExtendDuration(float AddTime);
+
+	UFUNCTION()
 	void Neutralize();
 
 	UFUNCTION()

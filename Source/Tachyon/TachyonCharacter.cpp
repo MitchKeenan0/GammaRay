@@ -763,7 +763,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				float FOVSpeed = CameraMoveSpeed;
 
 				// Inne zone
-				if ((DistBetweenActors <= 150.0f) && !bAlone)
+				if ((DistBetweenActors <= 150.0f) || bAlone)
 				{
 					FOV = 21.5f;
 				}
@@ -792,6 +792,15 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 					FOV,
 					DeltaTime,
 					FOVSpeed);
+
+				FVector CamNorm = SideViewCameraComponent->GetForwardVector();
+				FVector NormToActor1 = (Actor1->GetActorLocation() - CameraBoom->GetComponentLocation()).GetSafeNormal();
+				float AngleToActor1 = FMath::Acos(FVector::DotProduct(CamNorm, NormToActor1));
+				if (AngleToActor1 > 5.0f)
+				{
+					DesiredCameraDistance *= 1.5f;
+					GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("AngleToActor1: %f"), AngleToActor1));
+				}
 
 				// Make it so
 				CameraBoom->SetWorldLocation(Midpoint);

@@ -161,10 +161,10 @@ void ATachyonGameStateBase::RestartGame()
 						Player->GetCharacterMovement()->Velocity *= 0.05f;
 						SetActorTimescale(Player, 1.0f);
 
-						FVector ResetLocation = FMath::VRand() * 1000.0f;
+						/*FVector ResetLocation = FMath::VRand() * 1000.0f;
 						ResetLocation = ResetLocation.GetClampedToSize(200.0f, 1000.0f);
 						ResetLocation.Y = 0.0f;
-						Player->SetActorLocation(ResetLocation);
+						Player->SetActorLocation(ResetLocation);*/
 					}
 				}
 			}
@@ -181,16 +181,19 @@ void ATachyonGameStateBase::UpdateGlobalTimescale(float DeltaTime)
 {
 	float CurrentTime = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
 	
-	// Interpolating to desired timescale
-	float FactoredTimescale = DesiredTimescale * 10.0f;
-	float InterpSpeed = TimescaleRecoverySpeed + (1.0f / FactoredTimescale);
-	if (DesiredTimescale == GGTimescale)
+	if (CurrentTime >= GGTimescale)
 	{
-		InterpSpeed *= 0.5f;
+		// Interpolating to desired timescale
+		float FactoredTimescale = 0.01f + DesiredTimescale * 10.0f;
+		float InterpSpeed = TimescaleRecoverySpeed + (1.0f / FactoredTimescale);
+		if (DesiredTimescale == GGTimescale)
+		{
+			InterpSpeed *= 0.5f;
+		}
+		float InterpTime = FMath::FInterpConstantTo(CurrentTime, DesiredTimescale, DeltaTime, InterpSpeed);
+		UGameplayStatics::SetGlobalTimeDilation(GetWorld(), InterpTime);
+		ForceNetUpdate();
 	}
-	float InterpTime = FMath::FInterpConstantTo(CurrentTime, DesiredTimescale, DeltaTime, InterpSpeed);
-	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), InterpTime);
-	ForceNetUpdate();
 }
 
 
