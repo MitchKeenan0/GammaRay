@@ -128,7 +128,8 @@ void ATachyonGameStateBase::RestartGame()
 				ATachyonCharacter* BotPlayer = Cast<ATachyonCharacter>(ThisBot);
 				if (BotPlayer != nullptr)
 				{
-					if (BotPlayer->GetHealth() <= 0.0f)
+					if ((BotPlayer->GetHealth() <= 0.0f)
+						|| (BotPlayer->CustomTimeDilation < 0.01f))
 					{
 						BotPlayer->Destroy();
 					}
@@ -227,7 +228,7 @@ void ATachyonGameStateBase::SpawnBot(FVector SpawnLocation)
 		}
 	}
 
-	GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("ran SpawnBot"));
+	GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("Welcome %s"), *NewTachyon->GetName()));
 }
 
 

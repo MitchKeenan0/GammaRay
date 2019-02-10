@@ -897,10 +897,20 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		float TachyonHealth = HitTachyon->GetHealth();
 		if ((TachyonHealth - ActualAttackDamage) <= 0.0f)
 		{
-			// Lethal
-			CallForTimescale(HitTachyon, true, 0.01f);
-			bGameEnder = true;
-			ExtendDuration(1.0f);
+			// Bot killed
+			if (HitTachyon->ActorHasTag("Bot"))
+			{
+				CallForTimescale(HitTachyon, true, 0.5f);
+				GEngine->AddOnScreenDebugMessage(-1, 4.5f, FColor::White, FString::Printf(TEXT("%s was killed"), *HitTachyon->GetName()));
+			}
+			else
+			{
+				// Player dead
+				CallForTimescale(HitTachyon, true, 0.01f);
+				bGameEnder = true;
+				ExtendDuration(1.0f);
+				GEngine->AddOnScreenDebugMessage(-1, 4.5f, FColor::White, FString::Printf(TEXT("You were killed")));
+			}
 		}
 		else
 		{
@@ -949,13 +959,31 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		// Alternate win condition - timeout
 		if (Mark->CustomTimeDilation < 0.01f)
 		{
-			CallForTimescale(Mark, true, 0.01f);
-			bGameEnder = true;
+			if (Mark->ActorHasTag("Bot"))
+			{
+				CallForTimescale(Mark, true, 0.5f);
+				GEngine->AddOnScreenDebugMessage(-1, 4.5f, FColor::White, FString::Printf(TEXT("%s was frozen"), *Mark->GetName()));
+			}
+			else
+			{
+				CallForTimescale(Mark, true, 0.01f);
+				bGameEnder = true;
+				GEngine->AddOnScreenDebugMessage(-1, 4.5f, FColor::White, FString::Printf(TEXT("You were frozen")));
+			}
 		}
 		else if (Shooter->CustomTimeDilation < 0.01f)
 		{
-			CallForTimescale(Shooter, true, 0.01f);
-			bGameEnder = true;
+			if (Mark->ActorHasTag("Bot"))
+			{
+				CallForTimescale(Mark, true, 0.5f);
+				GEngine->AddOnScreenDebugMessage(-1, 4.5f, FColor::White, FString::Printf(TEXT("%s was frozen"), *Mark->GetName()));
+			}
+			else
+			{
+				CallForTimescale(Shooter, true, 0.01f);
+				bGameEnder = true;
+				GEngine->AddOnScreenDebugMessage(-1, 4.5f, FColor::White, FString::Printf(TEXT("You were frozen")));
+			}
 		}
 
 		// Modify Health of Mark
