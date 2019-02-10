@@ -110,6 +110,12 @@ public:
 	float TurnSpeed = 3600.0f;
 
 	UPROPERTY(EditDefaultsOnly)
+	float BrakeStrength = 15.0f;
+
+	UPROPERTY(EditDefaultsOnly)
+	float RecoverStrength = 2.1f;
+
+	UPROPERTY(EditDefaultsOnly)
 	float AttackFireRate = 0.5f;
 
 	UPROPERTY(EditDefaultsOnly)
@@ -193,6 +199,15 @@ public:
 
 	UFUNCTION()
 	void DisengageJump();
+
+	UFUNCTION()
+	void StartBrake();
+
+	UFUNCTION()
+	void EndBrake();
+
+	UFUNCTION()
+	void RecoverTime();
 
 	UFUNCTION(BlueprintCallable)
 	void ReceiveKnockback(FVector Knockback, bool bOverrideVelocity);

@@ -95,7 +95,9 @@ void ATachyonGameStateBase::RestartGame()
 				if (Attack != nullptr)
 				{
 					if (Role == ROLE_Authority)
+					{
 						Attack->Neutralize();
+					}
 				}
 			}
 		}
@@ -158,6 +160,11 @@ void ATachyonGameStateBase::RestartGame()
 						Player->ModifyHealth(100.0f);
 						Player->GetCharacterMovement()->Velocity *= 0.05f;
 						SetActorTimescale(Player, 1.0f);
+
+						FVector ResetLocation = FMath::VRand() * 1000.0f;
+						ResetLocation = ResetLocation.GetClampedToSize(200.0f, 1000.0f);
+						ResetLocation.Y = 0.0f;
+						Player->SetActorLocation(ResetLocation);
 					}
 				}
 			}

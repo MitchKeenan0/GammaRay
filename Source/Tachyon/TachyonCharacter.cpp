@@ -49,7 +49,6 @@ ATachyonCharacter::ATachyonCharacter(const FObjectInitializer& ObjectInitializer
 	bUseControllerRotationRoll = true;
 
 	GetCharacterMovement()->bOrientRotationToMovement = true;
-	//GetCharacterMovement()->BrakingFrictionFactor = 50.0f;
 
 	AttackScene = CreateDefaultSubobject<USceneComponent>(TEXT("AttackScene"));
 	AttackScene->SetupAttachment(RootComponent);
@@ -101,6 +100,7 @@ void ATachyonCharacter::BeginPlay()
 	GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed;
 	//GetCharacterMovement()->bOrientRotationToMovement = true;
 	//GetCharacterMovement()->BrakingFrictionFactor = 50.0f;
+	GetCharacterMovement()->BrakingFrictionFactor = BrakeStrength;
 
 	// Spawn player's weapon & jump objects
 	SpawnAbilities();
@@ -256,10 +256,14 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 	// Actions
 	PlayerInputComponent->BindAction("Attack", IE_Pressed, this, &ATachyonCharacter::StartFire);
 	PlayerInputComponent->BindAction("Attack", IE_Released, this, &ATachyonCharacter::EndFire);
-	PlayerInputComponent->BindAction("Shield", IE_Pressed, this, &ATachyonCharacter::Shield);
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ATachyonCharacter::StartJump);
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ATachyonCharacter::EndJump);
+	PlayerInputComponent->BindAction("Brake", IE_Pressed, this, &ATachyonCharacter::StartBrake);
+	PlayerInputComponent->BindAction("Brake", IE_Released, this, &ATachyonCharacter::EndBrake);
+	
+	PlayerInputComponent->BindAction("Recover", IE_Pressed, this, &ATachyonCharacter::RecoverTime);
 	PlayerInputComponent->BindAction("SummonBot", IE_Pressed, this, &ATachyonCharacter::RequestBots);
+	PlayerInputComponent->BindAction("Shield", IE_Pressed, this, &ATachyonCharacter::Shield);
 	PlayerInputComponent->BindAction("Restart", IE_Pressed, this, &ATachyonCharacter::RestartGame);
 
 	// Axes
@@ -388,6 +392,24 @@ void ATachyonCharacter::DisengageJump()
 {
 	GetCharacterMovement()->MaxAcceleration = MoveSpeed;
 	GetCharacterMovement()->MaxFlySpeed = MaxMoveSpeed;
+}
+
+///////////////////////////////////////////////////////////////////////
+// HANDBRAKE
+void ATachyonCharacter::StartBrake()
+{
+	GetCharacterMovement()->BrakingFrictionFactor = BrakeStrength * 10.0f;
+}
+
+void ATachyonCharacter::EndBrake()
+{
+	GetCharacterMovement()->BrakingFrictionFactor = BrakeStrength;
+}
+
+void ATachyonCharacter::RecoverTime()
+{
+	float NewTimeDilation = FMath::Clamp(CustomTimeDilation * RecoverStrength, 0.0f, 1.0f);
+	CustomTimeDilation = NewTimeDilation;
 }
 
 
@@ -642,9 +664,9 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				float Vertical = FMath::Abs(( Actor2->GetActorLocation() - Actor1->GetActorLocation() ).Z);
 				bool bInRange = (FVector::Dist(Actor1->GetActorLocation(), Actor2->GetActorLocation()) <= PairDistanceThreshold)
 					&& (Vertical <= (PairDistanceThreshold * 0.9f));
-				//bool TargetVisible = Actor2->WasRecentlyRendered(0.2f);
+				bool TargetVisible = Actor2->WasRecentlyRendered(0.2f);
 
-				if (bInRange)// && TargetVisible)
+				if (bInRange && TargetVisible)
 				{
 					bAlone = false;
 
@@ -683,6 +705,10 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 			float MidpointBias = 0.5f;
 			FVector TargetMidpoint = PositionOne + ((PositionTwo - PositionOne) * MidpointBias);
 			float MidpointInterpSpeed = 10.0f * FMath::Clamp(TargetMidpoint.Size() * 0.01f, 10.0f, 100.0f) * (1.0f / CustomTimeDilation);
+			if (!Actor1->WasRecentlyRendered(0.1f))
+			{
+				MidpointInterpSpeed *= 100.0f;
+			}
 
 			Midpoint = FMath::VInterpTo(Midpoint, TargetMidpoint, DeltaTime, MidpointInterpSpeed); /// TargetMidpoint; /// 
 			if (Midpoint.Size() > 0.0f)
@@ -730,22 +756,23 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 					TargetLengthClamped, DeltaTime, (VelocityCameraSpeed * 0.5f) * InverseTimeSpeed);
 
 				// Narrowing and expanding camera FOV for closeup and outer zones
-				float ScalarSize = FMath::Clamp(DistBetweenActors * 0.005f, 0.5f, 50.0f);
+				float ActorsDist = DistBetweenActors;
 				float FOVTimeScalar = FMath::Clamp(GlobalTimeScale, 0.5f, 1.0f);
-				float FOV = 19.9f;
-				float FOVSpeed = 10.0f;
+				float FOV = SideViewCameraComponent->FieldOfView;
 				float Verticality = FMath::Abs((PositionOne - PositionTwo).Z);
+				float FOVSpeed = CameraMoveSpeed;
 
-				// Inner and Outer zones
+				// Inne zone
 				if ((DistBetweenActors <= 150.0f) && !bAlone)
 				{
 					FOV = 21.5f;
 				}
 				
+				// Outer Zone
 				if (((DistBetweenActors > 100.0f) || (Verticality >= 50.0f))
 					&& !bAlone)
 				{
-					float WideAngleFOV = FMath::Clamp((0.033f * DistBetweenActors), 30.0f, 120.0f);
+					float WideAngleFOV = FMath::Clamp((0.033f * DistBetweenActors), 30.0f, 100.0f);
 					FOV = WideAngleFOV;
 				}
 				
@@ -757,14 +784,14 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				}
 				
 				FOV *= CameraFOVScalar;
-				FOV = FMath::Clamp(FOV, 20.0f, 120.0f);
+				FOV = FMath::Clamp(FOV, 20.0f, 100.0f);
 
 				// Set FOV
 				SideViewCameraComponent->FieldOfView = FMath::FInterpTo(
 					SideViewCameraComponent->FieldOfView,
 					FOV,
 					DeltaTime,
-					FOVSpeed * ScalarSize);
+					FOVSpeed);
 
 				// Make it so
 				CameraBoom->SetWorldLocation(Midpoint);
@@ -856,8 +883,7 @@ void ATachyonCharacter::ServerUpdateBody_Implementation(float DeltaTime)
 		&& (CustomTimeDilation < 1.0f))
 	{
 		float RecoverySpeed = 0.1f + (FMath::Sqrt(CustomTimeDilation) * TimescaleRecoverySpeed);
-		RecoverySpeed = FMath::Clamp(RecoverySpeed, 0.1f, 1.0f);
-		///GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("RecoverySpeed: %f"), RecoverySpeed));
+		RecoverySpeed = FMath::Clamp(RecoverySpeed, 0.01f, 10.0f);
 		
 		float InterpTime = FMath::FInterpTo(CustomTimeDilation, 1.0f, DeltaTime, RecoverySpeed);
 		NewTimescale(InterpTime);

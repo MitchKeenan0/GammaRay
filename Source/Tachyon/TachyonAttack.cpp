@@ -593,7 +593,7 @@ void ATachyonAttack::SetShooterInputEnabled(bool bEnabled)
 // HIT DELIVERY //////////////////////////////////////////////////////////
 void ATachyonAttack::TimedHit(float DeltaTime)
 {
-	DamageTimer += (DeltaTime * (1.0f/CustomTimeDilation));
+	DamageTimer += DeltaTime; //(DeltaTime * (1.0f / CustomTimeDilation));
 	float HitRate = (1.0f / ActualHitsPerSecond) * 0.1f;
 
 	if (DamageTimer >= HitRate)
@@ -774,7 +774,7 @@ void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, floa
 		KnockVector.Y = 0.0f;
 		KnockVector = KnockVector.GetClampedToMaxSize(KineticForce);
 
-		float Timescalar = (1.0f / HitActor->CustomTimeDilation);
+		float Timescalar = FMath::Clamp((1.0f / HitActor->CustomTimeDilation), 1.0f, 100.0f);
 		KnockVector *= Timescalar;
 
 		// Character case
@@ -824,17 +824,20 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 			}
 		}
 
+		float GlobalTime = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
+		if (GlobalTime == 1.0f)
+		{
+			// Update GameState
+			ReportHitToMatch(GetOwner(), HitActor);
 
-		// Update GameState
-		ReportHitToMatch(GetOwner(), HitActor);
+			SpawnHit(HitActor, HitLocation);
 
-		SpawnHit(HitActor, HitLocation);
+			ApplyKnockForce(HitActor, HitLocation, KineticForce);
 
-		ApplyKnockForce(HitActor, HitLocation, KineticForce);
+			ProjectileComponent->Velocity *= ProjectileDrag;
 
-		ProjectileComponent->Velocity *= ProjectileDrag;
-
-		ActualHitsPerSecond *= (HitsPerSecondDecay * CustomTimeDilation);
+			ActualHitsPerSecond *= (HitsPerSecondDecay * CustomTimeDilation);
+		}
 	}
 }
 
@@ -882,25 +885,22 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 
 		HitTachyon->ModifyHealth(-ActualAttackDamage);
 		
-		// Call it in
+		// Timescale damage
 		float TachyonHealth = HitTachyon->GetHealth();
 		if ((TachyonHealth - ActualAttackDamage) <= 0.0f)
 		{
+			// Lethal
 			CallForTimescale(HitTachyon, true, 0.01f);
-			//CallForTimescale(MyOwner, false, 0.05f);
-			//AttackParticles->CustomTimeDilation *= 0.15f;
 			bGameEnder = true;
 
 			GetWorldTimerManager().ClearTimer(TimerHandle_Neutralize);
-			//float NewNeutTime = GetWorld()->TimeSeconds + 1.0f;
-			//GetWorldTimerManager().SetTimer(TimerHandle_Neutralize, this, &ATachyonAttack::Neutralize, ActualDurationTime, false, ActualDurationTime);
 		}
 		else
 		{
-			// Basic hits
-			// Slow the target
+			// Non-lethal
 			float MarkTimescale = Mark->CustomTimeDilation;
-			float NewTimescale = MarkTimescale * TimescaleImpact; //MarkTimescale - (AttackMagnitude * TimescaleImpact);
+			float TimescaleDamage = (TimescaleImpact / (1.0f / MarkTimescale));
+			float NewTimescale = MarkTimescale * TimescaleDamage;
 			float HitTimescale = FMath::Clamp(NewTimescale, 0.00001f, 0.9f);
 
 			if (NewTimescale <= MarkTimescale)

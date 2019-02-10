@@ -212,8 +212,25 @@ void ATachyonAIController::NavigateTo(FVector TargetLocation)
 
 		SetControlRotation(BodyRotation);
 
+		// Braking
+		FVector MyVelocity = MyTachyonCharacter->GetCharacterMovement()->Velocity;
+		if (MyVelocity.Size() > 10.0f)
+		{
+			FVector VelNorm = MyVelocity.GetSafeNormal();
+			FVector DestNorm = ToTarget.GetSafeNormal();
+			float DotToTarget = FVector::DotProduct(VelNorm, DestNorm);
+			if (DotToTarget < 0.0f)
+			{
+				MyTachyonCharacter->StartBrake();
+			}
+			else
+			{
+				MyTachyonCharacter->EndBrake();
+			}
+		}
+
 		//GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Blue, FString::Printf(TEXT("Pitch: %f"), GetControlRotation().Pitch));
-		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Blue, FString::Printf(TEXT("ClimbDirection: %f"), ClimbDirection));
+		//GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Blue, FString::Printf(TEXT("ClimbDirection: %f"), ClimbDirection));
 	}
 }
 
