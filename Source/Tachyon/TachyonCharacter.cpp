@@ -479,6 +479,14 @@ void ATachyonCharacter::NewTimescale(float Value)
 		ServerNewTimescale(Value);
 	}
 
+	if (Value == 0.01f)
+	{
+		if (ActiveAttack != nullptr)
+		{
+			ActiveAttack->ReceiveTimescale(0.001f);
+		}
+	}
+
 	if (GetController() != nullptr)
 	{
 		float NewVignetteIntenso = 0.618f * FMath::Sqrt(1.0f / Value);
