@@ -217,6 +217,8 @@ public:
 
 	UFUNCTION()
 	void Recover();
+	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
+	void ServerRecover();
 
 	UFUNCTION(BlueprintCallable)
 	void ReceiveKnockback(FVector Knockback, bool bOverrideVelocity);

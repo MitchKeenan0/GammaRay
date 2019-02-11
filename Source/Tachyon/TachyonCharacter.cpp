@@ -412,28 +412,44 @@ void ATachyonCharacter::EndBrake()
 
 void ATachyonCharacter::Recover()
 {
-	if (UGameplayStatics::GetGlobalTimeDilation(GetWorld()) == 1.0f)
+	if (Role < ROLE_Authority)
 	{
-		// recoverable
-		if (MaxTimescale < 1.0f)
+		ServerRecover();
+	}
+	else 
+	{
+		if (UGameplayStatics::GetGlobalTimeDilation(GetWorld()) == 1.0f)
 		{
-			// significant
-			if ((MaxTimescale - CustomTimeDilation) > (0.1f * CustomTimeDilation))
+			// recoverable
+			if (MaxTimescale < 1.0f)
 			{
-				float HealthCost = FMath::Abs(1.0f - CustomTimeDilation) * RecoverStrength * 100.0f;
-
-				MaxTimescale = FMath::Clamp((MaxTimescale + RecoverStrength), 0.1f, 1.0f);
-				ModifyHealth(-HealthCost, false);
-
-				if (RecoverEffect != nullptr)
+				// significant
+				if ((MaxTimescale - CustomTimeDilation) >(0.1f * CustomTimeDilation))
 				{
-					FVector Loc = GetActorLocation();
-					FRotator Roc = GetActorRotation();
-					UGameplayStatics::SpawnEmitterAttached(RecoverEffect, GetRootComponent(), NAME_None, Loc, Roc, EAttachLocation::KeepWorldPosition);
+					float HealthCost = FMath::Abs(1.0f - CustomTimeDilation) * RecoverStrength * 100.0f;
+
+					MaxTimescale = FMath::Clamp((MaxTimescale + RecoverStrength), 0.1f, 1.0f);
+					CustomTimeDilation += 0.1f;
+					ModifyHealth(-HealthCost, false);
+
+					if (RecoverEffect != nullptr)
+					{
+						FVector Loc = GetActorLocation();
+						FRotator Roc = GetActorRotation();
+						UGameplayStatics::SpawnEmitterAttached(RecoverEffect, GetRootComponent(), NAME_None, Loc, Roc, EAttachLocation::KeepWorldPosition);
+					}
 				}
 			}
 		}
 	}
+}
+void ATachyonCharacter::ServerRecover_Implementation()
+{
+	Recover();
+}
+bool ATachyonCharacter::ServerRecover_Validate()
+{
+	return true;
 }
 
 
@@ -521,7 +537,7 @@ void ATachyonCharacter::NewTimescale(float Value)
 
 	if (GetController() != nullptr)
 	{
-		float NewVignetteIntenso = 0.618f * FMath::Sqrt(1.0f / Value);
+		float NewVignetteIntenso = 0.3f * FMath::Sqrt(1.0f / Value);
 		NewVignetteIntenso = FMath::Clamp(NewVignetteIntenso, 0.0f, 1.0f);
 		SideViewCameraComponent->PostProcessSettings.VignetteIntensity = NewVignetteIntenso;
 		//GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("NewVignetteIntenso: %f"), NewVignetteIntenso));
@@ -682,7 +698,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				SpeedScalar = FMath::Sqrt(PlayerSpeed) * 0.1f;
 
 			float PersonalScalar = 1.0f + (36.0f * ChargeScalar * SpeedScalar) * (FMath::Sqrt(SafeVelocitySize));
-			float CameraMinimumDistance = (3500.0f * CameraDistanceScalar) + (PersonalScalar * CameraDistanceScalar); // (1100.0f + PersonalScalar)
+			float CameraMinimumDistance = (3500.0f * CameraDistanceScalar) + (PersonalScalar * CameraDistanceScalar);
 			float CameraMaxDistance = 11551000.0f;
 
 			// If Actor2 is valid, make Pair Framing
@@ -691,23 +707,20 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 			{
 
 				// Distance check i.e pair bounds
-				float PairDistanceThreshold = 5000.0f + FMath::Clamp(Actor1->GetVelocity().Size() * 2.5f, 5000.0f, 15000.0f); /// formerly 3000.0f
+				float PairDistanceThreshold = 100.0f + FMath::Clamp(Actor1->GetVelocity().Size(), 500.0f, 1000.0f);
 				if (this->ActorHasTag("Spectator"))
 				{
 					PairDistanceThreshold *= 3.3f;
 				}
-				/*if (!Actor2->ActorHasTag("Player"))
-				{
-					PairDistanceThreshold *= 0.5f;
-				}*/
 
 				// Special care taken for vertical as we are probably widescreen
 				float Vertical = FMath::Abs(( Actor2->GetActorLocation() - Actor1->GetActorLocation() ).Z);
 				bool bInRange = (FVector::Dist(Actor1->GetActorLocation(), Actor2->GetActorLocation()) <= PairDistanceThreshold)
 					&& (Vertical <= (PairDistanceThreshold * 0.9f));
-				bool TargetVisible = Actor2->WasRecentlyRendered(0.2f);
+				bool TargetVisible = Actor2->WasRecentlyRendered(0.01f);
 
-				if (bInRange && TargetVisible)
+				if (bInRange && TargetVisible
+					&& Actor1->WasRecentlyRendered(0.01f))
 				{
 					bAlone = false;
 
@@ -758,7 +771,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				// Distance
 				float DistBetweenActors = FVector::Dist(PositionOne, PositionTwo);
 				float ProcessedDist = (FMath::Sqrt(DistBetweenActors) * 1500.0f);
-				float VerticalDist = FMath::Abs((PositionTwo - PositionOne).Z) * 2.1f;
+				float VerticalDist = FMath::Abs((PositionTwo - PositionOne).Z) * 10.0f;
 
 				// Handle horizontal bias
 				float DistancePreClamp = ProcessedDist + FMath::Sqrt(VerticalDist);
@@ -774,20 +787,20 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				//	TargetLength += PrefireProduct;
 				//}
 
-				// Last modifier for global time dilation
-				float RefinedGScalar = FMath::Clamp(GlobalTimeScale, 0.5f, 1.0f);
-				if (GlobalTimeScale < 0.02f)
+				// Modifier for global time dilation
+				/*if (GlobalTimeScale < 0.02f)
 				{
 					TargetLength *= 0.5f;
 					VelocityCameraSpeed *= 15.0f;
-				}
+				}*/
 				if (GlobalTimeScale <= 0.1f)
 				{
+					float RefinedGScalar = FMath::Clamp(GlobalTimeScale, 0.62f, 1.0f);
 					TargetLength *= RefinedGScalar;
 				}
 
 				// Clamp useable distance
-				float TargetLengthClamped = FMath::Clamp(FMath::Sqrt(TargetLength * 215.0f) * ConsideredDistanceScalar,
+				float TargetLengthClamped = FMath::Clamp(FMath::Sqrt(TargetLength) * 15.0f * ConsideredDistanceScalar,
 					CameraMinimumDistance,
 					CameraMaxDistance);
 

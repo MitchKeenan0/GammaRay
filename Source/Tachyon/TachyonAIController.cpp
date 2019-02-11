@@ -254,7 +254,7 @@ void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 	}
 
 	// Aim - leads to attacks and secondaries////////////////////////
-	if ((RangeToTarget <= 3000.0f) && MyTachyonCharacter->WasRecentlyRendered(0.3f))
+	if ((RangeToTarget <= 3000.0f) && MyTachyonCharacter->WasRecentlyRendered(0.5f))
 	{
 
 		/// initializing charge

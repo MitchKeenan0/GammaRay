@@ -79,7 +79,7 @@ bool ATachyonAttack::IsArmed()
 	AActor* MyOwner = GetOwner();
 	if (MyOwner != nullptr)
 	{
-		Result = bInitialized || bLethal || !bNeutralized;
+		Result = bLethal; // bInitialized || bLethal || !bNeutralized;
 	}
 
 	return Result;
@@ -230,6 +230,9 @@ void ATachyonAttack::SpawnBurst()
 
 void ATachyonAttack::MainEffects()
 {
+	bLethal = true;
+	bDoneLethal = false;
+
 	ActivateParticles();
 
 	if (AttackSound != nullptr)
@@ -253,6 +256,12 @@ void ATachyonAttack::MainEffects()
 	if (CurrentBurstObject != nullptr)
 	{
 		CurrentBurstObject->SetLifeSpan(0.01f);
+	}
+
+	if (Role == ROLE_Authority)
+	{
+		FVector RecoilLocation = (GetActorForwardVector() * 10.0f) - MyOwner->GetActorLocation();
+		ApplyKnockForce(OwningShooter, RecoilLocation, RecoilForce * AttackMagnitude); // MyOwner
 	}
 }
 
@@ -325,8 +334,8 @@ void ATachyonAttack::Lethalize()
 		ServerLethalize();
 	}
 
-	bLethal = true;
-	bDoneLethal = false;
+	//bLethal = true;
+	//bDoneLethal = false;
 
 	GetWorldTimerManager().ClearTimer(TimerHandle_DeliveryTime);
 	
@@ -389,9 +398,6 @@ void ATachyonAttack::Lethalize()
 				GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, RefireTiming, true, ActualDeliveryTime);
 
 				SetInitVelocities();
-
-				FVector RecoilLocation = MyOwner->GetActorLocation() + (GetActorForwardVector() * 10.0f);
-				ApplyKnockForce(OwningShooter, RecoilLocation, RecoilForce); // MyOwner
 			}
 
 			HitTimer = (1.0f / ActualHitsPerSecond) * CustomTimeDilation;
@@ -792,6 +798,10 @@ void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, floa
 	{
 		// Init intended force
 		FVector KnockDirection = (HitActor->GetActorLocation() - MyOwner->GetActorLocation()).GetSafeNormal();
+		if (KnockDirection.Size() < 1.0f)
+		{
+			KnockDirection = GetActorForwardVector().GetSafeNormal();
+		}
 		FVector KnockVector = KnockDirection * KineticForce * HitScalar;
 		KnockVector.Y = 0.0f;
 		KnockVector = KnockVector.GetClampedToMaxSize(KineticForce);
@@ -849,8 +859,7 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 		float GlobalTime = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
 		if (GlobalTime == 1.0f)
 		{
-			ApplyKnockForce(HitActor, HitLocation, KineticForce);
-
+			
 			// Update GameState
 			ReportHitToMatch(GetOwner(), HitActor);
 
@@ -859,6 +868,8 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 			ProjectileComponent->Velocity *= ProjectileDrag;
 
 			ActualHitsPerSecond *= (HitsPerSecondDecay * CustomTimeDilation);
+
+			ApplyKnockForce(HitActor, HitLocation, KineticForce);
 		}
 	}
 }
@@ -915,6 +926,7 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 			if (HitTachyon->ActorHasTag("Bot"))
 			{
 				CallForTimescale(HitTachyon, true, 0.5f);
+				HitTachyon->GetMesh()->SetVisibility(false, true);
 				GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::White, FString::Printf(TEXT("%s was killed"), *HitTachyon->GetName()));
 			}
 			else
