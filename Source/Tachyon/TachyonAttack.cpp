@@ -72,6 +72,20 @@ void ATachyonAttack::BeginPlay()
 }
 
 
+bool ATachyonAttack::IsArmed()
+{
+	bool Result = false;
+	
+	AActor* MyOwner = GetOwner();
+	if (MyOwner != nullptr)
+	{
+		Result = bInitialized || bLethal || !bNeutralized;
+	}
+
+	return Result;
+}
+
+
 // INPUT RECEPTION /////////////////////////////////////////////
 void ATachyonAttack::StartFire()
 {
@@ -351,7 +365,7 @@ void ATachyonAttack::Lethalize()
 			ATachyonCharacter* ShooterCharacter = Cast<ATachyonCharacter>(OwningShooter);
 			if (ShooterCharacter != nullptr)
 			{
-				float ShooterTimeDilation = OwningShooter->CustomTimeDilation * (ShooterSlow * 0.5f);
+				float ShooterTimeDilation = OwningShooter->CustomTimeDilation * ShooterSlow;
 				ShooterTimeDilation = FMath::Clamp(ShooterTimeDilation, 0.3f, 0.9f);
 
 				if (OwningShooter->CustomTimeDilation > ShooterTimeDilation)
@@ -781,7 +795,7 @@ void ATachyonAttack::ApplyKnockForce(AActor* HitActor, FVector HitLocation, floa
 		FVector KnockVector = KnockDirection * KineticForce * HitScalar;
 		KnockVector.Y = 0.0f;
 		KnockVector = KnockVector.GetClampedToMaxSize(KineticForce);
-
+		KnockVector *= (1.0f / AttackMagnitude);
 		float Timescalar = FMath::Clamp((1.0f / HitActor->CustomTimeDilation), 1.0f, 100.0f);
 		KnockVector *= Timescalar;
 
@@ -835,12 +849,12 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 		float GlobalTime = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
 		if (GlobalTime == 1.0f)
 		{
+			ApplyKnockForce(HitActor, HitLocation, KineticForce);
+
 			// Update GameState
 			ReportHitToMatch(GetOwner(), HitActor);
 
 			SpawnHit(HitActor, HitLocation);
-
-			ApplyKnockForce(HitActor, HitLocation, KineticForce);
 
 			ProjectileComponent->Velocity *= ProjectileDrag;
 
@@ -867,7 +881,7 @@ void ATachyonAttack::RemoteHit(AActor* Target, float Damage)
 		ATachyonCharacter* HitTachyon = Cast<ATachyonCharacter>(Target);
 		if ((HitTachyon != nullptr) && (HitTachyon != OwningShooter))
 		{
-			HitTachyon->ModifyHealth(-Damage);
+			HitTachyon->ModifyHealth(-Damage, true);
 			CallForTimescale(HitTachyon, false, 0.5f);
 			ApplyKnockForce(OwningShooter, HitTachyon->GetActorLocation(), RecoilForce * 1000000.0f);
 		}
@@ -891,7 +905,7 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 			}
 		}
 
-		HitTachyon->ModifyHealth(-ActualAttackDamage);
+		HitTachyon->ModifyHealth(-ActualAttackDamage, true);
 		
 		// Timescale damage
 		float TachyonHealth = HitTachyon->GetHealth();
@@ -901,7 +915,7 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 			if (HitTachyon->ActorHasTag("Bot"))
 			{
 				CallForTimescale(HitTachyon, true, 0.5f);
-				GEngine->AddOnScreenDebugMessage(-1, 4.5f, FColor::White, FString::Printf(TEXT("%s was killed"), *HitTachyon->GetName()));
+				GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::White, FString::Printf(TEXT("%s was killed"), *HitTachyon->GetName()));
 			}
 			else
 			{
@@ -909,22 +923,24 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 				CallForTimescale(HitTachyon, true, 0.01f);
 				bGameEnder = true;
 				ExtendDuration(1.0f);
-				GEngine->AddOnScreenDebugMessage(-1, 4.5f, FColor::White, FString::Printf(TEXT("You were killed")));
+				GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::White, FString::Printf(TEXT("You were killed")));
 			}
 		}
 		else
 		{
 			// Non-lethal
-			float MarkTimescale = Mark->CustomTimeDilation;
-			float TimescaleDamage = (TimescaleImpact / (1.0f / MarkTimescale));
+			float MarkTimescale = HitTachyon->CustomTimeDilation;
+			float TimescaleDamage = TimescaleImpact * FMath::Sqrt(MarkTimescale);
 			float NewTimescale = MarkTimescale * TimescaleDamage;
 			float HitTimescale = FMath::Clamp(NewTimescale, 0.00001f, 0.9f);
+			HitTachyon->SetMaxTimescale(MarkTimescale);
+			//GEngine->AddOnScreenDebugMessage(-1, 4.5f, FColor::White, FString::Printf(TEXT("NewTimescale: %f"), NewTimescale));
 
-			if (NewTimescale <= MarkTimescale)
+			if (HitTimescale <= MarkTimescale)
 			{
 				if (Role == ROLE_Authority)
 				{
-					CallForTimescale(Mark, false, HitTimescale);
+					CallForTimescale(HitTachyon, false, HitTimescale);
 				}
 			}
 
@@ -947,42 +963,43 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		if (Role == ROLE_Authority)
 		{
 			Shooter->ForceNetUpdate();
-			Mark->ForceNetUpdate();
+			HitTachyon->ForceNetUpdate();
 
 			if (AttackParticles != nullptr)
 			{
-				AttackParticles->CustomTimeDilation *= 0.99f;
+				AttackParticles->CustomTimeDilation *= 0.5f;
 				AttackParticles->CustomTimeDilation = FMath::Clamp(AttackParticles->CustomTimeDilation, 0.005f, 1.0f);
+				
 			}
 		}
 
 		// Alternate win condition - timeout
-		if (Mark->CustomTimeDilation < 0.01f)
+		if (HitTachyon->CustomTimeDilation < 0.01f)
 		{
-			if (Mark->ActorHasTag("Bot"))
+			if (HitTachyon->ActorHasTag("Bot"))
 			{
-				CallForTimescale(Mark, true, 0.5f);
-				GEngine->AddOnScreenDebugMessage(-1, 4.5f, FColor::White, FString::Printf(TEXT("%s was frozen"), *Mark->GetName()));
+				CallForTimescale(HitTachyon, true, 0.05f);
+				GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::White, FString::Printf(TEXT("%s was frozen"), *Mark->GetName()));
 			}
 			else
 			{
-				CallForTimescale(Mark, true, 0.01f);
+				CallForTimescale(HitTachyon, true, 0.01f);
 				bGameEnder = true;
-				GEngine->AddOnScreenDebugMessage(-1, 4.5f, FColor::White, FString::Printf(TEXT("You were frozen")));
+				GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::White, FString::Printf(TEXT("You were frozen")));
 			}
 		}
 		else if (Shooter->CustomTimeDilation < 0.01f)
 		{
-			if (Mark->ActorHasTag("Bot"))
+			if (HitTachyon->ActorHasTag("Bot"))
 			{
-				CallForTimescale(Mark, true, 0.5f);
-				GEngine->AddOnScreenDebugMessage(-1, 4.5f, FColor::White, FString::Printf(TEXT("%s was frozen"), *Mark->GetName()));
+				CallForTimescale(HitTachyon, true, 0.05f);
+				GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::White, FString::Printf(TEXT("%s was frozen"), *HitTachyon->GetName()));
 			}
 			else
 			{
 				CallForTimescale(Shooter, true, 0.01f);
 				bGameEnder = true;
-				GEngine->AddOnScreenDebugMessage(-1, 4.5f, FColor::White, FString::Printf(TEXT("You were frozen")));
+				GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::White, FString::Printf(TEXT("You were frozen")));
 			}
 		}
 

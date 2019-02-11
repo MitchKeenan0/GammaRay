@@ -133,6 +133,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, Replicated)
 	float MaxHealth = 100.0f;
 
+	UPROPERTY(EditDefaultsOnly, Replicated)
+	float MaxTimescale = 1.0f;
+
 	UPROPERTY(EditDefaultsOnly)
 	float TimescaleRecoverySpeed = 10.0f;
 
@@ -165,6 +168,12 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	float GetMaxHealth() { return MaxHealth; }
+
+	UFUNCTION(BlueprintCallable)
+	void SetMaxTimescale(float Value);
+
+	UFUNCTION(BlueprintCallable)
+	float GetMaxTimescale() { return MaxTimescale; }
 
 	UFUNCTION(BlueprintCallable)
 	float GetHealthDelta() { return FMath::Clamp(FMath::Abs(Health - MaxHealth), 0.1f, 50.0f); }
@@ -207,7 +216,7 @@ public:
 	void EndBrake();
 
 	UFUNCTION()
-	void RecoverTime();
+	void Recover();
 
 	UFUNCTION(BlueprintCallable)
 	void ReceiveKnockback(FVector Knockback, bool bOverrideVelocity);
@@ -217,9 +226,9 @@ public:
 	void MulticastReceiveKnockback(FVector Knockback, bool bOverrideVelocity);
 
 	UFUNCTION(BlueprintCallable)
-	void ModifyHealth(float Value);
+	void ModifyHealth(float Value, bool Lethal);
 	UFUNCTION(Server, BlueprintCallable, reliable, WithValidation)
-	void ServerModifyHealth(float Value);
+	void ServerModifyHealth(float Value, bool Lethal);
 
 	UFUNCTION(BlueprintCallable)
 	void NewTimescale(float Value);
@@ -321,6 +330,9 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "NearDeath")
 	UParticleSystem* NearDeathEffect = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recover")
+	UParticleSystem* RecoverEffect = nullptr;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "SurfaceReaction")
 	UParticleSystem* SurfaceHitEffect = nullptr;

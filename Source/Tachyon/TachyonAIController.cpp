@@ -53,7 +53,7 @@ void ATachyonAIController::AquirePlayer()
 				ATachyonCharacter* CurrentTachyon = Cast<ATachyonCharacter>(CurrentActor);
 				if (CurrentTachyon != nullptr)
 				{
-					if (CurrentTachyon != MyTachyonCharacter)
+					if ((CurrentTachyon != MyTachyonCharacter) && (!CurrentActor->ActorHasTag("Surface")))
 					{
 						Player = CurrentTachyon;
 						return;
@@ -241,8 +241,20 @@ void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 	FVector ToTarget = TargetActor->GetActorLocation() - MyTachyonCharacter->GetActorLocation();
 	float RangeToTarget = ToTarget.Size();
 
+	float MyMaxTimescale = MyTachyonCharacter->GetMaxTimescale();
+	float MyHealth = MyTachyonCharacter->GetHealth();
+	if (MyMaxTimescale < 0.7f)
+	{
+		float HealthRiskRewardPercent = (10.0f / MyHealth); /// 100=0.1  50=0.2  30=0.3  10=1
+		if ((FMath::FRand() + HealthRiskRewardPercent) > 1.0f)
+		{
+			MyTachyonCharacter->Recover();
+			return;
+		}
+	}
+
 	// Aim - leads to attacks and secondaries////////////////////////
-	if (RangeToTarget <= 3000.0f)
+	if ((RangeToTarget <= 3000.0f) && MyTachyonCharacter->WasRecentlyRendered(0.3f))
 	{
 
 		/// initializing charge
@@ -340,8 +352,7 @@ void ATachyonAIController::AimAtTarget(AActor* TargetActor)
 bool ATachyonAIController::ReactionTimeIsNow(float DeltaTime)
 {
 	bool Result = false;
-	float GlobalTime = UGameplayStatics::GetGlobalTimeDilation(GetWorld());
-	float TimeScalar = (1.0f / GlobalTime);
+	float TimeScalar = (1.0f / MyTachyonCharacter->CustomTimeDilation);
 	ReactionTimer += (DeltaTime * TimeScalar);
 
 	if (ReactionTimer >= ReactionTime)

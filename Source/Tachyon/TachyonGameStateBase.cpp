@@ -158,7 +158,7 @@ void ATachyonGameStateBase::RestartGame()
 				{
 					if (Role == ROLE_Authority)
 					{
-						Player->ModifyHealth(100.0f);
+						Player->ModifyHealth(100.0f, false);
 						Player->GetCharacterMovement()->Velocity *= 0.05f;
 						SetActorTimescale(Player, 1.0f);
 

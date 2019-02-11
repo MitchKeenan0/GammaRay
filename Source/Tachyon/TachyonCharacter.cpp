@@ -156,7 +156,7 @@ void ATachyonCharacter::SpawnAbilities()
 			}
 		}
 
-		if (NearDeathEffect != nullptr)
+		/*if (NearDeathEffect != nullptr)
 		{
 			ActiveDeath = UGameplayStatics::SpawnEmitterAttached(NearDeathEffect, GetRootComponent(), NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition);
 			if (ActiveDeath != nullptr)
@@ -164,7 +164,7 @@ void ATachyonCharacter::SpawnAbilities()
 				ActiveDeath->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
 				ActiveDeath->Deactivate();
 			}
-		}
+		}*/
 	}
 }
 
@@ -233,15 +233,19 @@ void ATachyonCharacter::Tick(float DeltaTime)
 
 	
 
-	// Hacky stuff
-	if ((Health <= 0.0f) && !bSpawnedDeath &&
-		(ActiveDeath != nullptr)) ///  && 
+	// Spawn death effect
+	if (((Health <= 0.0f) || (CustomTimeDilation < 0.01f)) && !bSpawnedDeath)
 	{
-		if (ActiveDeath != nullptr)
+		if (NearDeathEffect != nullptr)
 		{
-			ActiveDeath->Activate();
-			ActiveDeath->CustomTimeDilation = FMath::Clamp(CustomTimeDilation, 0.1f, 1.0f);
-			bSpawnedDeath = true;
+			ActiveDeath = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), NearDeathEffect, GetActorTransform(), true);
+			if (ActiveDeath != nullptr)
+			{
+				ActiveDeath->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
+				ActiveDeath->SetWorldTransform(GetActorTransform());
+				bSpawnedDeath = true;
+				ActiveDeath->bAutoDestroy = true;
+			}
 		}
 	}
 }
@@ -261,7 +265,7 @@ void ATachyonCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 	PlayerInputComponent->BindAction("Brake", IE_Pressed, this, &ATachyonCharacter::StartBrake);
 	PlayerInputComponent->BindAction("Brake", IE_Released, this, &ATachyonCharacter::EndBrake);
 	
-	PlayerInputComponent->BindAction("Recover", IE_Pressed, this, &ATachyonCharacter::RecoverTime);
+	PlayerInputComponent->BindAction("Recover", IE_Pressed, this, &ATachyonCharacter::Recover);
 	PlayerInputComponent->BindAction("SummonBot", IE_Pressed, this, &ATachyonCharacter::RequestBots);
 	PlayerInputComponent->BindAction("Shield", IE_Pressed, this, &ATachyonCharacter::Shield);
 	PlayerInputComponent->BindAction("Restart", IE_Pressed, this, &ATachyonCharacter::RestartGame);
@@ -285,7 +289,7 @@ void ATachyonCharacter::MoveRight(float Value)
 		{
 			if ((ActiveBoost != nullptr) && (Value != 0.0f))
 			{
-				ActiveBoost->StartJump();
+				StartJump();
 			}
 
 			InputX = Value;
@@ -310,7 +314,7 @@ void ATachyonCharacter::MoveUp(float Value)
 		{
 			if ((ActiveBoost != nullptr) && (Value != 0.0f))
 			{
-				ActiveBoost->StartJump();
+				StartJump();
 			}
 
 			InputZ = Value;
@@ -360,7 +364,7 @@ void ATachyonCharacter::BotMove(float X, float Z)
 // JUMP
 void ATachyonCharacter::StartJump()
 {
-	if ((ActiveAttack != nullptr) && !ActiveAttack->IsInitialized())
+	if ((ActiveAttack != nullptr) && !ActiveAttack->IsArmed())
 	{
 		if (ActiveBoost != nullptr)
 		{
@@ -398,7 +402,7 @@ void ATachyonCharacter::DisengageJump()
 // HANDBRAKE
 void ATachyonCharacter::StartBrake()
 {
-	GetCharacterMovement()->BrakingFrictionFactor = BrakeStrength * 10.0f;
+	GetCharacterMovement()->BrakingFrictionFactor = BrakeStrength * BrakeStrength;
 }
 
 void ATachyonCharacter::EndBrake()
@@ -406,10 +410,30 @@ void ATachyonCharacter::EndBrake()
 	GetCharacterMovement()->BrakingFrictionFactor = BrakeStrength;
 }
 
-void ATachyonCharacter::RecoverTime()
+void ATachyonCharacter::Recover()
 {
-	float NewTimeDilation = FMath::Clamp(CustomTimeDilation * RecoverStrength, 0.0f, 1.0f);
-	CustomTimeDilation = NewTimeDilation;
+	if (UGameplayStatics::GetGlobalTimeDilation(GetWorld()) == 1.0f)
+	{
+		// recoverable
+		if (MaxTimescale < 1.0f)
+		{
+			// significant
+			if ((MaxTimescale - CustomTimeDilation) > (0.1f * CustomTimeDilation))
+			{
+				float HealthCost = FMath::Abs(1.0f - CustomTimeDilation) * RecoverStrength * 100.0f;
+
+				MaxTimescale = FMath::Clamp((MaxTimescale + RecoverStrength), 0.1f, 1.0f);
+				ModifyHealth(-HealthCost, false);
+
+				if (RecoverEffect != nullptr)
+				{
+					FVector Loc = GetActorLocation();
+					FRotator Roc = GetActorRotation();
+					UGameplayStatics::SpawnEmitterAttached(RecoverEffect, GetRootComponent(), NAME_None, Loc, Roc, EAttachLocation::KeepWorldPosition);
+				}
+			}
+		}
+	}
 }
 
 
@@ -442,15 +466,22 @@ void ATachyonCharacter::Shield()
 
 ////////////////////////////////////////////////////////////////////////
 // HEALTH & TIME
-void ATachyonCharacter::ModifyHealth(float Value)
+void ATachyonCharacter::ModifyHealth(float Value, bool Lethal)
 {
 	if (Role < ROLE_Authority)
 	{
-		ServerModifyHealth(Value);
+		ServerModifyHealth(Value, Lethal);
 	}
 
 	float SafeHealth = FMath::Clamp(Health, 0.0f, 100.0f);
-	MaxHealth = FMath::Clamp(Health + Value, 0.0f, 100.0f);
+	if (Lethal)
+	{
+		MaxHealth = FMath::Clamp(Health + Value, 0.0f, 100.0f);
+	}
+	else
+	{
+		MaxHealth = FMath::Clamp(Health + Value, 1.0f, 100.0f);
+	}
 
 	///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("Ouch MaxHealth %f"), MaxHealth));
 
@@ -458,16 +489,17 @@ void ATachyonCharacter::ModifyHealth(float Value)
 	if (Value == 100.0f)
 	{
 		bSpawnedDeath = false;
+		SetMaxTimescale(1.0f);
 	}
 }
-void ATachyonCharacter::ServerModifyHealth_Implementation(float Value)
+void ATachyonCharacter::ServerModifyHealth_Implementation(float Value, bool Lethal)
 {
 	if (GetOwner() != nullptr)
 	{
-		ModifyHealth(Value);
+		ModifyHealth(Value, Lethal);
 	}
 }
-bool ATachyonCharacter::ServerModifyHealth_Validate(float Value)
+bool ATachyonCharacter::ServerModifyHealth_Validate(float Value, bool Lethal)
 {
 	return true;
 }
@@ -612,7 +644,8 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				if (CurrentActor != nullptr
 					&& CurrentActor != Actor1
 					&& !CurrentActor->ActorHasTag("Spectator")
-					&& !CurrentActor->ActorHasTag("Obstacle"))
+					&& !CurrentActor->ActorHasTag("Obstacle")
+					&& !CurrentActor->ActorHasTag("Surface"))
 				{
 					float DistToTemp = FVector::Dist(CurrentActor->GetActorLocation(), GetActorLocation());
 					if (DistToTemp < DistToActor2)
@@ -787,7 +820,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				// Timescale adjustment
 				if (CustomTimeDilation < 1.0f)
 				{
-					float TimeScalar = FMath::Clamp(CustomTimeDilation, 0.88f, 0.99f);
+					float TimeScalar = FMath::Clamp(CustomTimeDilation, 0.77f, 0.99f);
 					FOV *= TimeScalar;
 				}
 				
@@ -899,16 +932,30 @@ void ATachyonCharacter::ServerUpdateBody_Implementation(float DeltaTime)
 	if ((GlobalTimescale == 1.0f)
 		&& (CustomTimeDilation < 1.0f))
 	{
-		float RecoverySpeed = 0.1f + (FMath::Sqrt(CustomTimeDilation) * TimescaleRecoverySpeed);
-		RecoverySpeed = FMath::Clamp(RecoverySpeed, 0.01f, 10.0f);
+		float RecoverySpeed = TimescaleRecoverySpeed; ///0.1f + (FMath::Sqrt(CustomTimeDilation) * TimescaleRecoverySpeed);
+		RecoverySpeed = FMath::Clamp(RecoverySpeed, 0.01f, 100.0f);
 		
-		float InterpTime = FMath::FInterpTo(CustomTimeDilation, 1.0f, DeltaTime, RecoverySpeed);
+		float InterpTime = FMath::FInterpTo(CustomTimeDilation, MaxTimescale, DeltaTime, RecoverySpeed);
 		NewTimescale(InterpTime);
 	}
 }
 bool ATachyonCharacter::ServerUpdateBody_Validate(float DeltaTime)
 {
 	return true;
+}
+
+
+// Receive capped timescale from UI bars
+void ATachyonCharacter::SetMaxTimescale(float Value)
+{
+	if (Controller != nullptr)
+	{
+		if ((Value < MaxTimescale) || (Value == 1.0f))
+		{
+			MaxTimescale = Value;
+			///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("NewMaxTimescale: %f"), MaxTimescale));
+		}
+	}
 }
 
 
@@ -1128,6 +1175,7 @@ void ATachyonCharacter::GetLifetimeReplicatedProps(TArray <FLifetimeProperty> & 
 
 	DOREPLIFETIME(ATachyonCharacter, Health);
 	DOREPLIFETIME(ATachyonCharacter, MaxHealth);
+	DOREPLIFETIME(ATachyonCharacter, MaxTimescale);
 
 	DOREPLIFETIME(ATachyonCharacter, Opponent);
 	

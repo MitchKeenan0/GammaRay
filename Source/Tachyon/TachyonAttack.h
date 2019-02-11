@@ -30,7 +30,7 @@ public:
 	void EndFire();
 
 	UFUNCTION()
-	bool IsArmed() { return bInitialized || bLethal || !bNeutralized; }
+	bool IsArmed();
 
 	void RemoteHit(AActor* Target, float Damage);
 
