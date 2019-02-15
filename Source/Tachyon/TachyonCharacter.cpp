@@ -88,7 +88,7 @@ void ATachyonCharacter::BeginPlay()
 
 	// Helps with networked movement
 	UKismetSystemLibrary::ExecuteConsoleCommand(GetWorld(), TEXT("p.NetEnableMoveCombining 0"));
-	
+
 	///DonApparel();
 	Health = MaxHealth;
 	Tags.Add("Player");
@@ -101,6 +101,8 @@ void ATachyonCharacter::BeginPlay()
 	//GetCharacterMovement()->bOrientRotationToMovement = true;
 	//GetCharacterMovement()->BrakingFrictionFactor = 50.0f;
 	GetCharacterMovement()->BrakingFrictionFactor = BrakeStrength;
+
+	SideViewCameraComponent->PostProcessSettings.VignetteIntensity = 0.0f;
 
 	// Spawn player's weapon & jump objects
 	SpawnAbilities();
@@ -198,7 +200,7 @@ void ATachyonCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (Controller != nullptr)
+	if (GetController() != nullptr)
 	{
 		UpdateHealth(DeltaTime);
 		UpdateCamera(DeltaTime);
@@ -224,7 +226,7 @@ void ATachyonCharacter::Tick(float DeltaTime)
 
 		// Map bounds
 		FVector ToCentre = FVector::ZeroVector - GetActorLocation();
-		if (ToCentre.Size() >= 3000.0f)
+		if (ToCentre.Size() >= WorldRange)
 		{
 			float CurrentV = GetCharacterMovement()->Velocity.Size();
 			GetCharacterMovement()->Velocity = ToCentre.GetSafeNormal() * CurrentV;
@@ -506,6 +508,9 @@ void ATachyonCharacter::ModifyHealth(float Value, bool Lethal)
 	{
 		bSpawnedDeath = false;
 		SetMaxTimescale(1.0f);
+		
+		// Clear camera target
+		Actor2 = nullptr;
 	}
 }
 void ATachyonCharacter::ServerModifyHealth_Implementation(float Value, bool Lethal)
@@ -652,7 +657,6 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 			int LoopCount = FramingActors.Num();
 			AActor* CurrentActor = nullptr;
 			AActor* BestCandidate = nullptr;
-			float BestDistance = 0.0f;
 			
 			for (int i = 0; i < LoopCount; ++i)
 			{
@@ -670,8 +674,15 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 						if ((BestCandidate == nullptr)
 						|| (!BestCandidate->ActorHasTag("Player")))
 						{
-							BestCandidate = CurrentActor;
-							DistToActor2 = DistToTemp;
+							ATachyonCharacter* Potential = Cast<ATachyonCharacter>(CurrentActor);
+							if (Potential != nullptr)
+							{
+								if (Potential->GetHealth() >= 1.0f)
+								{
+									BestCandidate = CurrentActor;
+									DistToActor2 = DistToTemp;
+								}
+							}
 						}
 					}
 				}
@@ -927,9 +938,46 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 		}
 
 		Controller->SetControlRotation(BodyRotation);
+
+		// Update aimer
+		if (Aimer != nullptr)
+		{
+			float MySpeed = GetCharacterMovement()->Velocity.Size();
+			if (MySpeed < 175.0f)
+			{
+				if (Aimer->IsActive())
+				{
+					Aimer->Deactivate();
+				}
+			}
+			else
+			{
+				if (!Aimer->IsActive())
+				{
+					Aimer->Activate();
+				}
+			}
+		}
+		else
+		{
+			// Locate aimer
+			TArray<UActorComponent*> MyParticles = GetComponentsByTag(UParticleSystemComponent::StaticClass(), FName("Aimer"));
+			int NumPs = MyParticles.Num();
+			if (NumPs > 0)
+			{
+				for (int i = 0; i < NumPs; ++i)
+				{
+					UParticleSystemComponent* ThisAimer = Cast<UParticleSystemComponent>(MyParticles[i]);
+					if (ThisAimer != nullptr)
+					{
+						Aimer = ThisAimer;
+					}
+				}
+			}
+		}
 	}
 
-	// Sound control
+	// Sound update
 	if (SoundComp != nullptr)
 	{
 		float Velo = 0.001f + FMath::Sqrt(GetCharacterMovement()->Velocity.Size() * 0.00001f);
@@ -962,7 +1010,7 @@ bool ATachyonCharacter::ServerUpdateBody_Validate(float DeltaTime)
 // Receive capped timescale from UI bars
 void ATachyonCharacter::SetMaxTimescale(float Value)
 {
-	if (Controller != nullptr)
+	if (GetController() != nullptr)
 	{
 		if ((Value < MaxTimescale) || (Value == 1.0f))
 		{
@@ -970,6 +1018,16 @@ void ATachyonCharacter::SetMaxTimescale(float Value)
 			///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("NewMaxTimescale: %f"), MaxTimescale));
 		}
 	}
+}
+
+float ATachyonCharacter::GetMaxTimescale()
+{
+	float Result = 0.0f;
+	if (GetController() != nullptr)
+	{
+		Result = MaxTimescale;
+	}
+	return Result;
 }
 
 
@@ -1169,6 +1227,15 @@ void ATachyonCharacter::Collide(AActor* OtherActor)
 	if (ActiveAttack != nullptr)
 	{
 		ActiveAttack->RemoteHit(OtherActor, 1.0f);
+	}
+}
+
+
+void ATachyonCharacter::SetWorldRange(float InRange)
+{
+	if (Controller != nullptr)
+	{
+		WorldRange = InRange;
 	}
 }
 

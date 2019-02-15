@@ -25,6 +25,9 @@ class TACHYON_API ATachyonCharacter : public ACharacter
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	class USpringArmComponent* CameraBoom;
 
+	UPROPERTY()
+	UParticleSystemComponent* Aimer = nullptr;
+
 	// PRIVATE VARIABLES
 	UPROPERTY()
 	float APM = 0.0f;
@@ -80,6 +83,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SetDynamicMoveSpeed();
 
+	UFUNCTION(BlueprintCallable)
+	void SetWorldRange(float InRange);
+
 	/*UFUNCTION(BlueprintCallable)
 	void DonApparel();*/
 
@@ -111,6 +117,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly)
 	float BrakeStrength = 15.0f;
+
+	UPROPERTY(EditDefaultsOnly)
+	float WorldRange = 5000.0f;
 
 	UPROPERTY(EditDefaultsOnly)
 	float RecoverStrength = 2.1f;
@@ -173,7 +182,7 @@ public:
 	void SetMaxTimescale(float Value);
 
 	UFUNCTION(BlueprintCallable)
-	float GetMaxTimescale() { return MaxTimescale; }
+	float GetMaxTimescale();
 
 	UFUNCTION(BlueprintCallable)
 	float GetHealthDelta() { return FMath::Clamp(FMath::Abs(Health - MaxHealth), 0.1f, 50.0f); }

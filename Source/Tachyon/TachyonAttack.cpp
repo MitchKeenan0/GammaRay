@@ -455,9 +455,23 @@ void ATachyonAttack::RedirectAttack(bool bInstant)
 		bool bTime = UGameplayStatics::GetGlobalTimeDilation(GetWorld()) == 1.0f;
 		if (bTime && !bGameEnder && (TachyonShooter != nullptr))
 		{
-			FVector ShooterVelocity = MyOwner->GetVelocity();
-			ShooterVelocity = ShooterVelocity.GetSafeNormal();
 			
+			FVector ShooterVelocity = MyOwner->GetVelocity();
+			
+			// Minimum velocity / facing check
+			FVector ShooterForward = MyOwner->GetActorForwardVector().GetSafeNormal();
+			FVector VelocityNorm = ShooterVelocity.GetSafeNormal();
+			if ((ShooterVelocity.Size() < 175.0f)
+				|| (FVector::DotProduct(ShooterForward, VelocityNorm) < 0.0f))
+			{
+				ShooterVelocity = ShooterForward;
+			}
+			else
+			{
+				ShooterVelocity = VelocityNorm;
+			}
+			
+			// Trimming
 			if (ShooterVelocity.Z > 0.618f)
 			{
 				ShooterVelocity.X *= 1.618f;
@@ -911,7 +925,7 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		
 		// Timescale damage
 		float TachyonHealth = HitTachyon->GetHealth();
-		if ((TachyonHealth - ActualAttackDamage) <= 0.0f)
+		if ((TachyonHealth - ActualAttackDamage) < 1.0f)
 		{
 			// Bot killed
 			if (HitTachyon->ActorHasTag("Bot"))
@@ -933,13 +947,12 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		{
 			// Non-lethal
 			float MarkTimescale = HitTachyon->CustomTimeDilation;
-			//float TimescaleDamage = TimescaleImpact * FMath::Sqrt(MarkTimescale);
-			float NewTimescale = MarkTimescale * TimescaleImpact; ///TimescaleDamage;
+			float NewTimescale = MarkTimescale * TimescaleImpact;
 			float HitTimescale = FMath::Clamp(NewTimescale, 0.00001f, 0.9f);
 			
 			// Regenerative max & UI value
-			HitTachyon->SetMaxTimescale(MarkTimescale);
-			//GEngine->AddOnScreenDebugMessage(-1, 4.5f, FColor::White, FString::Printf(TEXT("NewTimescale: %f"), NewTimescale));
+			HitTachyon->SetMaxTimescale(HitTimescale);
+			///GEngine->AddOnScreenDebugMessage(-1, 4.5f, FColor::White, FString::Printf(TEXT("NewTimescale: %f"), NewTimescale));
 
 			if (HitTimescale <= MarkTimescale)
 			{
@@ -949,10 +962,10 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 				}
 			}
 
-			/// A little slow for the shooter
+			// A little slow for the shooter
 			if (OwningShooter != nullptr)
 			{
-				float ShooterTimescale = OwningShooter->CustomTimeDilation; ///1.0f - (AttackMagnitude * TimescaleImpact * 0.01f);
+				float ShooterTimescale = OwningShooter->CustomTimeDilation;
 				ShooterTimescale = FMath::Clamp(ShooterTimescale * 0.8f, 0.00001f, 0.9f);
 				if (ShooterTimescale < OwningShooter->CustomTimeDilation)
 				{
@@ -974,7 +987,6 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 			{
 				AttackParticles->CustomTimeDilation *= 0.5f;
 				AttackParticles->CustomTimeDilation = FMath::Clamp(AttackParticles->CustomTimeDilation, 0.005f, 1.0f);
-				
 			}
 		}
 
@@ -983,7 +995,7 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		{
 			if (HitTachyon->ActorHasTag("Bot"))
 			{
-				CallForTimescale(HitTachyon, true, 0.05f);
+				CallForTimescale(HitTachyon, true, 0.01f);
 				GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::White, FString::Printf(TEXT("%s was frozen"), *Mark->GetName()));
 			}
 			else
@@ -997,7 +1009,7 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 		{
 			if (HitTachyon->ActorHasTag("Bot"))
 			{
-				CallForTimescale(HitTachyon, true, 0.05f);
+				CallForTimescale(HitTachyon, true, 0.01f);
 				GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::White, FString::Printf(TEXT("%s was frozen"), *HitTachyon->GetName()));
 			}
 			else
@@ -1063,7 +1075,7 @@ void ATachyonAttack::ExtendDuration(float AddTime)
 	float NewDuration = (GetWorld()->TimeSeconds - LastFireTime) + AddTime;
 	GetWorldTimerManager().SetTimer(TimerHandle_Neutralize, this, &ATachyonAttack::Neutralize, NewDuration, false, NewDuration);
 	///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, FString::Printf(TEXT("NewDuration: %f"), NewDuration));
-	MainEffects();
+	//MainEffects();
 }
 
 
