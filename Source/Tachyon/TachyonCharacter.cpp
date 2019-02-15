@@ -424,12 +424,12 @@ void ATachyonCharacter::Recover()
 			if (MaxTimescale < 1.0f)
 			{
 				// significant
-				if ((MaxTimescale - CustomTimeDilation) >(0.1f * CustomTimeDilation))
+				if ((MaxTimescale < 0.5f) && (MaxHealth > 1.0f)) /// ((MaxTimescale - CustomTimeDilation) > (0.1f * CustomTimeDilation))
 				{
-					float HealthCost = FMath::Abs(1.0f - CustomTimeDilation) * RecoverStrength * 100.0f;
+					float HealthCost = FMath::Abs(1.0f - CustomTimeDilation) * RecoverStrength * 10.0f;
 
 					MaxTimescale = FMath::Clamp((MaxTimescale + RecoverStrength), 0.1f, 1.0f);
-					CustomTimeDilation += 0.1f;
+					CustomTimeDilation = MaxTimescale * 0.5f;
 					ModifyHealth(-HealthCost, false);
 
 					if (RecoverEffect != nullptr)
@@ -707,7 +707,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 			{
 
 				// Distance check i.e pair bounds
-				float PairDistanceThreshold = 100.0f + FMath::Clamp(Actor1->GetVelocity().Size(), 500.0f, 1000.0f);
+				float PairDistanceThreshold = 1000.0f + FMath::Clamp(Actor1->GetVelocity().Size(), 500.0f, 1000.0f);
 				if (this->ActorHasTag("Spectator"))
 				{
 					PairDistanceThreshold *= 3.3f;
@@ -888,6 +888,7 @@ void ATachyonCharacter::MulticastReceiveKnockback_Implementation(FVector Knockba
 	if (Controller != nullptr)
 	{
 		GetCharacterMovement()->AddImpulse(Knockback, bOverrideVelocity);
+		GetCharacterMovement()->Velocity = GetCharacterMovement()->Velocity.GetClampedToMaxSize(MaxMoveSpeed);
 		ForceNetUpdate();
 	}
 }
@@ -945,10 +946,10 @@ void ATachyonCharacter::ServerUpdateBody_Implementation(float DeltaTime)
 	if ((GlobalTimescale == 1.0f)
 		&& (CustomTimeDilation < 1.0f))
 	{
-		float RecoverySpeed = TimescaleRecoverySpeed; ///0.1f + (FMath::Sqrt(CustomTimeDilation) * TimescaleRecoverySpeed);
+		float RecoverySpeed = TimescaleRecoverySpeed * (1.0f / CustomTimeDilation);  ///0.1f + (FMath::Sqrt(CustomTimeDilation) * TimescaleRecoverySpeed);
 		RecoverySpeed = FMath::Clamp(RecoverySpeed, 0.01f, 100.0f);
 		
-		float InterpTime = FMath::FInterpTo(CustomTimeDilation, MaxTimescale, DeltaTime, RecoverySpeed);
+		float InterpTime = FMath::FInterpConstantTo(CustomTimeDilation, MaxTimescale, DeltaTime, RecoverySpeed);
 		NewTimescale(InterpTime);
 	}
 }
