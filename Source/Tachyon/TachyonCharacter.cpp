@@ -289,13 +289,15 @@ void ATachyonCharacter::MoveRight(float Value)
 
 		if (InputX != Value)
 		{
+			InputX = Value;
+		}
+		/*else
+		{
 			if ((ActiveBoost != nullptr) && (Value != 0.0f))
 			{
 				StartJump();
 			}
-
-			InputX = Value;
-		}
+		}*/
 
 		if (Value != 0.0f)
 		{
@@ -314,13 +316,13 @@ void ATachyonCharacter::MoveUp(float Value)
 
 		if (InputZ != Value)
 		{
-			if ((ActiveBoost != nullptr) && (Value != 0.0f))
-			{
-				StartJump();
-			}
-
 			InputZ = Value;
 		}
+
+		/*if ((ActiveBoost != nullptr) && (Value != 0.0f))
+		{
+			StartJump();
+		}*/
 	}
 }
 
@@ -405,6 +407,11 @@ void ATachyonCharacter::DisengageJump()
 void ATachyonCharacter::StartBrake()
 {
 	GetCharacterMovement()->BrakingFrictionFactor = BrakeStrength * BrakeStrength;
+
+	if (ActiveBoost != nullptr)
+	{
+		StartJump();
+	}
 }
 
 void ATachyonCharacter::EndBrake()
@@ -511,6 +518,11 @@ void ATachyonCharacter::ModifyHealth(float Value, bool Lethal)
 		
 		// Clear camera target
 		Actor2 = nullptr;
+
+		if (!GetMesh()->IsVisible())
+		{
+			GetMesh()->SetVisibility(true);
+		}
 	}
 }
 void ATachyonCharacter::ServerModifyHealth_Implementation(float Value, bool Lethal)
@@ -674,7 +686,10 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 						if ((BestCandidate == nullptr)
 						|| (!BestCandidate->ActorHasTag("Player")))
 						{
-							ATachyonCharacter* Potential = Cast<ATachyonCharacter>(CurrentActor);
+							BestCandidate = CurrentActor;
+							DistToActor2 = DistToTemp; //
+
+							/*ATachyonCharacter* Potential = Cast<ATachyonCharacter>(CurrentActor);
 							if (Potential != nullptr)
 							{
 								if (Potential->GetHealth() >= 1.0f)
@@ -682,7 +697,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 									BestCandidate = CurrentActor;
 									DistToActor2 = DistToTemp;
 								}
-							}
+							}*/
 						}
 					}
 				}
@@ -718,7 +733,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 			{
 
 				// Distance check i.e pair bounds
-				float PairDistanceThreshold = 1000.0f + FMath::Clamp(Actor1->GetVelocity().Size(), 500.0f, 1000.0f);
+				float PairDistanceThreshold = 2000.0f + FMath::Clamp(Actor1->GetVelocity().Size(), 1000.0f, 2000.0f);
 				if (this->ActorHasTag("Spectator"))
 				{
 					PairDistanceThreshold *= 3.3f;
@@ -769,10 +784,15 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 			// Find the midpoint
 			float MidpointBias = 0.5f;
 			FVector TargetMidpoint = PositionOne + ((PositionTwo - PositionOne) * MidpointBias);
-			float MidpointInterpSpeed = 10.0f * FMath::Clamp(TargetMidpoint.Size() * 0.01f, 10.0f, 100.0f) * (1.0f / CustomTimeDilation);
+			float MidpointInterpSpeed = 10.0f * FMath::Clamp(TargetMidpoint.Size() * 0.01f, 10.0f, 100.0f);/// *(1.0f / CustomTimeDilation);
 			if (!Actor1->WasRecentlyRendered(0.1f))
 			{
 				MidpointInterpSpeed *= 100.0f;
+			}
+
+			if (GlobalTimeScale < 1.0f)
+			{
+				MidpointInterpSpeed *= GlobalTimeScale;
 			}
 
 			Midpoint = FMath::VInterpTo(Midpoint, TargetMidpoint, DeltaTime, MidpointInterpSpeed); /// TargetMidpoint; /// 
@@ -842,7 +862,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				}
 				
 				// Timescale adjustment
-				if (CustomTimeDilation < 1.0f)
+				if (CustomTimeDilation < 0.5f)
 				{
 					float TimeScalar = FMath::Clamp(CustomTimeDilation, 0.77f, 0.99f);
 					FOV *= TimeScalar;
@@ -942,19 +962,22 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 		// Update aimer
 		if (Aimer != nullptr)
 		{
+			FVector Forw = GetActorForwardVector().GetSafeNormal();
+			FVector Velo = GetCharacterMovement()->Velocity.GetSafeNormal();
+			float MyDot = FVector::DotProduct(Forw, Velo);
 			float MySpeed = GetCharacterMovement()->Velocity.Size();
-			if (MySpeed < 175.0f)
+			if ((MySpeed < 10.1f) || (MyDot < -0.01f))
 			{
-				if (Aimer->IsActive())
+				if (Aimer->IsVisible())
 				{
-					Aimer->Deactivate();
+					Aimer->SetVisibility(false);
 				}
 			}
 			else
 			{
-				if (!Aimer->IsActive())
+				if (!Aimer->IsVisible())
 				{
-					Aimer->Activate();
+					Aimer->SetVisibility(true);
 				}
 			}
 		}

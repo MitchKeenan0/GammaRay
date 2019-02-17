@@ -241,17 +241,7 @@ void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 	FVector ToTarget = TargetActor->GetActorLocation() - MyTachyonCharacter->GetActorLocation();
 	float RangeToTarget = ToTarget.Size();
 
-	float MyMaxTimescale = MyTachyonCharacter->GetMaxTimescale();
-	float MyHealth = MyTachyonCharacter->GetHealth();
-	if (MyMaxTimescale < 0.7f)
-	{
-		float HealthRiskRewardPercent = (10.0f / MyHealth); /// 100=0.1  50=0.2  30=0.3  10=1
-		if ((FMath::FRand() + HealthRiskRewardPercent) > 1.0f)
-		{
-			MyTachyonCharacter->Recover();
-			return;
-		}
-	}
+	
 
 	// Aim - leads to attacks and secondaries////////////////////////
 	if ((RangeToTarget <= 3000.0f) && MyTachyonCharacter->WasRecentlyRendered(0.5f))
@@ -260,10 +250,24 @@ void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 		/// initializing charge
 		if (ReactionTimeIsNow(DeltaTime))
 		{
+			float MyMaxTimescale = MyTachyonCharacter->GetMaxTimescale();
+			float MyHealth = MyTachyonCharacter->GetHealth();
+			if (MyMaxTimescale < 0.7f)
+			{
+				float HealthRiskRewardPercent = (10.0f / MyHealth); /// 100=0.1  50=0.2  30=0.3  10=1
+				float ChancePercent = (FMath::FRand() * HealthRiskRewardPercent) * Aggression;
+				GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Chancu %f"), ChancePercent));
+				if (ChancePercent > 1.0f)
+				{
+					MyTachyonCharacter->Recover();
+					return;
+				}
+			}
+
 
 			MyTachyonCharacter->BotMove(MyInputX, MyInputZ);
 
-			FVector ForwardNorm = LocalForward.GetSafeNormal();
+			FVector ForwardNorm = MyTachyonCharacter->GetCharacterMovement()->Velocity.GetSafeNormal();
 			FVector ToPlayerNorm = ToTarget.GetSafeNormal();
 
 			float VerticalNorm = FMath::FloorToFloat(FMath::Clamp((ToTarget.GetSafeNormal()).Z, -1.0f, 1.0f));

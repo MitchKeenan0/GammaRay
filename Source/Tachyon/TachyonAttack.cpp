@@ -362,8 +362,8 @@ void ATachyonAttack::Lethalize()
 			float NewHitRate = HitsPerSecond; //FMath::Clamp((HitsPerSecond * AttackMagnitude), 10.0f, HitsPerSecond);
 			ActualHitsPerSecond = NewHitRate;
 
-			ActualDeliveryTime = FMath::Clamp(DeliveryTime + (DeliveryTime * AttackMagnitude), 0.1f, 0.5f);
-			ActualDurationTime = ActualDeliveryTime + FMath::Clamp((DurationTime * AttackMagnitude), 0.3f, 1.0f);
+			ActualDeliveryTime = FMath::Clamp((DeliveryTime * (AttackMagnitude + 1.0f)), 0.05f, 0.5f);
+			ActualDurationTime = ActualDeliveryTime + FMath::Clamp((DurationTime * AttackMagnitude), 0.1f, 1.0f);
 			ActualLethalTime = LethalTime;
 
 			// Shooter Slow and location
@@ -461,7 +461,7 @@ void ATachyonAttack::RedirectAttack(bool bInstant)
 			// Minimum velocity / facing check
 			FVector ShooterForward = MyOwner->GetActorForwardVector().GetSafeNormal();
 			FVector VelocityNorm = ShooterVelocity.GetSafeNormal();
-			if ((ShooterVelocity.Size() < 175.0f)
+			if ((ShooterVelocity.Size() < 10.1f)
 				|| (FVector::DotProduct(ShooterForward, VelocityNorm) < 0.0f))
 			{
 				ShooterVelocity = ShooterForward;
@@ -471,12 +471,12 @@ void ATachyonAttack::RedirectAttack(bool bInstant)
 				ShooterVelocity = VelocityNorm;
 			}
 			
-			// Trimming
-			if (ShooterVelocity.Z > 0.618f)
-			{
-				ShooterVelocity.X *= 1.618f;
-				ShooterVelocity.Z *= 0.618f;
-			}
+			//// Trimming
+			//if (ShooterVelocity.Z > 0.618f)
+			//{
+			//	ShooterVelocity.X *= 1.618f;
+			//	ShooterVelocity.Z *= 0.618f;
+			//}
 
 			FRotator NewRotation = ShooterVelocity.Rotation();
 
@@ -854,7 +854,7 @@ void ATachyonAttack::MainHit(AActor* HitActor, FVector HitLocation)
 					CallForTimescale(OwningShooter, false, 0.9f);
 				}
 
-				if ((AttackParticles != nullptr) && (NumHits > 3))
+				if ((AttackParticles != nullptr) && (NumHits > 1))
 				{
 					AttackParticles->CustomTimeDilation *= 0.1f;
 				}
@@ -966,7 +966,7 @@ void ATachyonAttack::ReportHitToMatch(AActor* Shooter, AActor* Mark)
 			if (OwningShooter != nullptr)
 			{
 				float ShooterTimescale = OwningShooter->CustomTimeDilation;
-				ShooterTimescale = FMath::Clamp(ShooterTimescale * 0.8f, 0.00001f, 0.9f);
+				ShooterTimescale = FMath::Clamp(ShooterTimescale * 0.93f, 0.00001f, 0.9f);
 				if (ShooterTimescale < OwningShooter->CustomTimeDilation)
 				{
 					if (Role == ROLE_Authority)
