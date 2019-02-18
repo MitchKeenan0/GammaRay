@@ -250,14 +250,18 @@ void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 		/// initializing charge
 		if (ReactionTimeIsNow(DeltaTime))
 		{
+			
+			// Recover
 			float MyMaxTimescale = MyTachyonCharacter->GetMaxTimescale();
 			float MyHealth = MyTachyonCharacter->GetHealth();
-			if (MyMaxTimescale < 0.7f)
+			if (MyMaxTimescale < 0.88f)
 			{
+				float Worth = MyHealth - (MyMaxTimescale * 100.0f);
 				float HealthRiskRewardPercent = (10.0f / MyHealth); /// 100=0.1  50=0.2  30=0.3  10=1
-				float ChancePercent = (FMath::FRand() * HealthRiskRewardPercent) * Aggression;
-				GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Chancu %f"), ChancePercent));
-				if (ChancePercent > 1.0f)
+				float ChancePercent = (FMath::FRand() * HealthRiskRewardPercent) * Aggression * 15.0f;
+				///GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Chancu %f"), ChancePercent));
+				if ((ChancePercent > 1.0f)
+					|| (Worth < -20.0f))
 				{
 					MyTachyonCharacter->Recover();
 					return;
@@ -265,6 +269,7 @@ void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 			}
 
 
+			// Aim
 			MyTachyonCharacter->BotMove(MyInputX, MyInputZ);
 
 			FVector ForwardNorm = MyTachyonCharacter->GetCharacterMovement()->Velocity.GetSafeNormal();
@@ -273,7 +278,8 @@ void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 			float VerticalNorm = FMath::FloorToFloat(FMath::Clamp((ToTarget.GetSafeNormal()).Z, -1.0f, 1.0f));
 			float DotToTarget = FVector::DotProduct(ForwardNorm, ToPlayerNorm);
 			
-			MyInputZ = VerticalNorm;
+			MyInputZ = ToTarget.Z;
+			MyInputX = ToTarget.X;
 
 			// Attacking
 			if (!bAttacking)
@@ -283,8 +289,7 @@ void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 			}
 			else
 			{
-				float AccountedDelta = DeltaTime * (1.0f / ReactionTime);
-				ShootingChargeTimer += DeltaTime;
+				ShootingChargeTimer += (DeltaTime * (1.0f / MyTachyonCharacter->CustomTimeDilation));
 				///GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::White, FString::Printf(TEXT("ShootingChargeTimer: %f"), ShootingChargeTimer));
 			}
 
@@ -304,21 +309,21 @@ void ATachyonAIController::Combat(AActor* TargetActor, float DeltaTime)
 
 					///GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::White, TEXT("FIRED"));
 				}
-			}
 
-			// Shielding
-			if (!bShielding)
-			{
-				if (FMath::Sqrt(FMath::RandRange(0.0f, 1.0f)) >= 0.5f)
+				// Shielding
+				if (!bShielding)
 				{
-					MyTachyonCharacter->Shield();
-					bShielding = true;
+					if (FMath::Sqrt(FMath::RandRange(0.0f, 1.0f)) >= 0.5f)
+					{
+						MyTachyonCharacter->Shield();
+						bShielding = true;
+					}
 				}
-			}
 
-			if (bShielding && bAttacking)
-			{
-				bShielding = false;
+				if (bShielding && bAttacking)
+				{
+					bShielding = false;
+				}
 			}
 		}
 	}

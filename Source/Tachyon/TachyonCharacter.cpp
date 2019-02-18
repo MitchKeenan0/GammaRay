@@ -312,7 +312,7 @@ void ATachyonCharacter::MoveUp(float Value)
 {
 	if (UGameplayStatics::GetGlobalTimeDilation(GetWorld()) > 0.5f)
 	{
-		AddMovementInput(FVector::UpVector, Value * 0.618f);
+		AddMovementInput(FVector::UpVector, Value * 0.88f);
 
 		if (InputZ != Value)
 		{
@@ -433,12 +433,12 @@ void ATachyonCharacter::Recover()
 			if (MaxTimescale < 1.0f)
 			{
 				// significant
-				if ((MaxTimescale < 0.5f) && (MaxHealth > 1.0f)) /// ((MaxTimescale - CustomTimeDilation) > (0.1f * CustomTimeDilation))
+				if ((MaxTimescale < 0.88f) && (MaxHealth > 1.0f)) /// ((MaxTimescale - CustomTimeDilation) > (0.1f * CustomTimeDilation))
 				{
 					float HealthCost = FMath::Abs(1.0f - CustomTimeDilation) * RecoverStrength * 10.0f;
 
 					MaxTimescale = FMath::Clamp((MaxTimescale + RecoverStrength), 0.1f, 1.0f);
-					CustomTimeDilation = MaxTimescale * 0.5f;
+					CustomTimeDilation *= 0.618f; // = MaxTimescale * 0.5f;
 					ModifyHealth(-HealthCost, false);
 
 					if (RecoverEffect != nullptr)
@@ -760,7 +760,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 			}
 
 			// Lone player gets Velocity Framing
-			if (bAlone || (FramingActors.Num() == 1))
+			else if (bAlone || (FramingActors.Num() == 1))
 			{
 				// Framing lone player by their velocity
 				Actor1Velocity = Actor1->GetVelocity() + GetActorForwardVector();
