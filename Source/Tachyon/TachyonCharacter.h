@@ -300,9 +300,6 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	class UAudioComponent* SoundComp = nullptr;
 
-	UPROPERTY(EditDefaultsOnly)
-	class URadialForceComponent* ForceComp = nullptr;
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	class USphereComponent* OuterTouchCollider;
 

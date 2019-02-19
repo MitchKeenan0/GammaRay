@@ -61,10 +61,6 @@ ATachyonCharacter::ATachyonCharacter(const FObjectInitializer& ObjectInitializer
 	SoundComp->SetupAttachment(RootComponent);
 	SoundComp->VolumeMultiplier = 0.1f;
 
-	ForceComp = CreateDefaultSubobject<URadialForceComponent>(TEXT("ForceComp"));
-	ForceComp->SetupAttachment(RootComponent);
-	ForceComp->SetIsReplicated(true);
-
 	OuterTouchCollider = CreateDefaultSubobject<USphereComponent>(TEXT("OuterTouchCollider"));
 	OuterTouchCollider->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
 	OuterTouchCollider->OnComponentBeginOverlap.AddDynamic(this, &ATachyonCharacter::OnShieldBeginOverlap);
@@ -470,6 +466,11 @@ void ATachyonCharacter::StartFire()
 	{
 		ActiveAttack->StartFire();
 	}
+
+	if (Aimer != nullptr) /// (!Aimer->IsVisible())
+	{
+		Aimer->SetVisibility(true);
+	}
 }
 
 void ATachyonCharacter::EndFire()
@@ -477,6 +478,11 @@ void ATachyonCharacter::EndFire()
 	if (ActiveAttack != nullptr)
 	{
 		ActiveAttack->EndFire();
+	}
+
+	if (Aimer != nullptr) /// (Aimer->IsVisible())
+	{
+		Aimer->SetVisibility(false);
 	}
 }
 
@@ -801,7 +807,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 
 				// Distance
 				float DistBetweenActors = FVector::Dist(PositionOne, PositionTwo);
-				float ProcessedDist = (FMath::Sqrt(DistBetweenActors) * 1500.0f);
+				float ProcessedDist = 100.0f + (FMath::Sqrt(DistBetweenActors) * 1500.0f);
 				float VerticalDist = FMath::Abs((PositionTwo - PositionOne).Z) * 10.0f;
 
 				// Handle horizontal bias
@@ -845,7 +851,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				float FOVTimeScalar = FMath::Clamp(GlobalTimeScale, 0.5f, 1.0f);
 				float FOV = SideViewCameraComponent->FieldOfView;
 				float Verticality = FMath::Abs((PositionOne - PositionTwo).Z);
-				float FOVSpeed = CameraMoveSpeed;
+				float FOVSpeed = CameraMoveSpeed * 0.3f;
 
 				// Inne zone
 				if ((DistBetweenActors <= 150.0f) || bAlone)
@@ -962,7 +968,7 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 		// Update aimer
 		if (Aimer != nullptr)
 		{
-			FVector Forw = GetActorForwardVector().GetSafeNormal();
+			/*FVector Forw = GetActorForwardVector().GetSafeNormal();
 			FVector Velo = GetCharacterMovement()->Velocity.GetSafeNormal();
 			float MyDot = FVector::DotProduct(Forw, Velo);
 			float MySpeed = GetCharacterMovement()->Velocity.Size();
@@ -979,7 +985,7 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 				{
 					Aimer->SetVisibility(true);
 				}
-			}
+			}*/
 		}
 		else
 		{
@@ -994,6 +1000,7 @@ void ATachyonCharacter::UpdateBody(float DeltaTime)
 					if (ThisAimer != nullptr)
 					{
 						Aimer = ThisAimer;
+						Aimer->SetVisibility(false);
 					}
 				}
 			}

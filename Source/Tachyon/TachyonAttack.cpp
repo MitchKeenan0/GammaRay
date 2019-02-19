@@ -510,13 +510,13 @@ void ATachyonAttack::RedirectAttack(bool bInstant)
 
 
 			// Update Location
-			if (LockedEmitPoint) /// formerly bSecondary
+			if (bSecondary || LockedEmitPoint) /// formerly bSecondary
 			{
 				FVector EmitLocation = TachyonShooter->GetAttackScene()->GetComponentLocation();
 
 				if (bSecondary)
 				{
-					EmitLocation = TachyonShooter->GetActorLocation() + TachyonShooter->GetActorForwardVector();
+					EmitLocation = TachyonShooter->GetActorLocation() + (TachyonShooter->GetActorForwardVector() * -50.0f);
 				}
 
 				SetActorLocation(EmitLocation);
