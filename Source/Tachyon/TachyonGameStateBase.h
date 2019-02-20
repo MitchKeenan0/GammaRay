@@ -37,13 +37,13 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SpawnBot(FVector SpawnLocation);
 
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable)
 	void SetGlobalTimescale(float TargetTimescale);
 
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable)
 	void SetActorTimescale(AActor* TargetActor, float TargetTimescale);
 
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable)
 	void RestartGame();
 
 	UFUNCTION()

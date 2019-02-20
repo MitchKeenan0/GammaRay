@@ -274,8 +274,8 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	class UProjectileMovementComponent* ProjectileComponent = nullptr;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	class URadialForceComponent* AttackRadial = nullptr;
+	/*UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	class URadialForceComponent* AttackRadial = nullptr;*/
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	class UAudioComponent* AttackSound = nullptr;

@@ -35,8 +35,8 @@ ATachyonAttack::ATachyonAttack()
 	ProjectileComponent->ProjectileGravityScale = 0.0f;
 	ProjectileComponent->SetIsReplicated(true);
 
-	AttackRadial = CreateDefaultSubobject<URadialForceComponent>(TEXT("AttackRadial"));
-	AttackRadial->SetupAttachment(RootComponent);
+	/*AttackRadial = CreateDefaultSubobject<URadialForceComponent>(TEXT("AttackRadial"));
+	AttackRadial->SetupAttachment(RootComponent);*/
 
 	SetReplicates(true);
 	bReplicateMovement = true;
@@ -64,11 +64,11 @@ void ATachyonAttack::BeginPlay()
 		CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 
-	if (AttackRadial != nullptr)
+	/*if (AttackRadial != nullptr)
 	{
 		AttackRadial->SetWorldLocation(GetActorLocation());
 		AttackRadial->Deactivate();
-	}
+	}*/
 }
 
 
@@ -217,7 +217,8 @@ void ATachyonAttack::SpawnBurst()
 			if (CurrentBurstObject != nullptr)
 			{
 				CurrentBurstObject->AttachToActor(MyOwner, FAttachmentTransformRules::KeepWorldTransform);
-				CurrentBurstObject->SetLifeSpan(0.33f);
+				CurrentBurstObject->CustomTimeDilation = MyOwner->CustomTimeDilation;
+				CurrentBurstObject->SetLifeSpan(0.33f * (1.0f / MyOwner->CustomTimeDilation));
 				// Scaling
 				/*float VisibleMagnitude = FMath::Clamp(AttackMagnitude, 0.5f, 1.0f);
 				FVector NewBurstScale = CurrentBurstObject->GetActorRelativeScale3D() * VisibleMagnitude;
@@ -340,10 +341,10 @@ void ATachyonAttack::Lethalize()
 	{
 		if ((bInitialized) && (OwningShooter != nullptr))
 		{
-			if (AttackRadial != nullptr)
+			/*if (AttackRadial != nullptr)
 			{
 				AttackRadial->Activate();
-			}
+			}*/
 
 			RedirectAttack(true);
 
@@ -362,7 +363,7 @@ void ATachyonAttack::Lethalize()
 			float NewHitRate = HitsPerSecond; //FMath::Clamp((HitsPerSecond * AttackMagnitude), 10.0f, HitsPerSecond);
 			ActualHitsPerSecond = NewHitRate;
 
-			ActualDeliveryTime = FMath::Clamp((DeliveryTime * (AttackMagnitude + 1.0f)), 0.05f, 0.5f);
+			ActualDeliveryTime = FMath::Clamp((DeliveryTime * (AttackMagnitude + 1.0f)), 0.05f, 0.5f) * (1.0f / MyOwner->CustomTimeDilation);
 			ActualDurationTime = ActualDeliveryTime + FMath::Clamp((DurationTime * AttackMagnitude), 0.1f, 1.0f);
 			ActualLethalTime = LethalTime;
 
@@ -387,10 +388,10 @@ void ATachyonAttack::Lethalize()
 				SpawnBurst();
 
 				FTimerHandle EffectsTimer;
-				GetWorldTimerManager().SetTimer(EffectsTimer, this, &ATachyonAttack::MainEffects, ActualDeliveryTime, false, ActualDeliveryTime * 0.9f);
+				GetWorldTimerManager().SetTimer(EffectsTimer, this, &ATachyonAttack::MainEffects, ActualDeliveryTime, false, ActualDeliveryTime * 0.99f);
 
 				// Raycasting
-				float RefireTiming = (1.0f / ActualHitsPerSecond) * CustomTimeDilation;
+				float RefireTiming = (1.0f / ActualHitsPerSecond);/// *CustomTimeDilation;
 				GetWorldTimerManager().SetTimer(TimerHandle_Raycast, this, &ATachyonAttack::RaycastForHit, RefireTiming, true, ActualDeliveryTime);
 
 				SetInitVelocities();
@@ -516,17 +517,17 @@ void ATachyonAttack::RedirectAttack(bool bInstant)
 
 				if (bSecondary)
 				{
-					EmitLocation = TachyonShooter->GetActorLocation() + (TachyonShooter->GetActorForwardVector() * -50.0f);
+					EmitLocation = TachyonShooter->GetActorLocation() + TachyonShooter->GetActorForwardVector();
 				}
 
 				SetActorLocation(EmitLocation);
 			}
 
 
-			if (AttackRadial != nullptr)
+			/*if (AttackRadial != nullptr)
 			{
 				AttackRadial->SetWorldLocation(GetActorLocation());
-			}
+			}*/
 
 			ForceNetUpdate();
 		}
@@ -747,8 +748,9 @@ void ATachyonAttack::RaycastForHit()
 	// Recoil
 	if (Role == ROLE_Authority)
 	{
+		float ShooterTime = MyOwner->CustomTimeDilation;
 		FVector RecoilLocation = (GetActorForwardVector() * 10.0f) - MyOwner->GetActorLocation();
-		ApplyKnockForce(OwningShooter, RecoilLocation, RecoilForce * AttackMagnitude); // MyOwner
+		ApplyKnockForce(OwningShooter, RecoilLocation, RecoilForce * AttackMagnitude * ShooterTime);
 	}
 }
 void ATachyonAttack::ServerRaycastForHit_Implementation()
@@ -1136,11 +1138,11 @@ void ATachyonAttack::Neutralize()
 			AttackSound->Deactivate();
 		}
 
-		if (AttackRadial != nullptr)
+		/*if (AttackRadial != nullptr)
 		{
 			AttackRadial->SetWorldLocation(GetActorLocation());
 			AttackRadial->Deactivate();
-		}
+		}*/
 
 		CustomTimeDilation = 1.0f;
 	}

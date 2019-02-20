@@ -404,7 +404,8 @@ void ATachyonCharacter::StartBrake()
 {
 	GetCharacterMovement()->BrakingFrictionFactor = BrakeStrength * BrakeStrength;
 
-	if (ActiveBoost != nullptr)
+	if ((ActiveBoost != nullptr)
+		&& ((InputX != 0.0f) || (InputZ != 0.0f)))
 	{
 		StartJump();
 	}
@@ -457,6 +458,14 @@ bool ATachyonCharacter::ServerRecover_Validate()
 	return true;
 }
 
+
+void ATachyonCharacter::SetTimescaleRecoverySpeed(float Value)
+{
+	if (GetController() != nullptr)
+	{
+		TimescaleRecoverySpeed = Value;
+	}
+}
 
 ////////////////////////////////////////////////////////////////////////
 // ATTACKING
@@ -752,7 +761,7 @@ void ATachyonCharacter::UpdateCamera(float DeltaTime)
 				bool TargetVisible = Actor2->WasRecentlyRendered(0.01f);
 
 				if (bInRange && TargetVisible
-					&& Actor1->WasRecentlyRendered(0.01f))
+					&& Actor1->WasRecentlyRendered(0.2f))
 				{
 					bAlone = false;
 
@@ -1024,8 +1033,8 @@ void ATachyonCharacter::ServerUpdateBody_Implementation(float DeltaTime)
 	if ((GlobalTimescale == 1.0f)
 		&& (CustomTimeDilation < 1.0f))
 	{
-		float RecoverySpeed = TimescaleRecoverySpeed * (1.0f / CustomTimeDilation);  ///0.1f + (FMath::Sqrt(CustomTimeDilation) * TimescaleRecoverySpeed);
-		RecoverySpeed = FMath::Clamp(RecoverySpeed, 0.01f, 100.0f);
+		float RecoverySpeed = TimescaleRecoverySpeed * (1.0f / CustomTimeDilation);
+		RecoverySpeed = FMath::Clamp(RecoverySpeed, 0.001f, 100.0f);
 		
 		float InterpTime = FMath::FInterpConstantTo(CustomTimeDilation, MaxTimescale, DeltaTime, RecoverySpeed);
 		NewTimescale(InterpTime);

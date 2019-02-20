@@ -86,6 +86,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SetWorldRange(float InRange);
 
+	UFUNCTION(BlueprintCallable)
+	void SetTimescaleRecoverySpeed(float Value);
+
 	/*UFUNCTION(BlueprintCallable)
 	void DonApparel();*/
 
