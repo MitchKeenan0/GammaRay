@@ -364,13 +364,19 @@ void ATachyonCharacter::BotMove(float X, float Z)
 // JUMP
 void ATachyonCharacter::StartJump()
 {
-	if ((ActiveAttack != nullptr) && !ActiveAttack->IsArmed())
+	if ((ActiveBoost != nullptr)
+		&& ((InputX != 0.0f) || (InputZ != 0.0f)))
+	{
+		ActiveBoost->StartJump();
+	}
+
+	/*if ((ActiveAttack != nullptr) && !ActiveAttack->IsArmed())
 	{
 		if (ActiveBoost != nullptr)
 		{
 			ActiveBoost->StartJump();
 		}
-	}
+	}*/
 }
 
 void ATachyonCharacter::EndJump()
@@ -404,16 +410,21 @@ void ATachyonCharacter::StartBrake()
 {
 	GetCharacterMovement()->BrakingFrictionFactor = BrakeStrength * BrakeStrength;
 
-	if ((ActiveBoost != nullptr)
+	/*if ((ActiveBoost != nullptr)
 		&& ((InputX != 0.0f) || (InputZ != 0.0f)))
 	{
 		StartJump();
-	}
+	}*/
 }
 
 void ATachyonCharacter::EndBrake()
 {
 	GetCharacterMovement()->BrakingFrictionFactor = BrakeStrength;
+	
+	/*if (ActiveBoost != nullptr)
+	{
+		EndJump();
+	}*/
 }
 
 void ATachyonCharacter::Recover()

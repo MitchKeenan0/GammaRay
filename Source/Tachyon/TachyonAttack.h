@@ -20,6 +20,9 @@ class TACHYON_API ATachyonAttack : public AActor
 	UPROPERTY()
 	bool bGameEnder = false;
 
+	UPROPERTY()
+	FVector LastShooterVelocity = FVector::ZeroVector;
+
 	
 public:	
 	// Sets default values for this actor's properties

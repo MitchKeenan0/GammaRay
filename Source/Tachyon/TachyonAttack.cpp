@@ -458,6 +458,8 @@ void ATachyonAttack::RedirectAttack(bool bInstant)
 		{
 			
 			FVector ShooterVelocity = MyOwner->GetVelocity();
+			FVector ShooterDeltaV = ShooterVelocity - LastShooterVelocity;
+			FVector Target = FVector::ZeroVector;
 			
 			// Minimum velocity / facing check
 			FVector ShooterForward = MyOwner->GetActorForwardVector().GetSafeNormal();
@@ -465,11 +467,11 @@ void ATachyonAttack::RedirectAttack(bool bInstant)
 			if ((ShooterVelocity.Size() < 10.1f)
 				|| (FVector::DotProduct(ShooterForward, VelocityNorm) < 0.0f))
 			{
-				ShooterVelocity = ShooterForward;
+				Target = ShooterForward;
 			}
 			else
 			{
-				ShooterVelocity = VelocityNorm;
+				Target = VelocityNorm + (ShooterDeltaV * 0.001f);
 			}
 			
 			//// Trimming
@@ -479,7 +481,7 @@ void ATachyonAttack::RedirectAttack(bool bInstant)
 			//	ShooterVelocity.Z *= 0.618f;
 			//}
 
-			FRotator NewRotation = ShooterVelocity.Rotation();
+			FRotator NewRotation = Target.Rotation();
 
 			// Interp or Set to FinalRotation
 			if (!bInstant && !bSecondary)
@@ -528,6 +530,8 @@ void ATachyonAttack::RedirectAttack(bool bInstant)
 			{
 				AttackRadial->SetWorldLocation(GetActorLocation());
 			}*/
+
+			LastShooterVelocity = ShooterVelocity;
 
 			ForceNetUpdate();
 		}
